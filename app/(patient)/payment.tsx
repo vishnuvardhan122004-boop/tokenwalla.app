@@ -37,7 +37,7 @@ export default function PaymentScreen() {
   useEffect(() => {
     (async () => {
       const raw = await AsyncStorage.getItem('user');
-      if (!raw) { router.replace('../(auth)/login'); return; }
+      if (!raw) { router.replace('/(auth)/login'); return; }
       setUser(JSON.parse(raw));
     })();
   }, []);

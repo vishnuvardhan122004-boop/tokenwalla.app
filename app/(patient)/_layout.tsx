@@ -159,7 +159,6 @@ export default function PatientLayout() {
       />
 
       {/* ── Hidden screens — NOT shown as tabs ────────────────────────────── */}
-      <Tabs.Screen name="index"          options={{ href: null }} />
       <Tabs.Screen name="doctor/[id]"    options={{ href: null }} />
       <Tabs.Screen name="payment"        options={{ href: null }} />
       <Tabs.Screen name="booking-token"  options={{ href: null }} />

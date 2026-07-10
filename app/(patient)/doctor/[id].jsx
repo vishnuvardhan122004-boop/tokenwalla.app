@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API, { getUser } from '../../../services/api';
+import { safeBack } from '../../utils/navigation';
 
 function getNext7Days() {
   const days   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -226,7 +227,7 @@ export default function DoctorDetails() {
 
         {/* ── BANNER ── */}
         <View style={styles.banner}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router)}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
           {hasHospitalImage ? (

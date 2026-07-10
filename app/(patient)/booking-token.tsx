@@ -1,15 +1,23 @@
-import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView,
-} from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Colors } from '../../constants/colors';
+import { useEffect } from 'react';
+import {
+  ScrollView,
+  StyleSheet,
+  Text, TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Colors } from '../../constants/colors';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
   const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile } = useLocalSearchParams();
 
-  if (!token) { router.replace('/(patient)/doctors'); return null; }
+   useEffect(() => {
+   if (!token) router.replace('/(patient)/doctors');
+    }, [token]);
+
+     if (!token) return null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -133,7 +141,7 @@ const styles = StyleSheet.create({
 
   queueRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderTopWidth: 1, borderTopColor: Colors.blue100, padding: 16 },
   queueTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue700, marginBottom: 2 },
-  queueDesc:  { fontSize: 12, color: Colors.blue500 },
+  queueDesc:  { fontSize: 12, color: Colors.blue600 },
 
   primaryBtn:     { width: '100%', backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginBottom: 12, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },

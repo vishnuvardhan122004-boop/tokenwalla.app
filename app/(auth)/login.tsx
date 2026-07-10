@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { safeBack } from '../utils/navigation';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -107,7 +108,7 @@ export default function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
 
-          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/home')}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
 

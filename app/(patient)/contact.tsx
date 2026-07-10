@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import { safeBack } from '../utils/navigation';
 import {
   Alert, Linking,
   ScrollView,
@@ -39,7 +40,7 @@ export default function ContactScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>GET IN TOUCH</Text>

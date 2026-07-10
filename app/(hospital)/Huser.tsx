@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { safeBack } from '../utils/navigation';
 
 // Matches the route used everywhere else for the hospital login screen.
 const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
@@ -176,7 +177,7 @@ export default function HospitalRegisterScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.back} onPress={() => safeBack(router,'/(hospital)/login')}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
 

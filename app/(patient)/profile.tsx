@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { getUser, logoutUser } from '../../services/api';
 
+
 interface UserProfile {
   name?: string;
   username?: string;

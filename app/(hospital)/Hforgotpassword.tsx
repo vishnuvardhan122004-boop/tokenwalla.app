@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import API from '../../services/api';
+import { safeBack } from '../utils/navigation';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ export default function HforgotPassword() {
         >
           {/* ── HEADER ──────────────────────────────────────────────────────── */}
           <View style={s.header}>
-            <TouchableOpacity style={s.backArrow} onPress={() => router.back()}>
+            <TouchableOpacity style={s.backArrow} onPress={() => safeBack(router, '/(hospital)/login')}>
               <Text style={s.backArrowText}>←</Text>
             </TouchableOpacity>
             <View style={s.brandRow}>
@@ -365,7 +366,7 @@ export default function HforgotPassword() {
                 <View style={s.dividerLine} />
               </View>
 
-              <TouchableOpacity onPress={() => router.push('./Hlogin')}>
+              <TouchableOpacity onPress={() => router.push('/(hospital)/login')}>
                 <Text style={s.switchText}>
                   Remember your password?{' '}
                   <Text style={s.switchLink}>Sign in →</Text>
@@ -554,7 +555,7 @@ export default function HforgotPassword() {
 
                 <TouchableOpacity
                   style={s.submitBtn}
-                  onPress={() => router.replace('./Hlogin')}
+                  onPress={() => router.replace('/(hospital)/login')}
                   activeOpacity={0.82}
                 >
                   <Text style={s.submitBtnText}>Go to Hospital Login →</Text>
@@ -570,7 +571,7 @@ export default function HforgotPassword() {
                 Are you a patient?{' '}
                 <Text
                   style={s.footerLink}
-                  onPress={() => router.push('../(auth)/forgot-password')}
+                  onPress={() => router.push('/(auth)/forgot-password')}
                 >
                   Patient forgot password →
                 </Text>

@@ -102,7 +102,7 @@ export default function HospitalLoginScreen() {
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
-      router.replace('../(hospital)/dashboard');
+      router.replace('/(hospital)/dashboard');
     } catch (e: unknown) {
       if (axios.isAxiosError(e)) {
         setError(e.response?.data?.message || 'Invalid credentials');

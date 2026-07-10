@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-
+import { safeBack } from '../utils/navigation';
 const SECTIONS = [
   { title: '1. Eligibility',            body: 'You must be at least 18 years old and capable of entering into a legally binding contract to use TokenWalla services.' },
   { title: '2. Services',               body: 'TokenWalla provides hospital token booking services to reduce patient wait times. We are not a medical provider and are not responsible for medical outcomes.' },
@@ -20,7 +20,7 @@ export default function TermsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>LEGAL</Text>

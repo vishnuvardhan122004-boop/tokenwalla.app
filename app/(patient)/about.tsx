@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { safeBack } from '../utils/navigation';
 const STATS = [
   { num: '2,400+', label: 'Tokens Issued'  },
   { num: '18',     label: 'Hospitals'      },
@@ -26,7 +26,7 @@ export default function AboutScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>ABOUT TOKENWALLA</Text>
