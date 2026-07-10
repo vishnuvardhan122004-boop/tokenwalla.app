@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { safeBack } from '../utils/navigation';
+import { safeBack } from '../../utils/navigation';
 
 const SECTIONS = [
   { title: 'What We Collect',          body: 'We collect your name, mobile number, booking history, and payment transaction IDs. Payments are processed via Razorpay — we never store card data.' },

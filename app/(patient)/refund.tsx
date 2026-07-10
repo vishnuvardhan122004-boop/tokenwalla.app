@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { safeBack } from '../utils/navigation';
+import { safeBack } from '../../utils/navigation';
 
 const SECTIONS = [
   { title: 'Cancellations',            body: 'You may cancel a waiting booking from your "My Bookings" page at least 2 hours before your scheduled slot. Refunds are processed within 5–7 business days to your original payment method.' },

@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API, { getUser } from '../../../services/api';
-import { safeBack } from '../../utils/navigation';
+import { safeBack } from '../../../utils/navigation';
 
 function getNext7Days() {
   const days   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

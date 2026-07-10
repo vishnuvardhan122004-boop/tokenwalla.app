@@ -1,8 +1,8 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Colors } from '../../constants/colors';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { safeBack } from '../utils/navigation';
+import { Colors } from '../../constants/colors';
+import { safeBack } from '../../utils/navigation';
 const STATS = [
   { num: '2,400+', label: 'Tokens Issued'  },
   { num: '18',     label: 'Hospitals'      },

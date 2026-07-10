@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
-import { safeBack } from '../utils/navigation';
+import { safeBack } from '../../utils/navigation';
 
 export default function LoginScreen() {
   const router = useRouter();

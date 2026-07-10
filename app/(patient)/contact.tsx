@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { safeBack } from '../utils/navigation';
 import {
   Alert, Linking,
   ScrollView,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { safeBack } from '../../utils/navigation';
 
 export default function ContactScreen() {
   const router = useRouter();

@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 
 import API from '../../services/api';
-import { safeBack } from '../utils/navigation';
+import { safeBack } from '../../utils/navigation';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
