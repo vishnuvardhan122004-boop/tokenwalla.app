@@ -4,12 +4,11 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
@@ -312,22 +311,6 @@ export default function DoctorDetails() {
               </View>
             </View>
           )}
-
-          {/* Contact */}
-          {doctor.mobile ? (
-            <TouchableOpacity
-              style={styles.infoRow}
-              onPress={() => Linking.openURL(`tel:${doctor.mobile}`)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.infoIconBox}><Text>📞</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.infoLabel}>Contact</Text>
-                <Text style={[styles.infoValue, { color: Colors.blue600 }]}>{doctor.mobile}</Text>
-              </View>
-              <Text style={{ fontSize: 12, color: Colors.blue400 }}>Call →</Text>
-            </TouchableOpacity>
-          ) : null}
 
           {/* Hospital */}
           <View style={styles.infoRow}>
