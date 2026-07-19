@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../services/i18n';
 import {
   useNotificationCenter,
   type AppNotification,
@@ -26,15 +27,17 @@ import {
 } from '../../services/notificationStore';
 import { safeBack } from '../../utils/navigation';
 
-function relativeTime(ts: number): string {
+type TFn = (key: string, vars?: Record<string, string | number>) => string;
+
+function relativeTime(ts: number, t: TFn): string {
   const diff = Date.now() - ts;
   const min = Math.floor(diff / 60000);
-  if (min < 1) return 'Just now';
-  if (min < 60) return `${min}m ago`;
+  if (min < 1) return t('nt_just_now');
+  if (min < 60) return t('nt_min_ago', { m: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t('nt_hr_ago', { h: hr });
   const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
+  if (day < 7) return t('nt_day_ago', { d: day });
   return new Date(ts).toLocaleDateString();
 }
 
@@ -50,6 +53,7 @@ function iconFor(n: AppNotification): string {
 
 export default function NotificationsScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const params = useLocalSearchParams<{ audience?: string }>();
   const audience: NotificationAudience = params.audience === 'hospital' ? 'hospital' : 'patient';
 
@@ -83,7 +87,7 @@ export default function NotificationsScreen() {
           {!item.read && <View style={styles.unreadDot} />}
         </View>
         <Text style={styles.cardText}>{item.body}</Text>
-        <Text style={styles.cardTime}>{relativeTime(item.createdAt)}</Text>
+        <Text style={styles.cardTime}>{relativeTime(item.createdAt, t)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -98,14 +102,14 @@ export default function NotificationsScreen() {
         >
           <Text style={styles.backText}>‹</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <Text style={styles.headerTitle}>{t('nt_title')}</Text>
         <TouchableOpacity
           style={styles.headerAction}
           onPress={markAllRead}
           disabled={unreadCount === 0}
         >
           <Text style={[styles.headerActionText, unreadCount === 0 && styles.headerActionDisabled]}>
-            Read all
+            {t('nt_read_all')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -120,18 +124,16 @@ export default function NotificationsScreen() {
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>🔕</Text>
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
+            <Text style={styles.emptyTitle}>{t('nt_empty_title')}</Text>
             <Text style={styles.emptyText}>
-              {audience === 'hospital'
-                ? 'New bookings and alerts will show up here.'
-                : "Booking confirmations and appointment reminders will show up here."}
+              {audience === 'hospital' ? t('nt_empty_hospital') : t('nt_empty_patient')}
             </Text>
           </View>
         }
         ListFooterComponent={
           notifications.length > 0 ? (
             <TouchableOpacity style={styles.clearBtn} onPress={clearAll}>
-              <Text style={styles.clearBtnText}>Clear all</Text>
+              <Text style={styles.clearBtnText}>{t('nt_clear_all')}</Text>
             </TouchableOpacity>
           ) : null
         }

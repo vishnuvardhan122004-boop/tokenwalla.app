@@ -11,10 +11,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 
 export default function ContactScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [name,    setName]    = useState('');
   const [mobile,  setMobile]  = useState('');
   const [subject, setSubject] = useState('');
@@ -22,11 +24,11 @@ export default function ContactScreen() {
 
   const handleSubmit = () => {
     if (!name || !mobile || !message) {
-      Alert.alert('Error', 'Please fill all required fields');
+      Alert.alert(t('error'), t('ct_fill_required'));
       return;
     }
     if (!/^[6-9]\d{9}$/.test(mobile)) {
-      Alert.alert('Error', 'Enter a valid 10-digit mobile number');
+      Alert.alert(t('error'), t('ct_invalid_mobile'));
       return;
     }
     const mailSubject = encodeURIComponent(`[TokenWalla] ${subject || 'Support Request'}`);
@@ -41,20 +43,20 @@ export default function ContactScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
-            <Text style={styles.backText}>← Back</Text>
+            <Text style={styles.backText}>{t('back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.sectionLabel}>GET IN TOUCH</Text>
-          <Text style={styles.title}>Contact Us</Text>
-          <Text style={styles.sub}>We're here to help. Reach out and we'll respond as soon as possible.</Text>
+          <Text style={styles.sectionLabel}>{t('ct_get_in_touch')}</Text>
+          <Text style={styles.title}>{t('ct_title')}</Text>
+          <Text style={styles.sub}>{t('ct_sub')}</Text>
         </View>
 
         {/* Contact Info Cards */}
         <View style={styles.contactGrid}>
           {[
-            { icon: '📧', label: 'Email',  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
-            { icon: '📞', label: 'Phone',  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
-            { icon: '💬', label: 'WhatsApp', value: 'Chat with us',       onPress: () => Linking.openURL('https://wa.me/917286995933') },
-            { icon: '🏢', label: 'Office', value: 'Hindupur, AP 515201', onPress: null },
+            { icon: '📧', label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
+            { icon: '📞', label: t('ct_phone'),  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
+            { icon: '💬', label: t('ct_whatsapp'), value: t('ct_chat_with_us'), onPress: () => Linking.openURL('https://wa.me/917286995933') },
+            { icon: '🏢', label: t('ct_office'), value: 'Hindupur, AP 515201', onPress: null },
           ].map(({ icon, label, value, onPress }) => (
             <TouchableOpacity
               key={label}
@@ -71,11 +73,11 @@ export default function ContactScreen() {
 
         {/* Support Hours */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Support Hours</Text>
+          <Text style={styles.sectionTitle}>{t('ct_support_hours')}</Text>
           {[
-            { day: 'Mon – Fri', time: '9:00 AM – 6:00 PM' },
-            { day: 'Saturday',  time: '9:00 AM – 1:00 PM' },
-            { day: 'Sunday',    time: 'Closed'             },
+            { day: t('ct_mon_fri'),  time: '9:00 AM – 6:00 PM' },
+            { day: t('ct_saturday'), time: '9:00 AM – 1:00 PM' },
+            { day: t('ct_sunday'),   time: t('ct_closed')       },
           ].map(h => (
             <View key={h.day} style={styles.hoursRow}>
               <Text style={styles.hoursDay}>{h.day}</Text>
@@ -86,20 +88,20 @@ export default function ContactScreen() {
 
         {/* Message Form */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Send a Message</Text>
-          <Text style={styles.fieldLabel}>Your Name *</Text>
-          <TextInput style={styles.input} placeholder="Full name" placeholderTextColor={Colors.gray400} value={name} onChangeText={setName} />
+          <Text style={styles.sectionTitle}>{t('ct_send_message')}</Text>
+          <Text style={styles.fieldLabel}>{t('ct_your_name')}</Text>
+          <TextInput style={styles.input} placeholder={t('ct_full_name_ph')} placeholderTextColor={Colors.gray400} value={name} onChangeText={setName} />
 
-          <Text style={styles.fieldLabel}>Mobile *</Text>
-          <TextInput style={styles.input} placeholder="10-digit mobile" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} />
+          <Text style={styles.fieldLabel}>{t('ct_mobile_star')}</Text>
+          <TextInput style={styles.input} placeholder={t('ep_mobile_ph')} placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} />
 
-          <Text style={styles.fieldLabel}>Subject</Text>
-          <TextInput style={styles.input} placeholder="What is this about?" placeholderTextColor={Colors.gray400} value={subject} onChangeText={setSubject} />
+          <Text style={styles.fieldLabel}>{t('ct_subject')}</Text>
+          <TextInput style={styles.input} placeholder={t('ct_subject_ph')} placeholderTextColor={Colors.gray400} value={subject} onChangeText={setSubject} />
 
-          <Text style={styles.fieldLabel}>Message *</Text>
+          <Text style={styles.fieldLabel}>{t('ct_message_star')}</Text>
           <TextInput
             style={[styles.input, { height: 110, textAlignVertical: 'top' }]}
-            placeholder="Describe your issue or question..."
+            placeholder={t('ct_message_ph')}
             placeholderTextColor={Colors.gray400}
             multiline
             value={message}
@@ -107,7 +109,7 @@ export default function ContactScreen() {
           />
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-            <Text style={styles.submitBtnText}>Send Message →</Text>
+            <Text style={styles.submitBtnText}>{t('ct_send_message_btn')}</Text>
           </TouchableOpacity>
         </View>
 
