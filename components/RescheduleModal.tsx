@@ -33,10 +33,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
+import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const RAZORPAY_KEY_ID  = 'rzp_live_SoKq7xISlxWRoY'; // live key — must match backend RAZORPAY_KEY_ID
 const RESCHEDULE_PAISE = 500;   // ₹5 in paise — must match backend VALID_AMOUNTS_PAISE
 const RESCHEDULE_FEE   = 5;     // display only
 const MAX_BOOKING_DAYS_AHEAD = 30; // how far into the future the calendar allows booking

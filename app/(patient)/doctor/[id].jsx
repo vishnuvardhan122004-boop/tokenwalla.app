@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,8 +13,18 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
+import { BOOKING_LEAD_MS } from '../../../constants/config';
 import API, { getUser } from '../../../services/api';
 import { safeBack } from '../../../utils/navigation';
+
+// Local YYYY-MM-DD (NOT toISOString, which converts to UTC and shifts the date
+// by a day for evening users in +05:30 / other ahead-of-UTC timezones).
+function toLocalISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 function getNext7Days() {
   const days   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,12 +36,54 @@ function getNext7Days() {
       label: i === 0 ? 'Today' : days[d.getDay()],
       num:   d.getDate(),
       month: months[d.getMonth()],
-      full:  d.toISOString().split('T')[0],
+      full:  toLocalISODate(d),
     };
   });
 }
 
 const DAYS = getNext7Days();
+
+// Combine a YYYY-MM-DD date and a "hh:mm AM/PM" slot into a local Date.
+function slotDateTime(dateStr, slot) {
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec((dateStr || '').trim());
+  if (!dm) return null;
+  const sm = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec((slot || '').trim());
+  if (!sm) return null;
+  let hours = Number(sm[1]) % 12;
+  if ((sm[3] || '').toUpperCase() === 'PM') hours += 12;
+  return new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hours, Number(sm[2]), 0, 0);
+}
+
+// A slot is bookable only if it is at least BOOKING_LEAD_MS (2.1h) in the future.
+function isSlotTooSoon(dateStr, slot) {
+  const dt = slotDateTime(dateStr, slot);
+  if (!dt) return false;
+  return dt.getTime() < Date.now() + BOOKING_LEAD_MS;
+}
+
+// "HH:MM" → minutes since midnight, or null.
+function hmToMinutes(hm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec((hm || '').trim());
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+// Is the hospital open right now given open/close "HH:MM"? null if hours unknown.
+function isOpenNow(open, close) {
+  const o = hmToMinutes(open), c = hmToMinutes(close);
+  if (o == null || c == null) return null;
+  const now = new Date();
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return o <= c ? (cur >= o && cur < c) : (cur >= o || cur < c); // handle overnight
+}
+
+// Build a maps link: use the saved location if it's a URL, else search name+city.
+function directionsUrl(hospital) {
+  const loc = (hospital?.location || '').trim();
+  if (/^https?:\/\//i.test(loc)) return loc;
+  const q = encodeURIComponent([hospital?.name, hospital?.city].filter(Boolean).join(' '));
+  return `https://www.google.com/maps/search/?api=1&query=${q}`;
+}
 
 const PLAN = { price: 15, fee: 1500, name: 'Queue View', desc: 'Token + live queue position tracking' };
 
@@ -39,6 +92,7 @@ export default function DoctorDetails() {
   const router  = useRouter();
 
   const [doctor,       setDoctor]       = useState(null);
+  const [hospitalInfo, setHospitalInfo] = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [user,         setUser]         = useState(null);
   const [slotAvail,    setSlotAvail]    = useState({}); // { "09:00 AM": { booked, max, full } }
@@ -50,7 +104,15 @@ export default function DoctorDetails() {
   useEffect(() => {
     getUser().then(setUser);
     API.get(`/doctors/${id}/`)
-      .then(({ data }) => setDoctor(data))
+      .then(({ data }) => {
+        setDoctor(data);
+        // Fetch the hospital for contact number, social links & services.
+        if (data?.hospital) {
+          API.get(`/hospitals/${data.hospital}/`)
+            .then(({ data: h }) => setHospitalInfo(h))
+            .catch(() => {});
+        }
+      })
       .catch(() => router.back())
       .finally(() => setLoading(false));
   }, [id]);
@@ -81,6 +143,7 @@ export default function DoctorDetails() {
   const handleSlotPress = (slot) => {
     const info = slotAvail[slot];
     if (info?.full) return; // fully booked — ignore tap
+    if (isSlotTooSoon(selectedDate, slot)) return; // too soon / past — ignore tap
     setSelectedSlot(slot);
   };
 
@@ -91,6 +154,13 @@ export default function DoctorDetails() {
     // Guard: slot may have filled up since page load
     if (slotAvail[selectedSlot]?.full) {
       Alert.alert('Slot Full', 'This slot just filled up. Please choose another slot.');
+      setSelectedSlot('');
+      return;
+    }
+    // Guard: slot must be at least 2.1 hours away (also covers slots that
+    // lapsed while the page was open).
+    if (isSlotTooSoon(selectedDate, selectedSlot)) {
+      Alert.alert('Too Soon', 'Please pick a slot at least 2 hours from now so you have time to reach the hospital.');
       setSelectedSlot('');
       return;
     }
@@ -112,6 +182,7 @@ export default function DoctorDetails() {
   // ── slot state helpers ──────────────────────────────────────────────────
   const slotState = (slot) => {
     if (slot === selectedSlot) return 'selected';
+    if (isSlotTooSoon(selectedDate, slot)) return 'past';
     const info = slotAvail[slot];
     if (!info) return 'available';
     if (info.full) return 'full';
@@ -120,6 +191,7 @@ export default function DoctorDetails() {
   };
 
   const slotSubtext = (slot) => {
+    if (slot !== selectedSlot && isSlotTooSoon(selectedDate, slot)) return 'Too soon';
     const info = slotAvail[slot];
     if (!info || info.booked === 0) return null;
     if (info.full) return 'Full';
@@ -144,7 +216,8 @@ export default function DoctorDetails() {
   const am        = slots.filter(s => s.includes('AM'));
   const pm        = slots.filter(s => s.includes('PM'));
   const dateLabel = DAYS.find(d => d.full === selectedDate);
-  const isBookable = selectedSlot && doctor.available && !slotAvail[selectedSlot]?.full;
+  const isBookable = selectedSlot && doctor.available &&
+    !slotAvail[selectedSlot]?.full && !isSlotTooSoon(selectedDate, selectedSlot);
 
   const hasHospitalImage = doctor.hospital_image &&
     !doctor.hospital_image.includes('placehold') &&
@@ -160,11 +233,12 @@ export default function DoctorDetails() {
     const sub     = slotSubtext(s);
     const fillPct = slotFillPct(s);
 
+    const isDisabled = state === 'full' || state === 'past';
     const containerStyle = [
       styles.slotBtn,
       state === 'selected' && styles.slotSelected,
       state === 'partial'  && styles.slotPartial,
-      state === 'full'     && styles.slotFull,
+      (state === 'full' || state === 'past') && styles.slotFull,
     ];
 
     return (
@@ -172,8 +246,8 @@ export default function DoctorDetails() {
         key={s}
         style={containerStyle}
         onPress={() => handleSlotPress(s)}
-        activeOpacity={state === 'full' ? 1 : 0.7}
-        disabled={state === 'full'}
+        activeOpacity={isDisabled ? 1 : 0.7}
+        disabled={isDisabled}
       >
         {/* "FULL" badge top-right */}
         {state === 'full' && (
@@ -182,22 +256,22 @@ export default function DoctorDetails() {
           </View>
         )}
 
-        {/* Time label — strikethrough when full */}
+        {/* Time label — strikethrough when full / past */}
         <Text style={[
           styles.slotTime,
           state === 'selected' && styles.slotTimeSelected,
           state === 'partial'  && styles.slotTimePartial,
-          state === 'full'     && styles.slotTimeFull,
+          isDisabled           && styles.slotTimeFull,
         ]}>
           {s}
         </Text>
 
-        {/* Sub-label: "3 left" or "Full" */}
+        {/* Sub-label: "3 left", "Full", or "Too soon" */}
         {sub && (
           <Text style={[
             styles.slotSub,
             state === 'partial'  && styles.slotSubPartial,
-            state === 'full'     && styles.slotSubFull,
+            (state === 'full' || state === 'past') && styles.slotSubFull,
             state === 'selected' && styles.slotSubSelected,
           ]}>
             {sub}
@@ -229,8 +303,12 @@ export default function DoctorDetails() {
           <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router)}>
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
-          {hasHospitalImage ? (
-            <Image source={{ uri: doctor.hospital_image }} style={styles.bannerImage} resizeMode="cover" />
+          {(hospitalInfo?.image?.startsWith('http') || hasHospitalImage) ? (
+            <Image
+              source={{ uri: hospitalInfo?.image?.startsWith('http') ? hospitalInfo.image : doctor.hospital_image }}
+              style={styles.bannerImage}
+              resizeMode="cover"
+            />
           ) : (
             <View style={styles.bannerPlaceholder}>
               <Text style={{ fontSize: 64, opacity: 0.25 }}>🏥</Text>
@@ -330,6 +408,98 @@ export default function DoctorDetails() {
             </View>
           </View>
         </View>
+
+        {/* ── HOSPITAL ANNOUNCEMENT ── */}
+        {hospitalInfo?.announcement ? (
+          <View style={styles.noticeBox}>
+            <Text style={{ fontSize: 16 }}>📢</Text>
+            <Text style={styles.noticeText}>{hospitalInfo.announcement}</Text>
+          </View>
+        ) : null}
+
+        {/* ── HOSPITAL CONTACT & SERVICES ── */}
+        {hospitalInfo && (hospitalInfo.mobile || hospitalInfo.location || hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook || hospitalInfo.open_time || (hospitalInfo.services?.length > 0)) && (() => {
+          const openNow = isOpenNow(hospitalInfo.open_time, hospitalInfo.close_time);
+          return (
+          <View style={styles.block}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                {hospitalInfo.logo?.startsWith('http') ? (
+                  <Image source={{ uri: hospitalInfo.logo }} style={styles.hospLogo} resizeMode="cover" />
+                ) : null}
+                <Text style={[styles.blockTitle, { marginBottom: 0 }]}>🏥 About the Hospital</Text>
+              </View>
+              {openNow != null && (
+                <View style={[styles.openPill, { backgroundColor: openNow ? Colors.successBg : Colors.errorBg, borderColor: openNow ? Colors.successBorder : Colors.errorBorder }]}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: openNow ? Colors.successText : Colors.errorText }}>
+                    {openNow ? '🟢 Open now' : '🔴 Closed'}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {(hospitalInfo.open_time && hospitalInfo.close_time) ? (
+              <Text style={styles.hoursText}>🕐 {hospitalInfo.open_time} – {hospitalInfo.close_time}</Text>
+            ) : null}
+
+            {/* About / description */}
+            {hospitalInfo.description ? (
+              <Text style={styles.hospDesc}>{hospitalInfo.description}</Text>
+            ) : null}
+
+            {/* Directions (call is available after booking, in My Bookings) */}
+            <TouchableOpacity style={styles.directionsBtn} onPress={() => Linking.openURL(directionsUrl(hospitalInfo))}>
+              <Text style={styles.directionsBtnText}>📍 Get Directions</Text>
+            </TouchableOpacity>
+
+            {(hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook) && (
+              <View style={styles.socialRow}>
+                {hospitalInfo.instagram ? (
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.instagram)}>
+                    <Text style={styles.socialBtnText}>📸 Instagram</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {hospitalInfo.youtube ? (
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.youtube)}>
+                    <Text style={styles.socialBtnText}>▶️ YouTube</Text>
+                  </TouchableOpacity>
+                ) : null}
+                {hospitalInfo.facebook ? (
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.facebook)}>
+                    <Text style={styles.socialBtnText}>👍 Facebook</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            )}
+
+            {/* Services */}
+            {hospitalInfo.services?.length > 0 && (
+              <>
+                <Text style={styles.servicesLabel}>SERVICES</Text>
+                <View style={styles.servicesWrap}>
+                  {hospitalInfo.services.map(s => (
+                    <View key={s} style={styles.serviceChip}>
+                      <Text style={styles.serviceChipText}>{s}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* Photo gallery */}
+            {hospitalInfo.gallery?.length > 0 && (
+              <>
+                <Text style={styles.servicesLabel}>PHOTOS</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                  {hospitalInfo.gallery.map(p => (
+                    <Image key={p.id} source={{ uri: p.url }} style={styles.galleryImg} resizeMode="cover" />
+                  ))}
+                </ScrollView>
+              </>
+            )}
+          </View>
+          );
+        })()}
 
         {/* ── DATE PICKER ── */}
         <View style={styles.block}>
@@ -515,6 +685,24 @@ const styles = StyleSheet.create({
   infoIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, alignItems: 'center', justifyContent: 'center' },
   infoLabel:   { fontSize: 11, fontWeight: '600', color: Colors.gray400, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
   infoValue:   { fontSize: 14, fontWeight: '600', color: Colors.gray900 },
+
+  // Hospital contact & services
+  noticeBox:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.warningBg, borderWidth: 1, borderColor: Colors.warningBorder, borderRadius: 12, padding: 14, marginHorizontal: 16, marginTop: 12 },
+  noticeText:  { flex: 1, fontSize: 13, color: Colors.warningText, lineHeight: 19, fontWeight: '500' },
+  openPill:    { borderWidth: 1, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
+  hoursText:   { fontSize: 13, color: Colors.gray600, marginBottom: 12, fontWeight: '500' },
+  hospDesc:    { fontSize: 13, color: Colors.gray600, lineHeight: 20, marginBottom: 14 },
+  directionsBtn:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  directionsBtnText: { fontSize: 14, fontWeight: '700', color: Colors.blue700 },
+  socialRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  socialBtn:   { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  socialBtnText: { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
+  servicesLabel: { fontSize: 10, fontWeight: '700', color: Colors.gray400, letterSpacing: 1.5, marginTop: 16, marginBottom: 8 },
+  servicesWrap:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  serviceChip:   { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
+  serviceChipText: { fontSize: 12, fontWeight: '600', color: Colors.blue700 },
+  galleryImg:    { width: 150, height: 110, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100 },
+  hospLogo:      { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.blue200 },
 
   // ── Date chips ──
   dateChip:       { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50, minWidth: 56 },

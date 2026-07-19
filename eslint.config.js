@@ -7,4 +7,11 @@ module.exports = defineConfig([
   {
     ignores: ['dist/*'],
   },
+  {
+    rules: {
+      // Not meaningful in React Native — apostrophes/quotes in <Text> render
+      // fine; this rule is a web/HTML (JSX-in-browser) concern.
+      'react/no-unescaped-entities': 'off',
+    },
+  },
 ]);

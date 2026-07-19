@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { isTestHospital } from '../../constants/config';
 import API from '../../services/api';
+import { useI18n } from '../../services/i18n';
 
 // ── TYPE ──────────────────────────────────────────────────────────────────────
 interface Doctor {
@@ -37,26 +39,37 @@ interface Doctor {
 
 export default function DoctorsScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState('');
   const [specFilter,      setSpecFilter]      = useState('All');
   const [availOnly,       setAvailOnly]       = useState(false);
   const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState(false);
   const [specs,           setSpecs]           = useState<string[]>(['All']);
   const [city,            setCity]            = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
 
-  useEffect(() => {
-    API.get('/doctors/')
-      .then(({ data }) => {
-        const list: Doctor[] = Array.isArray(data) ? data : (data.results || []);
-        setDoctors(list);
-        const uniqueSpecs: string[] = ['All', ...new Set(list.map((d: Doctor) => d.specialization).filter(Boolean))];
-        setSpecs(uniqueSpecs);
-      })
-      .catch(() => setDoctors([]))
-      .finally(() => setLoading(false));
+  const loadDoctors = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const { data } = await API.get('/doctors/');
+      const raw: Doctor[] = Array.isArray(data) ? data : (data.results || []);
+      // Hide test/demo hospitals from the patient app.
+      const list = raw.filter((d: Doctor) => !isTestHospital(d.hospital_name));
+      setDoctors(list);
+      const uniqueSpecs: string[] = ['All', ...new Set(list.map((d: Doctor) => d.specialization).filter(Boolean))];
+      setSpecs(uniqueSpecs);
+    } catch {
+      setDoctors([]);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
   // ── LOCATION DETECTION ────────────────────────────────────────────────────
   const detectLocation = async () => {
@@ -121,9 +134,9 @@ export default function DoctorsScreen() {
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
-        <Text style={styles.title}>Find Doctors</Text>
+        <Text style={styles.title}>{t('find_doctors')}</Text>
         <Text style={styles.sub}>
-          {loading ? 'Loading...' : `${doctors.length} doctors available`}
+          {loading ? t('loading_ellipsis') : t('doctors_available', { count: doctors.length })}
         </Text>
 
         {/* Search */}
@@ -131,7 +144,7 @@ export default function DoctorsScreen() {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search doctor, specialization, hospital..."
+            placeholder={t('search_placeholder')}
             placeholderTextColor={Colors.gray400}
             value={search}
             onChangeText={setSearch}
@@ -153,7 +166,7 @@ export default function DoctorsScreen() {
             <ActivityIndicator size="small" color={Colors.blue600} />
           ) : (
             <Text style={styles.locationBtnText}>
-              📍 {city ? `Near: ${city}` : 'Detect My Location'}
+              📍 {city ? t('near_city', { city }) : t('detect_location')}
             </Text>
           )}
           {city && !locationLoading ? (
@@ -168,7 +181,7 @@ export default function DoctorsScreen() {
         >
           <View style={[styles.toggleDot, { backgroundColor: availOnly ? Colors.successText : Colors.gray400 }]} />
           <Text style={[styles.availToggleText, availOnly && { color: Colors.successText }]}>
-            Available Only
+            {t('available_only')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -196,8 +209,8 @@ export default function DoctorsScreen() {
       {/* ── RESULTS COUNT + SORT LABEL ── */}
       <View style={styles.countRow}>
         <Text style={styles.countText}>
-          {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-          {city ? ` · sorted by proximity` : ' · sorted by availability'}
+          {t('results_count', { count: filtered.length })}
+          {city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`}
         </Text>
         {(search || specFilter !== 'All' || availOnly || city) && (
           <TouchableOpacity onPress={() => {
@@ -206,7 +219,7 @@ export default function DoctorsScreen() {
             setAvailOnly(false);
             setCity('');
           }}>
-            <Text style={{ fontSize: 13, color: Colors.blue600, fontWeight: '600' }}>Clear all</Text>
+            <Text style={{ fontSize: 13, color: Colors.blue600, fontWeight: '600' }}>{t('clear_all')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -215,13 +228,22 @@ export default function DoctorsScreen() {
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={Colors.blue600} />
-          <Text style={{ marginTop: 12, color: Colors.gray400, fontSize: 14 }}>Loading doctors...</Text>
+          <Text style={{ marginTop: 12, color: Colors.gray400, fontSize: 14 }}>{t('loading_doctors')}</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Text style={{ fontSize: 48, marginBottom: 12 }}>📡</Text>
+          <Text style={styles.emptyTitle}>{t('cant_load_doctors')}</Text>
+          <Text style={styles.emptySub}>{t('connection_error')}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={loadDoctors}>
+            <Text style={styles.retryBtnText}>{t('retry')}</Text>
+          </TouchableOpacity>
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={{ fontSize: 48, marginBottom: 12 }}>🔍</Text>
-          <Text style={styles.emptyTitle}>No doctors found</Text>
-          <Text style={styles.emptySub}>Try adjusting your search or filters</Text>
+          <Text style={styles.emptyTitle}>{t('no_doctors_found')}</Text>
+          <Text style={styles.emptySub}>{t('adjust_search')}</Text>
         </View>
       ) : (
         <FlatList
@@ -246,7 +268,7 @@ export default function DoctorsScreen() {
                 {/* Top Ranked Badge */}
                 {isTopRanked && (
                   <View style={styles.topBadge}>
-                    <Text style={styles.topBadgeText}>⭐ Top Match</Text>
+                    <Text style={styles.topBadgeText}>{t('top_match')}</Text>
                   </View>
                 )}
 
@@ -268,7 +290,7 @@ export default function DoctorsScreen() {
                   {/* ── CENTER INFO ── */}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.docSpec}>{doc.specialization}</Text>
-                    <Text style={styles.docName}>Dr. {doc.name}</Text>
+                    <Text style={styles.docName}>{doc.name}</Text>
                     <Text style={styles.docHospital}>🏥 {doc.hospital_name}</Text>
                     <View style={styles.docMeta}>
                       <Text style={[
@@ -277,7 +299,7 @@ export default function DoctorsScreen() {
                       ]}>
                         {isNearby ? '📍 Nearby · ' : '📍 '}{doc.city}
                       </Text>
-                      <Text style={styles.metaChip}>⏳ {doc.experience}y exp</Text>
+                      <Text style={styles.metaChip}>⏳ {t('yrs_exp', { years: doc.experience })}</Text>
                     </View>
                     {doc.slots && doc.slots.length > 0 && (
                       <View style={styles.slotRow}>
@@ -308,7 +330,7 @@ export default function DoctorsScreen() {
                         fontSize: 10, fontWeight: '700',
                         color: doc.available ? Colors.successText : Colors.errorText,
                       }}>
-                        {doc.available ? 'Available' : 'Busy'}
+                        {doc.available ? t('available') : t('busy')}
                       </Text>
                     </View>
                     <Text style={styles.feeText}>₹{doc.fee || 15}</Text>
@@ -318,10 +340,10 @@ export default function DoctorsScreen() {
 
                 {/* ── FOOTER ── */}
                 <View style={styles.cardFooter}>
-                  <Text style={styles.slotsCount}>{doc.slots?.length || 0} slots today</Text>
+                  <Text style={styles.slotsCount}>{t('slots_today', { count: doc.slots?.length || 0 })}</Text>
                   <View style={[styles.bookBtn, !doc.available && styles.bookBtnDisabled]}>
                     <Text style={styles.bookBtnText}>
-                      {doc.available ? 'Book Now →' : 'Unavailable'}
+                      {doc.available ? t('book_now') : t('unavailable')}
                     </Text>
                   </View>
                 </View>
@@ -492,4 +514,6 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.gray500, marginBottom: 8 },
   emptySub:   { fontSize: 14, color: Colors.gray400, textAlign: 'center' },
+  retryBtn:     { marginTop: 20, backgroundColor: Colors.blue600, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 12 },
+  retryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
 });

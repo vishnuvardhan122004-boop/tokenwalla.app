@@ -23,14 +23,30 @@ export default function HospitalLoginScreen() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [error,      setError]      = useState('');
 
-  // Reaching this screen means there is no valid session. Any token left
-  // in storage is stale and, if left in place, gets attached by the API
-  // interceptor to every request — including "public" ones like
-  // check-mobile and otp/request. An expired token makes JWTAuthentication
-  // fail before the view's AllowAny permission is even checked, which
-  // 401s an endpoint that doesn't need auth and silently breaks "Get OTP".
+  // If a hospital is ALREADY logged in, don't make them sign in again — send
+  // them straight to the dashboard. Only when there's no valid hospital session
+  // do we clear any stale tokens (a stale token gets attached by the API
+  // interceptor to "public" endpoints like check-mobile/otp and 401s them
+  // before AllowAny is checked, silently breaking "Get OTP").
   useEffect(() => {
-    AsyncStorage.multiRemove(['access', 'refresh', 'user']).catch(() => {});
+    (async () => {
+      try {
+        const [raw, access] = await Promise.all([
+          AsyncStorage.getItem('user'),
+          AsyncStorage.getItem('access'),
+        ]);
+        if (raw && access) {
+          const u = JSON.parse(raw);
+          if (u?.role === 'hospital') {
+            router.replace('/(hospital)/dashboard');
+            return;
+          }
+        }
+      } catch {
+        // fall through to clearing stale tokens
+      }
+      AsyncStorage.multiRemove(['access', 'refresh', 'user']).catch(() => {});
+    })();
   }, []);
 
   // ── Validate mobile format ────────────────────────────────────────────────

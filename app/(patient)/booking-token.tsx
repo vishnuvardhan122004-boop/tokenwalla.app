@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -8,13 +8,37 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
   const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile } = useLocalSearchParams();
+  const notifiedRef = useRef(false);
 
    useEffect(() => {
-   if (!token) router.replace('/(patient)/doctors');
+   if (!token) { router.replace('/(patient)/doctors'); return; }
+
+   // Fire the "token booked" notification once, then schedule the ~2.1h reminder.
+   if (!notifiedRef.current) {
+     notifiedRef.current = true;
+     const tokenStr = String(token);
+     const dateStr = date ? String(date) : undefined;
+     const slotStr = slot ? String(slot) : undefined;
+     notifyBookingConfirmed({
+       token:      tokenStr,
+       doctorName: doctorName ? String(doctorName) : undefined,
+       hospital:   hospital ? String(hospital) : undefined,
+       date:       dateStr,
+       slot:       slotStr,
+     });
+     scheduleAppointmentReminder({
+       token:       tokenStr,
+       doctor_name: doctorName ? String(doctorName) : undefined,
+       hospital_name: hospital ? String(hospital) : undefined,
+       date:        dateStr,
+       slot:        slotStr,
+     });
+   }
     }, [token]);
 
      if (!token) return null;

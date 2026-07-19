@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import RescheduleModal from '../../components/RescheduleModal';
 import { Colors } from '../../constants/colors';
 import API, { getUser } from '../../services/api';
+import { useI18n } from '../../services/i18n';
+import { syncAppointmentReminders } from '../../services/notifications';
+
+// status → translation key (labels themselves are resolved with t() at render)
+const STATUS_LABEL_KEY: Record<string, string> = {
+  waiting:     'status_waiting',
+  in_progress: 'status_in_consult',
+  completed:   'status_completed',
+  cancelled:   'status_cancelled',
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -35,9 +46,9 @@ const STATUS_MAP: Record<string, { label: string; bg: string; text: string; bord
 };
 
 const TABS = [
-  { key: 'all',       label: 'All'    },
-  { key: 'active',    label: 'Active' },
-  { key: 'completed', label: 'Done'   },
+  { key: 'all',       labelKey: 'tab_all'    },
+  { key: 'active',    labelKey: 'tab_active' },
+  { key: 'completed', labelKey: 'tab_done'   },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -48,9 +59,11 @@ interface Booking { [key: string]: any }
 
 export default function MyBookings() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const [bookings,          setBookings]          = useState<Booking[]>([]);
   const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState(false);
   const [refreshing,        setRefreshing]        = useState(false);
   const [tab,               setTab]               = useState('all');
   const [user,              setUser]              = useState<any>(null);
@@ -64,8 +77,16 @@ export default function MyBookings() {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
       const { data } = await API.get('/bookings/my/');
-      setBookings(Array.isArray(data) ? data : []);
-    } catch {}
+      const list = Array.isArray(data) ? data : (data?.results || []);
+      setBookings(list);
+      setError(false);
+      // Keep the ~2.1h reminders in sync with the latest date/slot/status.
+      syncAppointmentReminders(list);
+    } catch {
+      // Only surface an error when we have nothing to show — a failed silent
+      // poll shouldn't wipe the list the user is already looking at.
+      setBookings(prev => { if (prev.length === 0) setError(true); return prev; });
+    }
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
@@ -129,12 +150,12 @@ export default function MyBookings() {
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.centreBox}>
         <Text style={{ fontSize: 52, marginBottom: 16 }}>🎫</Text>
-        <Text style={st.emptyTitle}>Login to View Bookings</Text>
+        <Text style={st.emptyTitle}>{t('login_to_view_bookings')}</Text>
         <Text style={st.emptySub}>
-          Sign in to see your appointments and track your live queue position
+          {t('login_to_view_bookings_sub')}
         </Text>
         <TouchableOpacity style={st.primaryBtn} onPress={() => router.push('/(auth)/login')}>
-          <Text style={st.primaryBtnText}>Login →</Text>
+          <Text style={st.primaryBtnText}>{t('login_arrow')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -145,19 +166,19 @@ export default function MyBookings() {
 
       {/* Header */}
       <View style={st.header}>
-        <Text style={st.title}>My Bookings</Text>
+        <Text style={st.title}>{t('my_bookings')}</Text>
         <Text style={st.sub}>
-          {loading ? 'Loading…' : `${bookings.length} total · ${activeCount} active`}
+          {loading ? t('loading_ellipsis') : t('bookings_summary', { total: bookings.length, active: activeCount })}
         </Text>
         <View style={st.tabRow}>
-          {TABS.map(t => (
+          {TABS.map(tb => (
             <TouchableOpacity
-              key={t.key}
-              style={[st.tabBtn, tab === t.key && st.tabBtnActive]}
-              onPress={() => setTab(t.key)}
+              key={tb.key}
+              style={[st.tabBtn, tab === tb.key && st.tabBtnActive]}
+              onPress={() => setTab(tb.key)}
             >
-              <Text style={[st.tabText, tab === t.key && st.tabTextActive]}>
-                {t.label}{t.key === 'active' && activeCount > 0 ? ` (${activeCount})` : ''}
+              <Text style={[st.tabText, tab === tb.key && st.tabTextActive]}>
+                {t(tb.labelKey)}{tb.key === 'active' && activeCount > 0 ? ` (${activeCount})` : ''}
               </Text>
             </TouchableOpacity>
           ))}
@@ -170,6 +191,17 @@ export default function MyBookings() {
           <ActivityIndicator size="large" color={Colors.blue600} />
         </View>
 
+      /* Error */
+      ) : error && bookings.length === 0 ? (
+        <View style={st.centreBox}>
+          <Text style={{ fontSize: 52, marginBottom: 12 }}>📡</Text>
+          <Text style={st.emptyTitle}>{t('cant_load_bookings')}</Text>
+          <Text style={st.emptySub}>{t('connection_error')}</Text>
+          <TouchableOpacity style={st.primaryBtn} onPress={() => fetchBookings()}>
+            <Text style={st.primaryBtnText}>{t('retry')}</Text>
+          </TouchableOpacity>
+        </View>
+
       /* Empty */
       ) : filtered.length === 0 ? (
         <ScrollView
@@ -180,15 +212,13 @@ export default function MyBookings() {
         >
           <Text style={{ fontSize: 52, marginBottom: 12 }}>🎫</Text>
           <Text style={st.emptyTitle}>
-            {tab === 'active' ? 'No active bookings' : 'No bookings yet'}
+            {tab === 'active' ? t('no_active_bookings_lc') : t('no_bookings_yet')}
           </Text>
           <Text style={st.emptySub}>
-            {tab === 'active'
-              ? 'Your active appointments will appear here'
-              : 'Book your first appointment and get a token instantly'}
+            {tab === 'active' ? t('active_appts_here') : t('book_first_appt')}
           </Text>
           <TouchableOpacity style={st.primaryBtn} onPress={() => router.push('/(patient)/doctors')}>
-            <Text style={st.primaryBtnText}>Find Doctors →</Text>
+            <Text style={st.primaryBtnText}>{t('find_doctors_arrow')}</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -222,10 +252,15 @@ export default function MyBookings() {
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <View style={[st.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
                       {isActive && <View style={[st.statusDot, { backgroundColor: s.text }]} />}
-                      <Text style={[st.statusText, { color: s.text }]}>{s.label}</Text>
+                      <Text style={[st.statusText, { color: s.text }]}>{t(STATUS_LABEL_KEY[booking.status] ?? 'status_cancelled')}</Text>
                     </View>
                     <Text style={st.doctorName}>Dr. {booking.doctor_name}</Text>
                     <Text style={st.hospitalName}>🏥 {booking.hospital_name}</Text>
+                    {booking.hospital_mobile ? (
+                      <TouchableOpacity onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
+                        <Text style={st.callHospital}>📞 Call hospital · {booking.hospital_mobile}</Text>
+                      </TouchableOpacity>
+                    ) : null}
                     <View style={st.metaRow}>
                       <Text style={st.metaChip}>📅 {booking.date}</Text>
                       <Text style={st.metaChip}>🕐 {booking.slot}</Text>
@@ -243,15 +278,27 @@ export default function MyBookings() {
                       </Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={st.queueLabel}>Your queue position</Text>
+                      <Text style={st.queueLabel}>{t('your_queue_position')}</Text>
                       <Text style={st.queueDesc}>
                         {booking.status === 'in_progress'
-                          ? '✅ Your turn — go in now!'
+                          ? t('your_turn')
                           : queueMsg(booking.queue_position)}
                       </Text>
-                      <Text style={st.queueNote}>Auto-refreshes every 15s</Text>
+                      <Text style={st.queueNote}>{t('auto_refresh_15')}</Text>
                     </View>
                   </View>
+                )}
+
+                {/* Show QR — quick check-in at reception */}
+                {isActive && (
+                  <TouchableOpacity
+                    style={st.qrBtn}
+                    onPress={() => router.push('/(patient)/my-qr')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 16 }}>📷</Text>
+                    <Text style={st.qrBtnText}>{t('show_qr_checkin')}</Text>
+                  </TouchableOpacity>
                 )}
 
                 {/* Action row */}
@@ -264,8 +311,8 @@ export default function MyBookings() {
                     >
                       <Text style={{ fontSize: 18 }}>📅</Text>
                       <View>
-                        <Text style={st.rescheduleBtnTitle}>Reschedule</Text>
-                        <Text style={st.rescheduleBtnFee}>₹{RESCHEDULE_FEE} fee</Text>
+                        <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
+                        <Text style={st.rescheduleBtnFee}>{t('reschedule_fee', { fee: RESCHEDULE_FEE })}</Text>
                       </View>
                     </TouchableOpacity>
 
@@ -281,8 +328,8 @@ export default function MyBookings() {
                         <>
                           <Text style={{ fontSize: 18 }}>❌</Text>
                           <View>
-                            <Text style={st.cancelBtnTitle}>Cancel</Text>
-                            <Text style={st.cancelBtnFee}>Refund in 5–7d</Text>
+                            <Text style={st.cancelBtnTitle}>{t('cancel')}</Text>
+                            <Text style={st.cancelBtnFee}>{t('refund_in_days')}</Text>
                           </View>
                         </>
                       )}
@@ -357,7 +404,8 @@ const st = StyleSheet.create({
   statusDot:    { width: 6, height: 6, borderRadius: 3 },
   statusText:   { fontSize: 11, fontWeight: '700' },
   doctorName:   { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
-  hospitalName: { fontSize: 12, color: Colors.gray500, marginBottom: 8 },
+  hospitalName: { fontSize: 12, color: Colors.gray500, marginBottom: 4 },
+  callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginBottom: 8 },
   metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, flexWrap: 'wrap' },
   metaChip:     { fontSize: 12, color: Colors.gray400 },
   amount:       { fontSize: 13, fontWeight: '700', color: Colors.blue600, paddingBottom: 12 },
@@ -368,6 +416,9 @@ const st = StyleSheet.create({
   queueLabel:  { fontSize: 11, color: Colors.gray400, marginBottom: 2 },
   queueDesc:   { fontSize: 13, fontWeight: '600', color: Colors.blue600 },
   queueNote:   { fontSize: 10, color: Colors.gray400, marginTop: 2 },
+
+  qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, backgroundColor: Colors.blue600, borderTopWidth: 1, borderTopColor: Colors.blue100 },
+  qrBtnText: { fontSize: 13, fontWeight: '700', color: Colors.white },
 
   actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.blue50 },
   rescheduleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.blue50, borderRightWidth: 1, borderRightColor: Colors.blue100 },

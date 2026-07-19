@@ -12,13 +12,30 @@ import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { getUser } from '../../services/api';
+import { useI18n } from '../../services/i18n';
 
-export default function QRScannerScreen() {
+interface Booking {
+  id: string | number;
+  token?: string;
+  status?: string;
+  doctor_name?: string;
+  hospital_name?: string;
+  date?: string;
+  slot?: string;
+}
+
+const STATUS_MAP: Record<string, { label: string; bg: string; text: string }> = {
+  waiting:     { label: 'Waiting',         bg: Colors.warningBg, text: Colors.warningText },
+  in_progress: { label: 'In Consultation', bg: Colors.blue50,    text: Colors.blue600     },
+};
+
+export default function MyQRScreen() {
   const router = useRouter();
-  const [user,        setUser]        = useState(null);
-  const [bookings,    setBookings]    = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [activeQR,    setActiveQR]    = useState(null); // booking id showing QR
+  const { t } = useI18n();
+  const [user,     setUser]     = useState<any>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [activeQR, setActiveQR] = useState<string | number | null>(null);
 
   useEffect(() => { getUser().then(setUser); }, []);
 
@@ -27,8 +44,9 @@ export default function QRScannerScreen() {
       setLoading(true);
       try {
         const { data } = await API.get('/bookings/my/');
-        // Only show active bookings (waiting/in_progress)
-        const active = data.filter(b => b.status === 'waiting' || b.status === 'in_progress');
+        const list: Booking[] = Array.isArray(data) ? data : (data?.results || []);
+        // Only active bookings (waiting / in_progress) have a usable QR
+        const active = list.filter(b => b.status === 'waiting' || b.status === 'in_progress');
         setBookings(active);
         if (active.length > 0) setActiveQR(active[0].id);
       } catch {}
@@ -36,19 +54,14 @@ export default function QRScannerScreen() {
     })();
   }, []));
 
-  const STATUS_MAP = {
-    waiting:     { label: 'Waiting',         bg: Colors.warningBg,  text: Colors.warningText  },
-    in_progress: { label: 'In Consultation', bg: Colors.blue50,     text: Colors.blue600      },
-  };
-
   if (!user) return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.center}>
         <Text style={{ fontSize: 48, marginBottom: 16 }}>📷</Text>
-        <Text style={styles.emptyTitle}>Login Required</Text>
-        <Text style={styles.emptySub}>Login to see your booking QR codes</Text>
+        <Text style={styles.emptyTitle}>{t('login_required')}</Text>
+        <Text style={styles.emptySub}>{t('login_see_qr')}</Text>
         <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.loginBtnText}>Login →</Text>
+          <Text style={styles.loginBtnText}>{t('login_arrow')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -58,22 +71,25 @@ export default function QRScannerScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>📷 My QR Codes</Text>
-        <Text style={styles.sub}>Show this QR at hospital reception for quick check-in</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>{t('back')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>{t('my_qr_codes')}</Text>
+        <Text style={styles.sub}>{t('my_qr_sub')}</Text>
       </View>
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.blue600} />
-          <Text style={{ marginTop: 12, color: Colors.gray400 }}>Loading your bookings...</Text>
+          <Text style={{ marginTop: 12, color: Colors.gray400 }}>{t('loading_ellipsis')}</Text>
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.center}>
           <Text style={{ fontSize: 48, marginBottom: 16 }}>🎫</Text>
-          <Text style={styles.emptyTitle}>No Active Bookings</Text>
-          <Text style={styles.emptySub}>Book an appointment to get your QR code</Text>
+          <Text style={styles.emptyTitle}>{t('no_active_bookings')}</Text>
+          <Text style={styles.emptySub}>{t('book_to_get_qr')}</Text>
           <TouchableOpacity style={styles.bookBtn} onPress={() => router.push('/(patient)/doctors')}>
-            <Text style={styles.bookBtnText}>Find Doctors →</Text>
+            <Text style={styles.bookBtnText}>{t('find_doctors_arrow')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -82,19 +98,17 @@ export default function QRScannerScreen() {
           {/* How to use info */}
           <View style={styles.infoBox}>
             <Text style={{ fontSize: 18, marginRight: 10 }}>💡</Text>
-            <Text style={styles.infoText}>
-              Show this QR code to hospital staff. They will scan it to verify and check you in instantly.
-            </Text>
+            <Text style={styles.infoText}>{t('qr_info')}</Text>
           </View>
 
           {/* Booking selector if multiple */}
           {bookings.length > 1 && (
             <View style={styles.selectorRow}>
-              <Text style={styles.selectorLabel}>Select Booking:</Text>
+              <Text style={styles.selectorLabel}>{t('select_booking')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }}>
                 {bookings.map(b => (
                   <TouchableOpacity
-                    key={b.id}
+                    key={String(b.id)}
                     style={[styles.selectorChip, activeQR === b.id && styles.selectorChipActive]}
                     onPress={() => setActiveQR(b.id)}
                   >
@@ -109,7 +123,7 @@ export default function QRScannerScreen() {
 
           {/* QR Code Cards */}
           {bookings.filter(b => b.id === activeQR || bookings.length === 1).map(booking => {
-            const st = STATUS_MAP[booking.status] || STATUS_MAP.waiting;
+            const st = STATUS_MAP[booking.status ?? 'waiting'] || STATUS_MAP.waiting;
             const qrData = JSON.stringify({
               token_code:  booking.token,
               doctor_name: booking.doctor_name,
@@ -119,7 +133,7 @@ export default function QRScannerScreen() {
             });
 
             return (
-              <View key={booking.id} style={styles.qrCard}>
+              <View key={String(booking.id)} style={styles.qrCard}>
                 {/* Card top gradient bar */}
                 <View style={styles.qrCardBar} />
 
@@ -131,7 +145,7 @@ export default function QRScannerScreen() {
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: st.text, marginRight: 5 }} />
-                    <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
+                    <Text style={[styles.statusText, { color: st.text }]}>{t(booking.status === 'in_progress' ? 'status_in_consult' : 'status_waiting')}</Text>
                   </View>
                 </View>
 
@@ -145,12 +159,12 @@ export default function QRScannerScreen() {
                       backgroundColor="#FFFFFF"
                     />
                   </View>
-                  <Text style={styles.qrScanHint}>Scan to verify booking</Text>
+                  <Text style={styles.qrScanHint}>{t('scan_to_verify')}</Text>
                 </View>
 
                 {/* Token Number */}
                 <View style={styles.tokenSection}>
-                  <Text style={styles.tokenLabel}>TOKEN NUMBER</Text>
+                  <Text style={styles.tokenLabel}>{t('token_number')}</Text>
                   <Text style={styles.tokenNumber}>{booking.token}</Text>
                 </View>
 
@@ -184,7 +198,7 @@ export default function QRScannerScreen() {
 
           {/* Go to My Bookings */}
           <TouchableOpacity style={styles.viewAllBtn} onPress={() => router.push('/(patient)/my-bookings')}>
-            <Text style={styles.viewAllBtnText}>View All Bookings →</Text>
+            <Text style={styles.viewAllBtnText}>{t('view_all_bookings')}</Text>
           </TouchableOpacity>
 
           <View style={{ height: 30 }} />
@@ -199,6 +213,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
 
   header: { padding: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
+  backBtn: { marginBottom: 10 },
+  backBtnText: { fontSize: 14, fontWeight: '600', color: Colors.blue600 },
   title:  { fontSize: 22, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   sub:    { fontSize: 13, color: Colors.gray500 },
 

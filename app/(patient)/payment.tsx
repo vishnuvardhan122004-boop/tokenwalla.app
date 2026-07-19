@@ -14,9 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Colors } from '../../constants/colors';
+import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
-
-const RAZORPAY_KEY_ID = 'rzp_live_SoKq7xISlxWRoY';
 
 export default function PaymentScreen() {
   const router = useRouter();

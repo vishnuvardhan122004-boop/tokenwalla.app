@@ -2,9 +2,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { router } from 'expo-router';
+import { API_BASE_URL } from '../constants/config';
 
 
-const BASE: string = 'https://tokenwalla-production.up.railway.app/api';
+const BASE: string = API_BASE_URL;
 
 const API = axios.create({ baseURL: BASE, timeout: 25000 });
 
@@ -31,9 +32,23 @@ function isPublicRoute(url = ''): boolean {
   return PUBLIC_ROUTES.some(route => url.includes(route));
 }
 
-// ── Attach access token to every request EXCEPT public routes ──────────────
+// Read-only doctor endpoints (GET /doctors/, /doctors/:id/, /doctors/?hospital=)
+// are AllowAny on the backend. But DRF's JWTAuthentication still runs first, so a
+// STALE/expired access token makes it throw 401 before AllowAny is reached — which
+// would wrongly blank the public doctor list (and log the user out on refresh
+// failure). So we treat read-only doctor fetches as public too. Writes
+// (POST/PATCH/DELETE from the hospital dashboard) still carry the token.
+function isPublicRequest(config: { url?: string; method?: string }): boolean {
+  const url = config.url || '';
+  if (isPublicRoute(url)) return true;
+  const method = (config.method || 'get').toLowerCase();
+  if (method === 'get' && url.includes('/doctors/')) return true;
+  return false;
+}
+
+// ── Attach access token to every request EXCEPT public ones ────────────────
 API.interceptors.request.use(async (config) => {
-  if (!isPublicRoute(config.url || '')) {
+  if (!isPublicRequest(config)) {
     const token = await AsyncStorage.getItem('access');
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
@@ -46,7 +61,7 @@ API.interceptors.response.use(
   async (err) => {
     const original = err.config;
 
-    if (isPublicRoute(original?.url || '')) {
+    if (isPublicRequest(original || {})) {
       return Promise.reject(err);
     }
 

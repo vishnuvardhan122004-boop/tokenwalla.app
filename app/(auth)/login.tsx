@@ -13,10 +13,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [mobile,     setMobile]     = useState('');
   const [password,   setPassword]   = useState('');
   const [loading,    setLoading]    = useState(false);
@@ -109,7 +111,7 @@ export default function LoginScreen() {
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/home')}>
-            <Text style={styles.backText}>← Back</Text>
+            <Text style={styles.backText}>{t('back')}</Text>
           </TouchableOpacity>
 
           <View style={styles.brand}>
@@ -117,17 +119,14 @@ export default function LoginScreen() {
             <Text style={styles.brandName}><Text style={styles.accent}>Token</Text>walla</Text>
           </View>
 
-          <Text style={styles.panelLabel}>Patient Login</Text>
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.sub}>
-            Log in to view your bookings, track your live queue position,
-            and book new doctor appointments instantly.
-          </Text>
+          <Text style={styles.panelLabel}>{t('patient_login')}</Text>
+          <Text style={styles.title}>{t('welcome_back')}</Text>
+          <Text style={styles.sub}>{t('login_intro')}</Text>
 
           {[
-            { icon: '🎫', title: 'Instant Token',       desc: 'Get your token immediately after booking'   },
-            { icon: '📍', title: 'Live Queue Tracking', desc: 'Know your exact position in the queue'       },
-            { icon: '🔐', title: 'Secure & Private',    desc: 'Your data is encrypted and never shared'     },
+            { icon: '🎫', title: t('feat_instant_token_title'), desc: t('feat_instant_token_desc') },
+            { icon: '📍', title: t('feat_live_track_title'),    desc: t('feat_live_track_desc')    },
+            { icon: '🔐', title: t('feat_secure_title'),        desc: t('feat_secure_desc')        },
           ].map(f => (
             <View key={f.title} style={styles.featureRow}>
               <View style={styles.featureIcon}>
@@ -142,8 +141,8 @@ export default function LoginScreen() {
 
           <View style={styles.divider} />
 
-          <Text style={styles.formTitle}>Sign In</Text>
-          <Text style={styles.formSub}>Enter your mobile number to continue</Text>
+          <Text style={styles.formTitle}>{t('sign_in')}</Text>
+          <Text style={styles.formSub}>{t('enter_mobile_continue')}</Text>
 
           {!!error && (
             <View style={styles.errorBox}>
@@ -151,31 +150,31 @@ export default function LoginScreen() {
             </View>
           )}
 
-          <Text style={styles.label}>Mobile Number</Text>
+          <Text style={styles.label}>{t('mobile_number')}</Text>
           <View style={styles.inputRow}>
             <Text style={styles.inputIcon}>📱</Text>
             <TextInput
               style={styles.input}
-              placeholder="10-digit mobile number"
+              placeholder={t('mobile_placeholder')}
               placeholderTextColor={Colors.gray400}
               keyboardType="numeric"
               maxLength={10}
               value={mobile}
-              onChangeText={t => { setMobile(t); setError(''); }}
+              onChangeText={v => { setMobile(v); setError(''); }}
             />
           </View>
 
-          <Text style={styles.label}>Password / OTP</Text>
+          <Text style={styles.label}>{t('password_otp')}</Text>
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1, marginBottom: 0 }]}>
               <Text style={styles.inputIcon}>🔑</Text>
               <TextInput
                 style={styles.input}
-                placeholder={otpSent ? 'Enter OTP sent to your mobile' : 'Password or OTP'}
+                placeholder={otpSent ? t('enter_otp') : t('password_or_otp')}
                 placeholderTextColor={Colors.gray400}
                 secureTextEntry={!otpSent}
                 value={password}
-                onChangeText={t => { setPassword(t); setError(''); }}
+                onChangeText={v => { setPassword(v); setError(''); }}
               />
             </View>
             <TouchableOpacity
@@ -185,11 +184,11 @@ export default function LoginScreen() {
             >
               {otpLoading
                 ? <ActivityIndicator size="small" color={Colors.blue700} />
-                : <Text style={styles.otpBtnText}>{otpSent ? 'Resend' : 'Get OTP'}</Text>
+                : <Text style={styles.otpBtnText}>{otpSent ? t('resend') : t('get_otp')}</Text>
               }
             </TouchableOpacity>
           </View>
-          {otpSent && <Text style={styles.otpHint}>✓ OTP sent to {mobile}</Text>}
+          {otpSent && <Text style={styles.otpHint}>{t('otp_sent_to', { mobile })}</Text>}
 
           <TouchableOpacity
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
@@ -198,7 +197,7 @@ export default function LoginScreen() {
           >
             {loading
               ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.submitBtnText}>Sign In →</Text>
+              : <Text style={styles.submitBtnText}>{t('sign_in_arrow')}</Text>
             }
           </TouchableOpacity>
 
@@ -206,15 +205,15 @@ export default function LoginScreen() {
             style={styles.forgotWrap}
             onPress={() => router.push('/(auth)/forgot-password')}
           >
-            <Text style={styles.forgotText}>Forgot Password?</Text>
+            <Text style={styles.forgotText}>{t('forgot_password')}</Text>
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <View style={styles.switchRow}>
-            <Text style={styles.switchText}>Don't have an account? </Text>
+            <Text style={styles.switchText}>{t('no_account')}</Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
-              <Text style={styles.switchLink}>Create one free →</Text>
+              <Text style={styles.switchLink}>{t('create_one_free')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -222,7 +221,7 @@ export default function LoginScreen() {
             style={styles.altLink}
             onPress={() => router.push('/(hospital)/login')}
           >
-            <Text style={styles.altLinkText}>Are you a hospital?  Hospital Login →</Text>
+            <Text style={styles.altLinkText}>{t('are_you_hospital')}</Text>
           </TouchableOpacity>
 
         </ScrollView>

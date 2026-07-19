@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { getUser, logoutUser } from '../../services/api';
+import { useI18n } from '../../services/i18n';
 
 
 interface UserProfile {
@@ -23,15 +24,15 @@ interface UserProfile {
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [waSaving, setWaSaving] = useState(false);
 
   useFocusEffect(useCallback(() => { getUser().then(setUser); }, []));
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await logoutUser(); setUser(null); } },
+    Alert.alert(t('logout'), t('logout_confirm'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('logout'), style: 'destructive', onPress: async () => { await logoutUser(); setUser(null); } },
     ]);
   };
 
@@ -40,13 +41,13 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.loginPrompt}>
         <Text style={{ fontSize: 56, marginBottom: 16 }}>👤</Text>
-        <Text style={styles.title}>Not Logged In</Text>
-        <Text style={styles.sub}>Create an account or login to manage your bookings</Text>
+        <Text style={styles.title}>{t('not_logged_in')}</Text>
+        <Text style={styles.sub}>{t('not_logged_in_sub')}</Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.primaryBtnText}>Login →</Text>
+          <Text style={styles.primaryBtnText}>{t('login_arrow')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.outlineBtn} onPress={() => router.push('/(auth)/register')}>
-          <Text style={styles.outlineBtnText}>Create Account</Text>
+          <Text style={styles.outlineBtnText}>{t('create_account')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -55,14 +56,12 @@ export default function ProfileScreen() {
   const initials = (name: string): string =>
     name ? name.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) : '??';
 
-  const waEnabled = user.whatsapp_opt_in !== false;
-
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>{t('profile')}</Text>
         </View>
 
         {/* Avatar card */}
@@ -82,12 +81,15 @@ export default function ProfileScreen() {
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {[
-            { icon: '🎫', label: 'My Bookings',        onPress: () => router.push('/(patient)/my-bookings') },
-            { icon: '🩺', label: 'Find Doctors',       onPress: () => router.push('/(patient)/doctors')     },
-            { icon: '📞', label: 'Contact Us',         onPress: () => router.push('/(patient)/contact')     },
-            { icon: '📋', label: 'Terms & Conditions', onPress: () => router.push('/(patient)/terms')       },
-            { icon: '🔒', label: 'Privacy Policy',     onPress: () => router.push('/(patient)/privacy')     },
-            { icon: '💰', label: 'Refund Policy',      onPress: () => router.push('/(patient)/refund')      },
+            { icon: '✏️', label: t('menu_edit_profile'),    onPress: () => router.push('/(patient)/edit-profile')  },
+            { icon: '🔑', label: t('menu_change_password'), onPress: () => router.push('/(auth)/forgot-password')  },
+            { icon: '🎫', label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
+            { icon: '🩺', label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
+            { icon: 'ℹ️', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },
+            { icon: '📞', label: t('menu_contact'),      onPress: () => router.push('/(patient)/contact')     },
+            { icon: '📋', label: t('menu_terms'),        onPress: () => router.push('/(patient)/terms')       },
+            { icon: '🔒', label: t('menu_privacy'),      onPress: () => router.push('/(patient)/privacy')     },
+            { icon: '💰', label: t('menu_refund'),       onPress: () => router.push('/(patient)/refund')      },
           ].map(({ icon, label, onPress }) => (
             <TouchableOpacity key={label} style={styles.menuItem} onPress={onPress}>
               <View style={styles.menuIconBox}>
@@ -102,9 +104,9 @@ export default function ProfileScreen() {
         {/* App info */}
         <View style={styles.infoSection}>
           {[
-            { label: 'App Version', value: 'v1.1.1'                   },
-            { label: 'Platform',    value: 'TokenWalla'                },
-            { label: 'Support',     value: 'support@tokenwalla.com'    },
+            { label: t('app_version'), value: 'v1.1.2'                },
+            { label: t('platform'),    value: 'TokenWalla'            },
+            { label: t('support'),     value: 'support@tokenwalla.com' },
           ].map(({ label, value }) => (
             <View key={label} style={styles.infoRow}>
               <Text style={styles.infoLabel}>{label}</Text>
@@ -116,7 +118,7 @@ export default function ProfileScreen() {
         {/* Logout */}
         <View style={{ padding: 20, paddingBottom: 40 }}>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutBtnText}>🚪 Logout</Text>
+            <Text style={styles.logoutBtnText}>🚪 {t('logout')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

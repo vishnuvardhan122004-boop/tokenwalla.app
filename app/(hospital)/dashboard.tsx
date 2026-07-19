@@ -16,7 +16,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,6 +36,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
+import { notifyHospitalNewBooking } from '../../services/notifications';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +56,7 @@ interface Doctor {
   max_per_slot: number | string;
   available: boolean;
   slots: string[];
+  days?: string[];
   image?: string;
   hospital_image?: string;
 }
@@ -83,6 +85,7 @@ interface FormState {
   max_per_slot: string;
   available: boolean;
   slots: string[];
+  days: string[];
 }
 
 interface ImageFile {
@@ -112,6 +115,17 @@ const SLOT_SECTIONS = [
   { label: "🌙 Night",                      slots: DEFAULT_SLOTS.slice(40, 48) },
 ];
 
+// Days of the week the doctor is available on (separate from time slots).
+const DAYS_OF_WEEK: { key: string; label: string }[] = [
+  { key: 'Mon', label: 'Monday'    },
+  { key: 'Tue', label: 'Tuesday'   },
+  { key: 'Wed', label: 'Wednesday' },
+  { key: 'Thu', label: 'Thursday'  },
+  { key: 'Fri', label: 'Friday'    },
+  { key: 'Sat', label: 'Saturday'  },
+  { key: 'Sun', label: 'Sunday'    },
+];
+
 const EMPTY_FORM: FormState = {
   name:           '',
   specialization: '',
@@ -121,6 +135,7 @@ const EMPTY_FORM: FormState = {
   max_per_slot:   '10',
   available:      true,
   slots:          [],
+  days:           [],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -201,16 +216,39 @@ export default function HospitalDashboard() {
     })();
   }, []);
 
+  // Tracks booking ids already seen so we only notify on genuinely new bookings.
+  // null until the first successful load (so we don't alert for the initial batch).
+  const knownIdsRef = useRef<Set<string> | null>(null);
+
   // ── Load Queue ────────────────────────────────────────────────────────────
   const loadQueue = useCallback(async () => {
     if (!hospital) return;
     try {
       const { data } = await API.get(`/bookings/queue/${hospital.id}/`);
-      setQueue({
-        waiting:    Array.isArray(data.waiting)    ? data.waiting    : [],
-        inProgress: Array.isArray(data.inProgress) ? data.inProgress : [],
-        completed:  Array.isArray(data.completed)  ? data.completed  : [],
-      });
+      const waiting    = Array.isArray(data.waiting)    ? data.waiting    : [];
+      const inProgress = Array.isArray(data.inProgress) ? data.inProgress : [];
+      const completed  = Array.isArray(data.completed)  ? data.completed  : [];
+      setQueue({ waiting, inProgress, completed });
+
+      // ── Notify hospital of newly-booked (waiting) patients ──
+      const allIds = [...waiting, ...inProgress, ...completed].map((p: Patient) => String(p.id));
+      if (knownIdsRef.current === null) {
+        // First load — seed the baseline, don't notify.
+        knownIdsRef.current = new Set(allIds);
+      } else {
+        const known = knownIdsRef.current;
+        for (const p of waiting as Patient[]) {
+          if (!known.has(String(p.id))) {
+            notifyHospitalNewBooking({
+              patientName: p.user_name,
+              doctorName:  p.doctor_name,
+              slot:        p.slot,
+              token:       p.token != null ? String(p.token) : undefined,
+            });
+          }
+        }
+        knownIdsRef.current = new Set(allIds);
+      }
     } catch {}
   }, [hospital]);
 
@@ -313,6 +351,7 @@ export default function HospitalDashboard() {
       max_per_slot:   String(doc.max_per_slot || 10),
       available:      doc.available       ?? true,
       slots:          doc.slots           || [],
+      days:           doc.days            || [],
     });
     setDoctorImageFile(null);
     setDoctorImagePreview(isValidImage(doc.image) ? doc.image! : null);
@@ -346,6 +385,16 @@ export default function HospitalDashboard() {
     }));
   };
 
+  // ── Day toggle ────────────────────────────────────────────────────────────
+  const toggleDay = (day: string) => {
+    setForm(prev => ({
+      ...prev,
+      days: prev.days.includes(day)
+        ? prev.days.filter((d: string) => d !== day)
+        : [...prev.days, day],
+    }));
+  };
+
   // ── Submit doctor form ────────────────────────────────────────────────────
   const submitForm = async () => {
     if (!form.name.trim())           { Alert.alert('Validation', 'Doctor name is required');       return; }
@@ -354,6 +403,7 @@ export default function HospitalDashboard() {
       Alert.alert('Validation', 'Enter a valid 10-digit Indian mobile number');
       return;
     }
+    if (form.days.length === 0)  { Alert.alert('Validation', 'Select at least one available day'); return; }
     if (form.slots.length === 0) { Alert.alert('Validation', 'Select at least one time slot'); return; }
 
     setSaving(true);
@@ -367,6 +417,7 @@ export default function HospitalDashboard() {
       payload.append('max_per_slot',   form.max_per_slot || '10');
       payload.append('available',      String(form.available));
       payload.append('slots',          JSON.stringify(form.slots));
+      payload.append('days',           JSON.stringify(form.days));
 
       if (!editDoc && hospital) {
         payload.append('hospital', String(hospital.id));
@@ -599,6 +650,51 @@ export default function HospitalDashboard() {
                 />
               </View>
 
+              {/* ── AVAILABLE DAYS ────────────────────────────────────── */}
+              <Text style={styles.formSection}>
+                AVAILABLE DAYS  ({form.days.length} of {DAYS_OF_WEEK.length} selected)
+              </Text>
+
+              <View style={styles.slotActions}>
+                <TouchableOpacity
+                  style={styles.slotActionBtn}
+                  onPress={() => setForm(p => ({ ...p, days: DAYS_OF_WEEK.map(d => d.key) }))}
+                >
+                  <Text style={styles.slotActionText}>✅ Select All</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
+                  onPress={() => setForm(p => ({ ...p, days: [] }))}
+                >
+                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>🗑 Clear All</Text>
+                </TouchableOpacity>
+              </View>
+
+              {form.days.length === 0 && (
+                <View style={styles.slotWarning}>
+                  <Text style={{ fontSize: 13, color: Colors.errorText }}>
+                    ⚠️ Please select at least one day
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.slotGrid}>
+                {DAYS_OF_WEEK.map(({ key, label }) => {
+                  const selected = form.days.includes(key);
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.dayChip, selected && styles.slotChipActive]}
+                      onPress={() => toggleDay(key)}
+                    >
+                      <Text style={[styles.slotChipText, selected && styles.slotChipTextActive]}>
+                        {label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               {/* ── SLOTS ─────────────────────────────────────────────── */}
               <Text style={styles.formSection}>
                 TIME SLOTS  ({form.slots.length} of {DEFAULT_SLOTS.length} selected)
@@ -659,28 +755,38 @@ export default function HospitalDashboard() {
           NAVBAR
       ══════════════════════════════════════════════════════════════════════ */}
       <View style={styles.navbar}>
-        <View>
-          <Text style={styles.navTitle}>🏥 {hospital.name}</Text>
-          <View style={styles.liveRow}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>Live · Auto-refreshes every 10s</Text>
+        <View style={styles.navLeft}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(patient)/home')}>
+            <Text style={styles.backBtnText}>←</Text>
+          </TouchableOpacity>
+          <View style={{ flexShrink: 1 }}>
+            <Text style={styles.navTitle} numberOfLines={1}>🏥 {hospital.name}</Text>
+            <View style={styles.liveRow}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Live · Auto-refreshes every 10s</Text>
+            </View>
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={() => {
-            Alert.alert('Logout', 'Are you sure?', [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Logout', style: 'destructive', onPress: () => {
-  logoutUser().catch(() => {
-    Alert.alert('Error', 'Logout failed. Please try again.');
-  });
-}, },
-            ]);
-          }}
-        >
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        <View style={styles.navRight}>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(hospital)/profile')}>
+            <Text style={styles.profileBtnText}>👤</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => {
+              Alert.alert('Logout', 'Are you sure?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Logout', style: 'destructive', onPress: () => {
+                  logoutUser().catch(() => {
+                    Alert.alert('Error', 'Logout failed. Please try again.');
+                  });
+                }, },
+              ]);
+            }}
+          >
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ══════════════════════════════════════════════════════════════════════
@@ -725,6 +831,12 @@ export default function HospitalDashboard() {
               👨‍⚕️ Doctors ({doctors.length})
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => router.push('/(hospital)/scanner')}
+          >
+            <Text style={styles.tabText}>📷 Scan QR</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ══════════════════════════════════════════════════════════════════
@@ -744,9 +856,14 @@ export default function HospitalDashboard() {
                     <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
                     <Text style={styles.tokenBadge}>Token: {p.token}</Text>
                   </View>
-                  <TouchableOpacity style={styles.callBtn} onPress={() => callNext(p.id)}>
-                    <Text style={styles.callBtnText}>Call →</Text>
-                  </TouchableOpacity>
+                  <View style={styles.patientActions}>
+                    <TouchableOpacity style={styles.callBtn} onPress={() => callNext(p.id)}>
+                      <Text style={styles.callBtnText}>Call →</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.scanShortcutBtn} onPress={() => router.push('/(hospital)/scanner')}>
+                      <Text style={styles.scanShortcutText}>📷 Scan</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))
             }
@@ -862,6 +979,20 @@ export default function HospitalDashboard() {
                       </View>
                     </View>
 
+                    {/* ── Days Preview ── */}
+                    {doc.days && doc.days.length > 0 && (
+                      <View style={styles.slotPreviewRow}>
+                        <Text style={styles.slotPreviewLabel}>📅 Days:</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, flex: 1 }}>
+                          {doc.days.map((d: string) => (
+                            <View key={d} style={styles.slotPreviewChip}>
+                              <Text style={styles.slotPreviewText}>{d}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
                     {/* ── Slot Preview ── */}
                     {doc.slots && doc.slots.length > 0 && (
                       <View style={styles.slotPreviewRow}>
@@ -925,6 +1056,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
 
   navbar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
+  navLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  navRight:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn:   { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center' },
+  backBtnText: { fontSize: 18, fontWeight: '800', color: Colors.blue600 },
+  profileBtn:  { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center' },
+  profileBtnText: { fontSize: 16 },
   navTitle:  { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
   liveRow:   { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   liveDot:   { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.successText },
@@ -949,8 +1086,11 @@ const styles = StyleSheet.create({
   patientName:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
   patientMeta:  { fontSize: 12, color: Colors.gray500, marginBottom: 2 },
   tokenBadge:   { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginTop: 4 },
-  callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  patientActions:   { gap: 6, alignItems: 'stretch' },
+  callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
+  scanShortcutBtn:  { borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
+  scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
   doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
   doneBtnText:  { color: Colors.successText, fontWeight: '700', fontSize: 13 },
   completedBadge: { backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
@@ -1029,6 +1169,7 @@ const styles = StyleSheet.create({
   slotSectionLabel: { fontSize: 11, fontWeight: '700', color: Colors.gray500, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
   slotGrid:             { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slotChip:             { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50 },
+  dayChip:              { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50 },
   slotChipActive:       { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
   slotChipText:         { fontSize: 12, fontWeight: '500', color: Colors.gray600 },
   slotChipTextActive:   { color: Colors.white, fontWeight: '700' },

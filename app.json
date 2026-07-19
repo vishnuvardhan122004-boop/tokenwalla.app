@@ -49,8 +49,21 @@
           "locationWhenInUsePermission": "Allow TokenWalla to find doctors near you."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow TokenWalla to use the camera to scan patient QR codes."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#185FA5"
+        }
+      ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -58,6 +71,8 @@
     },
     "extra": {
       "router": {},
+      "apiBaseUrl": "https://tokenwalla-production.up.railway.app/api",
+      "razorpayKeyId": "rzp_live_SoKq7xISlxWRoY",
       "eas": {
         "projectId": "a90d2f1b-7cca-4242-93d9-1a437161fef1"
       }
