@@ -18,6 +18,15 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
+import {
+  clearByAudience,
+  countUnread,
+  insertNotification,
+  markManyRead,
+  markOneRead,
+  removeById,
+  selectForAudience,
+} from './notificationStore.logic';
 
 export type NotificationAudience = 'patient' | 'hospital';
 
@@ -33,7 +42,6 @@ export type AppNotification = {
 };
 
 const STORAGE_KEY = 'tw.notifications.v1';
-const MAX_ENTRIES = 60;
 
 // In-memory cache + simple pub/sub so the bell + list stay in sync app-wide.
 let _cache: AppNotification[] | null = null;
@@ -46,7 +54,7 @@ const _listeners = new Set<(items: AppNotification[]) => void>();
 let _badgeSync: ((totalUnread: number) => void) | null = null;
 export function setBadgeSync(fn: ((totalUnread: number) => void) | null): void {
   _badgeSync = fn;
-  if (fn && _cache) fn(_cache.reduce((a, n) => a + (n.read ? 0 : 1), 0));
+  if (fn && _cache) fn(countUnread(_cache));
 }
 
 async function load(): Promise<AppNotification[]> {
@@ -74,7 +82,7 @@ async function persist(items: AppNotification[]): Promise<void> {
     // best-effort; the in-memory cache still reflects the change this session
   }
   _listeners.forEach((fn) => fn(items));
-  _badgeSync?.(items.reduce((a, n) => a + (n.read ? 0 : 1), 0));
+  _badgeSync?.(countUnread(items));
 }
 
 /**
@@ -93,7 +101,6 @@ export async function recordNotification(input: {
 }): Promise<void> {
   if (!input?.id) return;
   const items = await load();
-  if (items.some((n) => n.id === input.id)) return;
 
   const entry: AppNotification = {
     id: input.id,
@@ -106,55 +113,38 @@ export async function recordNotification(input: {
     read: false,
   };
 
-  const next = [entry, ...items]
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, MAX_ENTRIES);
-  await persist(next);
+  const next = insertNotification(items, entry);
+  if (next !== items) await persist(next); // no-op when the id was a duplicate
 }
 
 export async function getStoredNotifications(
   audience?: NotificationAudience,
 ): Promise<AppNotification[]> {
-  const items = await load();
-  return audience ? items.filter((n) => n.audience === audience) : items;
+  return selectForAudience(await load(), audience);
 }
 
 export async function markAsRead(id: string): Promise<void> {
   const items = await load();
-  let changed = false;
-  const next = items.map((n) => {
-    if (n.id === id && !n.read) {
-      changed = true;
-      return { ...n, read: true };
-    }
-    return n;
-  });
-  if (changed) await persist(next);
+  const next = markOneRead(items, id);
+  if (next !== items) await persist(next);
 }
 
 export async function markAllRead(audience?: NotificationAudience): Promise<void> {
   const items = await load();
-  let changed = false;
-  const next = items.map((n) => {
-    if (!n.read && (!audience || n.audience === audience)) {
-      changed = true;
-      return { ...n, read: true };
-    }
-    return n;
-  });
-  if (changed) await persist(next);
+  const next = markManyRead(items, audience);
+  if (next !== items) await persist(next);
 }
 
 export async function removeNotification(id: string): Promise<void> {
   const items = await load();
-  const next = items.filter((n) => n.id !== id);
-  if (next.length !== items.length) await persist(next);
+  const next = removeById(items, id);
+  if (next !== items) await persist(next);
 }
 
 export async function clearNotifications(audience?: NotificationAudience): Promise<void> {
   const items = await load();
-  const next = audience ? items.filter((n) => n.audience !== audience) : [];
-  if (next.length !== items.length) await persist(next);
+  const next = clearByAudience(items, audience);
+  if (next !== items) await persist(next);
 }
 
 function subscribe(fn: (items: AppNotification[]) => void): () => void {
@@ -187,8 +177,8 @@ export function useNotificationCenter(audience: NotificationAudience) {
     };
   }, []);
 
-  const notifications = all.filter((n) => n.audience === audience);
-  const unreadCount = notifications.reduce((acc, n) => acc + (n.read ? 0 : 1), 0);
+  const notifications = selectForAudience(all, audience);
+  const unreadCount = countUnread(all, audience);
 
   return {
     ready,
