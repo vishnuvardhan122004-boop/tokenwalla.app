@@ -4,7 +4,11 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { I18nProvider } from '../services/i18n';
-import { addNotificationResponseListener, ensureNotificationSetup } from '../services/notifications';
+import {
+  addNotificationReceivedListener,
+  addNotificationResponseListener,
+  ensureNotificationSetup,
+} from '../services/notifications';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -13,7 +17,7 @@ export default function RootLayout() {
     ensureNotificationSetup();
 
     // Tapping a notification opens the relevant screen.
-    const unsubscribe = addNotificationResponseListener((data) => {
+    const unsubTap = addNotificationResponseListener((data) => {
       if (data?.screen === 'my-bookings') {
         router.push('/(patient)/my-bookings');
       } else if (data?.screen === 'hospital-dashboard') {
@@ -21,7 +25,13 @@ export default function RootLayout() {
       }
     });
 
-    return unsubscribe;
+    // Record every delivered notification into the in-app notification centre.
+    const unsubReceived = addNotificationReceivedListener();
+
+    return () => {
+      unsubTap();
+      unsubReceived();
+    };
   }, []);
 
   return (

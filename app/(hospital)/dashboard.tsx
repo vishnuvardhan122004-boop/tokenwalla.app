@@ -35,8 +35,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
-import { notifyHospitalNewBooking } from '../../services/notifications';
+import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -213,6 +214,8 @@ export default function HospitalDashboard() {
         return;
       }
       setHospital(user.hospital);
+      // Register this device so the hospital gets new-booking pushes in the background.
+      registerPushToken('hospital');
     })();
   }, []);
 
@@ -768,6 +771,10 @@ export default function HospitalDashboard() {
           </View>
         </View>
         <View style={styles.navRight}>
+          <NotificationBell
+            audience="hospital"
+            onPress={() => router.push('/(patient)/notifications?audience=hospital')}
+          />
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(hospital)/profile')}>
             <Text style={styles.profileBtnText}>👤</Text>
           </TouchableOpacity>

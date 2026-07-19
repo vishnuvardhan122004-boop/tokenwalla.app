@@ -28,10 +28,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
 
 export default function EditProfile() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const [origName,   setOrigName]   = useState('');
   const [origMobile, setOrigMobile] = useState('');
@@ -61,14 +63,14 @@ export default function EditProfile() {
   const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m.trim());
 
   const sendOtp = async () => {
-    if (!isValidMobile(mobile)) { Alert.alert('Invalid', 'Enter a valid 10-digit mobile number.'); return; }
+    if (!isValidMobile(mobile)) { Alert.alert(t('ep_invalid'), t('ep_invalid_mobile')); return; }
     setOtpLoading(true);
     try {
       await API.post('/auth/otp/request/', { mobile: mobile.trim(), via: 'sms' });
       setOtpSent(true);
       setOtpVerified(false);
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Could not send OTP. Try again.');
+      Alert.alert(t('error'), e?.response?.data?.message || t('ep_otp_send_fail'));
     } finally {
       setOtpLoading(false);
     }
@@ -79,18 +81,18 @@ export default function EditProfile() {
     setOtpLoading(true);
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile: mobile.trim(), otp: otp.trim() });
-      if (data?.verified) { setOtpVerified(true); Alert.alert('✅ Verified', 'New mobile number verified.'); }
-      else Alert.alert('Invalid OTP', 'Please check and try again.');
+      if (data?.verified) { setOtpVerified(true); Alert.alert(t('ep_verified_title'), t('ep_verified_msg')); }
+      else Alert.alert(t('ep_invalid_otp'), t('ep_check_try_again'));
     } catch (e: any) {
-      Alert.alert('Invalid OTP', e?.response?.data?.message || 'Please try again.');
+      Alert.alert(t('ep_invalid_otp'), e?.response?.data?.message || t('ep_try_again'));
     } finally {
       setOtpLoading(false);
     }
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { Alert.alert('Validation', 'Name is required.'); return; }
-    if (mobileChanged && !otpVerified) { Alert.alert('Verify Mobile', 'Please verify your new mobile number with OTP first.'); return; }
+    if (!name.trim()) { Alert.alert(t('ep_validation'), t('ep_name_required')); return; }
+    if (mobileChanged && !otpVerified) { Alert.alert(t('ep_verify_mobile'), t('ep_verify_mobile_msg')); return; }
 
     setSaving(true);
     try {
@@ -105,15 +107,15 @@ export default function EditProfile() {
       if (mobileChanged) user.mobile = data?.mobile ?? mobile.trim();
       await AsyncStorage.setItem('user', JSON.stringify(user));
 
-      Alert.alert('✅ Saved', 'Your profile has been updated.', [
-        { text: 'OK', onPress: () => router.back() },
+      Alert.alert(t('ep_saved_title'), t('ep_saved_msg'), [
+        { text: t('ok'), onPress: () => router.back() },
       ]);
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 404 || status === 405) {
-        Alert.alert('Not available yet', 'Profile editing isn’t enabled on the server yet. Please contact support.');
+        Alert.alert(t('ep_not_available'), t('ep_not_available_msg'));
       } else {
-        Alert.alert('Error', e?.response?.data?.message || 'Could not save. Please try again.');
+        Alert.alert(t('error'), e?.response?.data?.message || t('ep_save_fail'));
       }
     } finally {
       setSaving(false);
@@ -128,24 +130,24 @@ export default function EditProfile() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Text style={styles.backBtnText}>{t('back')}</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Edit Profile</Text>
+        <Text style={styles.headerTitle}>{t('ep_title')}</Text>
         <View style={{ width: 60 }} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
 
-          <Text style={styles.label}>Full Name</Text>
-          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={Colors.gray400} />
+          <Text style={styles.label}>{t('ep_full_name')}</Text>
+          <TextInput style={styles.input} value={name} onChangeText={setName} placeholder={t('ep_your_name_ph')} placeholderTextColor={Colors.gray400} />
 
-          <Text style={styles.label}>Mobile Number</Text>
+          <Text style={styles.label}>{t('ep_mobile')}</Text>
           <TextInput
             style={styles.input}
             value={mobile}
             onChangeText={v => { setMobile(v.replace(/\D/g, '')); setOtpSent(false); setOtpVerified(false); }}
-            placeholder="10-digit mobile"
+            placeholder={t('ep_mobile_ph')}
             placeholderTextColor={Colors.gray400}
             keyboardType="numeric"
             maxLength={10}
@@ -154,10 +156,10 @@ export default function EditProfile() {
           {/* Mobile-change OTP flow */}
           {mobileChanged && !otpVerified && (
             <View style={styles.otpBox}>
-              <Text style={styles.otpHint}>Changing your mobile requires verification.</Text>
+              <Text style={styles.otpHint}>{t('ep_change_needs_verify')}</Text>
               {!otpSent ? (
                 <TouchableOpacity style={styles.otpBtn} onPress={sendOtp} disabled={otpLoading}>
-                  {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.otpBtnText}>Send OTP to new number</Text>}
+                  {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.otpBtnText}>{t('ep_send_otp_new')}</Text>}
                 </TouchableOpacity>
               ) : (
                 <>
@@ -166,22 +168,22 @@ export default function EditProfile() {
                       style={[styles.input, { flex: 1, marginBottom: 0 }]}
                       value={otp}
                       onChangeText={setOtp}
-                      placeholder="Enter OTP"
+                      placeholder={t('ep_enter_otp_ph')}
                       placeholderTextColor={Colors.gray400}
                       keyboardType="numeric"
                       maxLength={6}
                     />
                     <TouchableOpacity style={styles.verifyBtn} onPress={verifyOtp} disabled={otpLoading}>
-                      {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.verifyBtnText}>Verify</Text>}
+                      {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.verifyBtnText}>{t('ep_verify')}</Text>}
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={sendOtp}><Text style={styles.resendText}>Resend OTP</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={sendOtp}><Text style={styles.resendText}>{t('ep_resend_otp')}</Text></TouchableOpacity>
                 </>
               )}
             </View>
           )}
           {mobileChanged && otpVerified && (
-            <Text style={styles.verifiedText}>✓ New mobile verified</Text>
+            <Text style={styles.verifiedText}>{t('ep_new_verified')}</Text>
           )}
 
           <TouchableOpacity
@@ -189,13 +191,13 @@ export default function EditProfile() {
             onPress={handleSave}
             disabled={saving}
           >
-            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveBtnText}>Save Changes</Text>}
+            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.saveBtnText}>{t('ep_save_changes')}</Text>}
           </TouchableOpacity>
 
           {/* Change password */}
           <View style={styles.divider} />
           <TouchableOpacity style={styles.pwdBtn} onPress={() => router.push('/(auth)/forgot-password')}>
-            <Text style={styles.pwdBtnText}>🔑  Change Password</Text>
+            <Text style={styles.pwdBtnText}>{t('ep_change_password')}</Text>
             <Text style={styles.pwdArrow}>›</Text>
           </TouchableOpacity>
 

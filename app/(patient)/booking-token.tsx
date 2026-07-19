@@ -8,10 +8,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../services/i18n';
 import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
+  const { t } = useI18n();
   const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile } = useLocalSearchParams();
   const notifiedRef = useRef(false);
 
@@ -51,8 +53,8 @@ export default function BookingTokenScreen() {
         <View style={styles.successIcon}>
           <Text style={{ fontSize: 40 }}>✅</Text>
         </View>
-        <Text style={styles.title}>Booking Confirmed!</Text>
-        <Text style={styles.sub}>Your appointment is booked. Show this token at the hospital.</Text>
+        <Text style={styles.title}>{t('bt_confirmed')}</Text>
+        <Text style={styles.sub}>{t('bt_confirmed_sub')}</Text>
 
         {/* Token Card */}
         <View style={styles.card}>
@@ -66,15 +68,15 @@ export default function BookingTokenScreen() {
             </View>
             <View style={styles.confirmedBadge}>
               <View style={styles.confirmedDot} />
-              <Text style={styles.confirmedText}>Confirmed</Text>
+              <Text style={styles.confirmedText}>{t('bt_confirmed_badge')}</Text>
             </View>
           </View>
 
           {/* Token Number */}
           <View style={styles.tokenSection}>
-            <Text style={styles.tokenLabel}>YOUR TOKEN NUMBER</Text>
+            <Text style={styles.tokenLabel}>{t('bt_your_token_no')}</Text>
             <Text style={styles.tokenNumber}>{String(token)}</Text>
-            <Text style={styles.tokenSub}>Present this at reception</Text>
+            <Text style={styles.tokenSub}>{t('bt_present_reception')}</Text>
           </View>
 
           <View style={styles.dashed} />
@@ -82,13 +84,13 @@ export default function BookingTokenScreen() {
           {/* Info Grid */}
           <View style={styles.infoGrid}>
             {[
-              { label: 'Doctor',   value: `Dr. ${doctorName}` },
-              { label: 'Patient',  value: String(userName || '—') },
-              { label: 'Date',     value: String(date || '—') },
-              { label: 'Slot',     value: String(slot || '—') },
-              { label: 'Hospital', value: `🏥 ${hospital}` },
-              { label: 'Contact',  value: `📞 ${doctorMobile || '—'}` },
-              ...(paymentId ? [{ label: 'Payment ID', value: String(paymentId).slice(0, 20) + '...' }] : []),
+              { label: t('bt_doctor'),   value: `Dr. ${doctorName}` },
+              { label: t('bt_patient'),  value: String(userName || '—') },
+              { label: t('bt_date'),     value: String(date || '—') },
+              { label: t('bt_slot'),     value: String(slot || '—') },
+              { label: t('bt_hospital'), value: `🏥 ${hospital}` },
+              { label: t('bt_contact'),  value: `📞 ${doctorMobile || '—'}` },
+              ...(paymentId ? [{ label: t('bt_payment_id'), value: String(paymentId).slice(0, 20) + '...' }] : []),
             ].map(({ label, value }) => (
               <View key={label} style={styles.infoRow}>
                 <Text style={styles.infoLabel}>{label}</Text>
@@ -101,8 +103,8 @@ export default function BookingTokenScreen() {
           <View style={styles.queueRow}>
             <Text style={{ fontSize: 18, marginRight: 10 }}>📍</Text>
             <View>
-              <Text style={styles.queueTitle}>Queue View Active</Text>
-              <Text style={styles.queueDesc}>Track your live position in My Bookings</Text>
+              <Text style={styles.queueTitle}>{t('bt_queue_active')}</Text>
+              <Text style={styles.queueDesc}>{t('bt_queue_active_desc')}</Text>
             </View>
           </View>
         </View>
@@ -112,20 +114,17 @@ export default function BookingTokenScreen() {
           style={styles.primaryBtn}
           onPress={() => router.replace('/(patient)/my-bookings')}
         >
-          <Text style={styles.primaryBtnText}>View My Bookings →</Text>
+          <Text style={styles.primaryBtnText}>{t('bt_view_my_bookings')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.outlineBtn}
           onPress={() => router.replace('/(patient)/doctors')}
         >
-          <Text style={styles.outlineBtnText}>Book Another Appointment</Text>
+          <Text style={styles.outlineBtnText}>{t('bt_book_another')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.note}>
-          Keep this token handy. You'll need it at the hospital reception.{'\n'}
-          For support: tokentraq@gmail.com
-        </Text>
+        <Text style={styles.note}>{t('bt_note')}</Text>
       </ScrollView>
     </SafeAreaView>
   );
