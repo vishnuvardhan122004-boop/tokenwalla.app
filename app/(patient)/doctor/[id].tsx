@@ -13,90 +13,51 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
-import { BOOKING_LEAD_MS } from '../../../constants/config';
 import API, { getUser } from '../../../services/api';
+import {
+  directionsUrl,
+  getNext7Days,
+  isOpenNow,
+  isSlotTooSoon,
+} from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 
-// Local YYYY-MM-DD (NOT toISOString, which converts to UTC and shifts the date
-// by a day for evening users in +05:30 / other ahead-of-UTC timezones).
-function toLocalISODate(d) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+interface SlotInfo { booked: number; max: number; full: boolean; }
+interface GalleryPhoto { id: number | string; url: string; }
+
+interface Hospital {
+  name?: string; city?: string; image?: string; logo?: string;
+  mobile?: string; location?: string;
+  instagram?: string; youtube?: string; facebook?: string;
+  open_time?: string; close_time?: string;
+  announcement?: string; description?: string;
+  services?: string[]; gallery?: GalleryPhoto[];
 }
 
-function getNext7Days() {
-  const days   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return {
-      label:  i === 0 ? 'Today' : days[d.getDay()],
-      dayKey: days[d.getDay()],   // Mon/Tue/... — matches doctor.days
-      num:    d.getDate(),
-      month:  months[d.getMonth()],
-      full:   toLocalISODate(d),
-    };
-  });
+interface Doctor {
+  id: number | string; name: string;
+  specialization?: string; city?: string; experience?: number;
+  available?: boolean; hospital?: number | string;
+  hospital_name?: string; hospital_image?: string; image?: string;
+  mobile?: string; fee?: number;
+  slots?: string[]; days?: string[]; max_per_slot?: number;
 }
 
+// The next 7 days, computed once at module load (the date/slot/open-hours
+// helpers now live in utils/booking.ts and are unit-tested there).
 const DAYS = getNext7Days();
-
-// Combine a YYYY-MM-DD date and a "hh:mm AM/PM" slot into a local Date.
-function slotDateTime(dateStr, slot) {
-  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec((dateStr || '').trim());
-  if (!dm) return null;
-  const sm = /(\d{1,2}):(\d{2})\s*(AM|PM)?/i.exec((slot || '').trim());
-  if (!sm) return null;
-  let hours = Number(sm[1]) % 12;
-  if ((sm[3] || '').toUpperCase() === 'PM') hours += 12;
-  return new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hours, Number(sm[2]), 0, 0);
-}
-
-// A slot is bookable only if it is at least BOOKING_LEAD_MS (2.1h) in the future.
-function isSlotTooSoon(dateStr, slot) {
-  const dt = slotDateTime(dateStr, slot);
-  if (!dt) return false;
-  return dt.getTime() < Date.now() + BOOKING_LEAD_MS;
-}
-
-// "HH:MM" → minutes since midnight, or null.
-function hmToMinutes(hm) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec((hm || '').trim());
-  if (!m) return null;
-  return Number(m[1]) * 60 + Number(m[2]);
-}
-
-// Is the hospital open right now given open/close "HH:MM"? null if hours unknown.
-function isOpenNow(open, close) {
-  const o = hmToMinutes(open), c = hmToMinutes(close);
-  if (o == null || c == null) return null;
-  const now = new Date();
-  const cur = now.getHours() * 60 + now.getMinutes();
-  return o <= c ? (cur >= o && cur < c) : (cur >= o || cur < c); // handle overnight
-}
-
-// Build a maps link: use the saved location if it's a URL, else search name+city.
-function directionsUrl(hospital) {
-  const loc = (hospital?.location || '').trim();
-  if (/^https?:\/\//i.test(loc)) return loc;
-  const q = encodeURIComponent([hospital?.name, hospital?.city].filter(Boolean).join(' '));
-  return `https://www.google.com/maps/search/?api=1&query=${q}`;
-}
 
 const PLAN = { price: 15, fee: 1500, name: 'Queue View', desc: 'Token + live queue position tracking' };
 
 export default function DoctorDetails() {
-  const { id }  = useLocalSearchParams();
+  const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
 
-  const [doctor,       setDoctor]       = useState(null);
-  const [hospitalInfo, setHospitalInfo] = useState(null);
+  const [doctor,       setDoctor]       = useState<Doctor | null>(null);
+  const [hospitalInfo, setHospitalInfo] = useState<Hospital | null>(null);
   const [loading,      setLoading]      = useState(true);
-  const [user,         setUser]         = useState(null);
-  const [slotAvail,    setSlotAvail]    = useState({}); // { "09:00 AM": { booked, max, full } }
+  const [user,         setUser]         = useState<any>(null);
+  const [slotAvail,    setSlotAvail]    = useState<Record<string, SlotInfo>>({}); // { "09:00 AM": { booked, max, full } }
   const [availLoading, setAvailLoading] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState(DAYS[0].full);
@@ -119,7 +80,7 @@ export default function DoctorDetails() {
   }, [id]);
 
   // Fetch slot availability whenever doctor or date changes
-  const fetchAvailability = useCallback(async (doctorId, date) => {
+  const fetchAvailability = useCallback(async (doctorId: number | string, date: string) => {
     setAvailLoading(true);
     try {
       const { data } = await API.get(`/doctors/${doctorId}/slot-availability/?date=${date}`);
@@ -149,12 +110,12 @@ export default function DoctorDetails() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctor]);
 
-  const handleDateChange = (date) => {
+  const handleDateChange = (date: string) => {
     setSelectedDate(date);
     setSelectedSlot('');
   };
 
-  const handleSlotPress = (slot) => {
+  const handleSlotPress = (slot: string) => {
     const info = slotAvail[slot];
     if (info?.full) return; // fully booked — ignore tap
     if (isSlotTooSoon(selectedDate, slot)) return; // too soon / past — ignore tap
@@ -162,6 +123,7 @@ export default function DoctorDetails() {
   };
 
   const handleBook = () => {
+    if (!doctor) return;
     if (!user) { router.push('/(auth)/login'); return; }
     if (!selectedSlot) { Alert.alert('Select Slot', 'Please select a time slot first'); return; }
     if (!doctor.available) { Alert.alert('Unavailable', 'This doctor is currently unavailable'); return; }
@@ -194,7 +156,7 @@ export default function DoctorDetails() {
   };
 
   // ── slot state helpers ──────────────────────────────────────────────────
-  const slotState = (slot) => {
+  const slotState = (slot: string) => {
     if (slot === selectedSlot) return 'selected';
     if (isSlotTooSoon(selectedDate, slot)) return 'past';
     const info = slotAvail[slot];
@@ -204,7 +166,7 @@ export default function DoctorDetails() {
     return 'available';
   };
 
-  const slotSubtext = (slot) => {
+  const slotSubtext = (slot: string) => {
     if (slot !== selectedSlot && isSlotTooSoon(selectedDate, slot)) return 'Too soon';
     const info = slotAvail[slot];
     if (!info || info.booked === 0) return null;
@@ -212,7 +174,7 @@ export default function DoctorDetails() {
     return `${info.max - info.booked} left`;
   };
 
-  const slotFillPct = (slot) => {
+  const slotFillPct = (slot: string) => {
     const info = slotAvail[slot];
     if (!info || info.max === 0) return 0;
     return Math.min(1, info.booked / info.max);
@@ -242,7 +204,7 @@ export default function DoctorDetails() {
     doctor.image.startsWith('http');
 
   // ── slot renderer ──────────────────────────────────────────────────────
-  const renderSlot = (s) => {
+  const renderSlot = (s: string) => {
     const state   = slotState(s);
     const sub     = slotSubtext(s);
     const fillPct = slotFillPct(s);
@@ -394,7 +356,7 @@ export default function DoctorDetails() {
           <Text style={styles.blockTitle}>👨‍⚕️ Doctor Info</Text>
 
           {/* Fee */}
-          {doctor.fee > 0 && (
+          {(doctor.fee ?? 0) > 0 && (
             <View style={styles.infoRow}>
               <View style={styles.infoIconBox}><Text>💰</Text></View>
               <View style={{ flex: 1 }}>
@@ -432,7 +394,7 @@ export default function DoctorDetails() {
         ) : null}
 
         {/* ── HOSPITAL CONTACT & SERVICES ── */}
-        {hospitalInfo && (hospitalInfo.mobile || hospitalInfo.location || hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook || hospitalInfo.open_time || (hospitalInfo.services?.length > 0)) && (() => {
+        {hospitalInfo && (hospitalInfo.mobile || hospitalInfo.location || hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook || hospitalInfo.open_time || ((hospitalInfo.services?.length ?? 0) > 0)) && (() => {
           const openNow = isOpenNow(hospitalInfo.open_time, hospitalInfo.close_time);
           return (
           <View style={styles.block}>
@@ -469,17 +431,17 @@ export default function DoctorDetails() {
             {(hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook) && (
               <View style={styles.socialRow}>
                 {hospitalInfo.instagram ? (
-                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.instagram)}>
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.instagram!)}>
                     <Text style={styles.socialBtnText}>📸 Instagram</Text>
                   </TouchableOpacity>
                 ) : null}
                 {hospitalInfo.youtube ? (
-                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.youtube)}>
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.youtube!)}>
                     <Text style={styles.socialBtnText}>▶️ YouTube</Text>
                   </TouchableOpacity>
                 ) : null}
                 {hospitalInfo.facebook ? (
-                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.facebook)}>
+                  <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.facebook!)}>
                     <Text style={styles.socialBtnText}>👍 Facebook</Text>
                   </TouchableOpacity>
                 ) : null}
@@ -487,7 +449,7 @@ export default function DoctorDetails() {
             )}
 
             {/* Services */}
-            {hospitalInfo.services?.length > 0 && (
+            {hospitalInfo.services && hospitalInfo.services.length > 0 && (
               <>
                 <Text style={styles.servicesLabel}>SERVICES</Text>
                 <View style={styles.servicesWrap}>
@@ -501,7 +463,7 @@ export default function DoctorDetails() {
             )}
 
             {/* Photo gallery */}
-            {hospitalInfo.gallery?.length > 0 && (
+            {hospitalInfo.gallery && hospitalInfo.gallery.length > 0 && (
               <>
                 <Text style={styles.servicesLabel}>PHOTOS</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
@@ -518,7 +480,7 @@ export default function DoctorDetails() {
         {/* ── DATE PICKER ── */}
         <View style={styles.block}>
           <Text style={styles.blockTitle}>📅 Select Date</Text>
-          {doctor.days?.length > 0 && (
+          {doctor.days && doctor.days.length > 0 && (
             <Text style={styles.workingDaysNote}>
               🩺 Works on: {doctor.days.join(', ')}
             </Text>
@@ -775,7 +737,7 @@ const styles = StyleSheet.create({
   slotTime:         { fontSize: 12, fontWeight: '500', color: Colors.gray600 },
   slotTimeSelected: { color: Colors.blue600, fontWeight: '700' },
   slotTimePartial:  { color: '#854F0B' },
-  slotTimeFull:     { color: Colors.gray400, textDecorationLine: 'line-through', textDecorationColor: Colors.gray300 },
+  slotTimeFull:     { color: Colors.gray400, textDecorationLine: 'line-through', textDecorationColor: Colors.gray200 },
 
   slotSub:         { fontSize: 9, fontWeight: '700', marginTop: 1 },
   slotSubPartial:  { color: '#854F0B' },

@@ -10,6 +10,8 @@ web-build/
 expo-env.d.ts
 
 # Native
+google-services.json
+GoogleService-Info.plist
 .kotlin/
 *.orig.*
 *.jks
