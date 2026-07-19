@@ -23,7 +23,9 @@ import { Colors } from '../constants/colors';
 import { isTestHospital } from '../constants/config';
 import API, { getUser } from '../services/api';
 import { useI18n } from '../services/i18n';
+import { registerPushToken } from '../services/notifications';
 import LanguageModal from './LanguageModal';
+import NotificationBell from './NotificationBell';
 
 const STATS = [
   { num: '2,400+', key: 'stat_tokens'    },
@@ -80,7 +82,11 @@ export default function HomeScreen() {
   const [langOpen, setLangOpen] = useState(false);
 
   useEffect(() => {
-    getUser().then(setUser);
+    getUser().then((u) => {
+      setUser(u);
+      // Register this device for push once we know a patient is signed in.
+      if (u?.role === 'patient' || (u && u.role == null)) registerPushToken('patient');
+    });
     API.get('/doctors/')
       .then(({ data }) => {
         // Backend returns a DRF-paginated object { count, results: [...] };
@@ -139,11 +145,14 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             {user ? (
-              <TouchableOpacity style={styles.avatarBtn} onPress={() => router.push('/(patient)/profile')}>
-                <Text style={styles.avatarText}>
-                  {(user.name || user.username || 'U').slice(0, 2).toUpperCase()}
-                </Text>
-              </TouchableOpacity>
+              <>
+                <NotificationBell audience="patient" />
+                <TouchableOpacity style={styles.avatarBtn} onPress={() => router.push('/(patient)/profile')}>
+                  <Text style={styles.avatarText}>
+                    {(user.name || user.username || 'U').slice(0, 2).toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              </>
             ) : (
               <TouchableOpacity
                 style={styles.loginBtn}
