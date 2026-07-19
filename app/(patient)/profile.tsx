@@ -1,5 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   Alert,
   ScrollView,
@@ -10,8 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { getUser, logoutUser } from '../../services/api';
+import { logoutUser } from '../../services/api';
 import { useI18n } from '../../services/i18n';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 
 interface UserProfile {
@@ -25,9 +25,7 @@ interface UserProfile {
 export default function ProfileScreen() {
   const router = useRouter();
   const { t } = useI18n();
-  const [user, setUser] = useState<UserProfile | null>(null);
-
-  useFocusEffect(useCallback(() => { getUser().then(setUser); }, []));
+  const { user, setUser } = useCurrentUser<UserProfile>({ refetchOnFocus: true });
 
   const handleLogout = () => {
     Alert.alert(t('logout'), t('logout_confirm'), [

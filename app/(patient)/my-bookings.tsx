@@ -22,8 +22,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RescheduleModal from '../../components/RescheduleModal';
 import { Colors } from '../../constants/colors';
-import API, { getUser } from '../../services/api';
+import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { syncAppointmentReminders } from '../../services/notifications';
 
 // status → translation key (labels themselves are resolved with t() at render)
@@ -66,12 +67,10 @@ export default function MyBookings() {
   const [error,             setError]             = useState(false);
   const [refreshing,        setRefreshing]        = useState(false);
   const [tab,               setTab]               = useState('all');
-  const [user,              setUser]              = useState<any>(null);
+  const { user } = useCurrentUser();
   const [cancelling,        setCancelling]        = useState<number | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => { getUser().then(setUser); }, []);
 
   const fetchBookings = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);

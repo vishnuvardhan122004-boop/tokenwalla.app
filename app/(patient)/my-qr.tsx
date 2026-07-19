@@ -1,5 +1,5 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,8 +11,9 @@ import {
 import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import API, { getUser } from '../../services/api';
+import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 interface Booking {
   id: string | number;
@@ -32,12 +33,10 @@ const STATUS_MAP: Record<string, { label: string; bg: string; text: string }> = 
 export default function MyQRScreen() {
   const router = useRouter();
   const { t } = useI18n();
-  const [user,     setUser]     = useState<any>(null);
+  const { user } = useCurrentUser();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [activeQR, setActiveQR] = useState<string | number | null>(null);
-
-  useEffect(() => { getUser().then(setUser); }, []);
 
   useFocusEffect(useCallback(() => {
     (async () => {

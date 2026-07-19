@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
-import API, { getUser } from '../../../services/api';
+import API from '../../../services/api';
 import {
   directionsUrl,
   getNext7Days,
@@ -21,6 +21,7 @@ import {
   isSlotTooSoon,
 } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
+import { useCurrentUser } from '../../../hooks/useCurrentUser';
 
 interface SlotInfo { booked: number; max: number; full: boolean; }
 interface GalleryPhoto { id: number | string; url: string; }
@@ -56,7 +57,7 @@ export default function DoctorDetails() {
   const [doctor,       setDoctor]       = useState<Doctor | null>(null);
   const [hospitalInfo, setHospitalInfo] = useState<Hospital | null>(null);
   const [loading,      setLoading]      = useState(true);
-  const [user,         setUser]         = useState<any>(null);
+  const { user } = useCurrentUser();
   const [slotAvail,    setSlotAvail]    = useState<Record<string, SlotInfo>>({}); // { "09:00 AM": { booked, max, full } }
   const [availLoading, setAvailLoading] = useState(false);
 
@@ -64,7 +65,6 @@ export default function DoctorDetails() {
   const [selectedSlot, setSelectedSlot] = useState('');
 
   useEffect(() => {
-    getUser().then(setUser);
     API.get(`/doctors/${id}/`)
       .then(({ data }) => {
         setDoctor(data);
