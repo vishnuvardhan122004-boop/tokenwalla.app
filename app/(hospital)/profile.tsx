@@ -31,6 +31,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
+import { safeBack } from '../../utils/navigation';
 
 interface Hospital {
   id: number | string;
@@ -276,8 +277,8 @@ export default function HospitalProfile() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(hospital)/dashboard')}>
-          <Text style={styles.backBtnText}>← Dashboard</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(hospital)/dashboard')}>
+          <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hospital Profile</Text>
         <View style={{ width: 90 }} />

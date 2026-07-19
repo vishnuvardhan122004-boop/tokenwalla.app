@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { safeBack } from '../../utils/navigation';
 import API from '../../services/api';
 
 interface Patient { doctor_name?: string; slot?: string; }
@@ -103,8 +104,8 @@ export default function HospitalAnalytics() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(hospital)/dashboard')}>
-          <Text style={styles.backBtnText}>← Dashboard</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(hospital)/dashboard')}>
+          <Text style={styles.backBtnText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>📊 Analytics</Text>
         <View style={{ width: 90 }} />

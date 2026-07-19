@@ -81,8 +81,8 @@ export default function ProfileScreen() {
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {[
-            { icon: '✏️', label: t('menu_edit_profile'),    onPress: () => router.push('/(patient)/edit-profile')  },
-            { icon: '🔑', label: t('menu_change_password'), onPress: () => router.push('/(auth)/forgot-password')  },
+            { icon: '✏️', label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/profile' : '/(patient)/edit-profile') },
+            { icon: '🔑', label: t('menu_change_password'), onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hforgotpassword' : '/(auth)/forgot-password') },
             { icon: '🎫', label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
             { icon: '🩺', label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
             { icon: 'ℹ️', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },

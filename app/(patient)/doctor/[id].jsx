@@ -33,10 +33,11 @@ function getNext7Days() {
     const d = new Date();
     d.setDate(d.getDate() + i);
     return {
-      label: i === 0 ? 'Today' : days[d.getDay()],
-      num:   d.getDate(),
-      month: months[d.getMonth()],
-      full:  toLocalISODate(d),
+      label:  i === 0 ? 'Today' : days[d.getDay()],
+      dayKey: days[d.getDay()],   // Mon/Tue/... — matches doctor.days
+      num:    d.getDate(),
+      month:  months[d.getMonth()],
+      full:   toLocalISODate(d),
     };
   });
 }
@@ -134,6 +135,19 @@ export default function DoctorDetails() {
     if (!doctor) return;
     fetchAvailability(doctor.id, selectedDate);
   }, [doctor, selectedDate, fetchAvailability]);
+
+  // Restrict the calendar to the doctor's working days. If today isn't one,
+  // jump the selection to the first upcoming working day.
+  useEffect(() => {
+    const wd = doctor?.days;
+    if (!Array.isArray(wd) || wd.length === 0) return; // no days set → allow all
+    const cur = DAYS.find(d => d.full === selectedDate);
+    if (cur && !wd.includes(cur.dayKey)) {
+      const firstAvail = DAYS.find(d => wd.includes(d.dayKey));
+      if (firstAvail) { setSelectedDate(firstAvail.full); setSelectedSlot(''); }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doctor]);
 
   const handleDateChange = (date) => {
     setSelectedDate(date);
@@ -504,22 +518,37 @@ export default function DoctorDetails() {
         {/* ── DATE PICKER ── */}
         <View style={styles.block}>
           <Text style={styles.blockTitle}>📅 Select Date</Text>
+          {doctor.days?.length > 0 && (
+            <Text style={styles.workingDaysNote}>
+              🩺 Works on: {doctor.days.join(', ')}
+            </Text>
+          )}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 8 }}
           >
-            {DAYS.map(day => (
-              <TouchableOpacity
-                key={day.full}
-                style={[styles.dateChip, selectedDate === day.full && styles.dateChipActive]}
-                onPress={() => handleDateChange(day.full)}
-              >
-                <Text style={[styles.dateDay,   selectedDate === day.full && styles.dateTextActive]}>{day.label}</Text>
-                <Text style={[styles.dateNum,   selectedDate === day.full && styles.dateNumActive]}>{day.num}</Text>
-                <Text style={[styles.dateMonth, selectedDate === day.full && styles.dateTextActive]}>{day.month}</Text>
-              </TouchableOpacity>
-            ))}
+            {DAYS.map(day => {
+              const isWorking = !doctor.days?.length || doctor.days.includes(day.dayKey);
+              const isActive  = selectedDate === day.full;
+              return (
+                <TouchableOpacity
+                  key={day.full}
+                  style={[
+                    styles.dateChip,
+                    isActive && styles.dateChipActive,
+                    !isWorking && styles.dateChipDisabled,
+                  ]}
+                  onPress={() => handleDateChange(day.full)}
+                  disabled={!isWorking}
+                >
+                  <Text style={[styles.dateDay,   isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.label}</Text>
+                  <Text style={[styles.dateNum,   isActive && styles.dateNumActive,  !isWorking && styles.dateTextDisabled]}>{day.num}</Text>
+                  <Text style={[styles.dateMonth, isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.month}</Text>
+                  {!isWorking && <Text style={styles.dayOff}>Off</Text>}
+                </TouchableOpacity>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -705,8 +734,12 @@ const styles = StyleSheet.create({
   hospLogo:      { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.blue200 },
 
   // ── Date chips ──
+  workingDaysNote: { fontSize: 12, color: Colors.gray500, marginBottom: 12, marginTop: -4 },
   dateChip:       { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50, minWidth: 56 },
   dateChipActive: { backgroundColor: Colors.blue50, borderColor: Colors.blue600 },
+  dateChipDisabled: { backgroundColor: Colors.gray100, borderColor: Colors.gray200, opacity: 0.6 },
+  dateTextDisabled: { color: Colors.gray400 },
+  dayOff:         { fontSize: 8, fontWeight: '700', color: Colors.gray400, marginTop: 2, textTransform: 'uppercase' },
   dateDay:        { fontSize: 9, fontWeight: '600', textTransform: 'uppercase', color: Colors.gray400, marginBottom: 2 },
   dateNum:        { fontSize: 19, fontWeight: '800', color: Colors.gray800, lineHeight: 22 },
   dateNumActive:  { color: Colors.blue600 },
