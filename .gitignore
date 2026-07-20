@@ -20,6 +20,10 @@ GoogleService-Info.plist
 *.key
 *.mobileprovision
 
+# Google service-account keys (FCM V1 / Play Store) — never commit
+*-service-account*.json
+tokenwalla-*.json
+
 # Metro
 .metro-health-check*
 
