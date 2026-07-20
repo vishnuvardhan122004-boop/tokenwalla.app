@@ -46,6 +46,10 @@ export default function PaymentScreen() {
     // ✅ FIX 2: amount is a JS Number, not a string
     const rpAmount   = Number(orderData.amount);          // paise from backend
     const rpOrderId  = String(orderData.order_id || '');
+    // Prefer the key the backend created the order with — checkout and order
+    // must be in the same mode, and the backend is the source of truth for
+    // which (test/live) that is. Falls back to the build-time constant.
+    const rpKeyId    = String(orderData.key_id || RAZORPAY_KEY_ID);
     const userName   = String(currentUser?.name || currentUser?.username || '');
     const userMobile = String(currentUser?.mobile || '');
     const feeDisplay = String(fee);
@@ -109,7 +113,7 @@ export default function PaymentScreen() {
       document.getElementById('payBtn').disabled = true;
 
       var options = {
-        key:         '${RAZORPAY_KEY_ID}',
+        key:         '${rpKeyId}',
         // ✅ FIX 2: number literal, not string
         amount:      ${rpAmount},
         currency:    'INR',
