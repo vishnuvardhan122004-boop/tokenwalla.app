@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +19,9 @@ import { Colors } from '../../constants/colors';
 import { isTestHospital } from '../../constants/config';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
+
+// Last successful doctor list, cached so the screen paints instantly on reopen.
+const DOCTORS_CACHE_KEY = 'doctors_cache_v1';
 
 // ── TYPE ──────────────────────────────────────────────────────────────────────
 interface Doctor {
@@ -50,24 +54,61 @@ export default function DoctorsScreen() {
   const [city,            setCity]            = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
 
+  // Normalize a raw API/cache payload into the doctor list + spec filters.
+  const applyData = useCallback((data: any): Doctor[] => {
+    const raw: Doctor[] = Array.isArray(data) ? data : (data?.results || []);
+    // Hide test/demo hospitals from the patient app.
+    const list = raw.filter((d: Doctor) => !isTestHospital(d.hospital_name));
+    setDoctors(list);
+    const uniqueSpecs: string[] = ['All', ...new Set(list.map((d: Doctor) => d.specialization).filter(Boolean))];
+    setSpecs(uniqueSpecs);
+    return list;
+  }, []);
+
   const loadDoctors = useCallback(async () => {
-    setLoading(true);
     setError(false);
+
+    // 1. Paint the last-known list instantly so an impatient patient sees
+    //    doctors immediately instead of a spinner (or a connection error) while
+    //    the network round-trip is still in flight.
+    let hasCache = false;
     try {
-      const { data } = await API.get('/doctors/');
-      const raw: Doctor[] = Array.isArray(data) ? data : (data.results || []);
-      // Hide test/demo hospitals from the patient app.
-      const list = raw.filter((d: Doctor) => !isTestHospital(d.hospital_name));
-      setDoctors(list);
-      const uniqueSpecs: string[] = ['All', ...new Set(list.map((d: Doctor) => d.specialization).filter(Boolean))];
-      setSpecs(uniqueSpecs);
+      const cached = await AsyncStorage.getItem(DOCTORS_CACHE_KEY);
+      if (cached) {
+        applyData(JSON.parse(cached));
+        hasCache = true;
+        setLoading(false);
+      }
+    } catch { /* ignore cache read errors */ }
+    if (!hasCache) setLoading(true);
+
+    // 2. Fetch fresh in the background, retrying a couple of times so a single
+    //    transient hiccup (slow cold-start, brief network drop) self-heals
+    //    instead of flipping the whole screen to the error state.
+    try {
+      let data: any;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          ({ data } = await API.get('/doctors/'));
+          break;
+        } catch (e) {
+          if (attempt >= 2) throw e;
+          await new Promise(res => setTimeout(res, 700 * (attempt + 1)));
+        }
+      }
+      applyData(data);
+      AsyncStorage.setItem(DOCTORS_CACHE_KEY, JSON.stringify(data)).catch(() => {});
     } catch {
-      setDoctors([]);
-      setError(true);
+      // Only surface the error screen when we have nothing to show. If a cached
+      // list is already on screen, keep it rather than blanking to an error.
+      if (!hasCache) {
+        setDoctors([]);
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyData]);
 
   useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
