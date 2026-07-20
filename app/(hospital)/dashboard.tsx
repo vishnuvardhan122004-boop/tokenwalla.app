@@ -889,6 +889,9 @@ export default function HospitalDashboard() {
                       onPress={() => callNext(p.id)}
                       onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
                       delayLongPress={600}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Call ${p.user_name || 'patient'}, token ${p.token}`}
+                      accessibilityHint="Double tap to call. Press and hold to mark as no-show."
                     >
                       <Text style={styles.callBtnText}>Call →</Text>
                       <Text style={[styles.btnHint, { color: Colors.white }]}>hold: no-show</Text>
@@ -918,6 +921,9 @@ export default function HospitalDashboard() {
                     onPress={() => complete(p.id)}
                     onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
                     delayLongPress={600}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mark ${p.user_name || 'patient'} done, token ${p.token}`}
+                    accessibilityHint="Double tap to complete. Press and hold to mark as no-show."
                   >
                     <Text style={styles.doneBtnText}>Done ✓</Text>
                     <Text style={[styles.btnHint, { color: Colors.successText }]}>hold: no-show</Text>
@@ -1126,12 +1132,12 @@ const styles = StyleSheet.create({
   patientMeta:  { fontSize: 12, color: Colors.gray500, marginBottom: 2 },
   tokenBadge:   { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginTop: 4 },
   patientActions:   { gap: 6, alignItems: 'stretch' },
-  callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
+  callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
-  btnHint:      { fontSize: 9, opacity: 0.7, marginTop: 1, textAlign: 'center' as const },
+  btnHint:      { fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'center' as const },
   scanShortcutBtn:  { borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
-  doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
+  doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
   doneBtnText:  { color: Colors.successText, fontWeight: '700', fontSize: 13 },
   completedBadge: { backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   completedText:  { fontSize: 12, fontWeight: '600', color: Colors.successText },
