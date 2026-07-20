@@ -86,8 +86,10 @@ export default function DoctorsScreen() {
         longitude: coords.coords.longitude,
       });
       const detectedCity = place.city || place.subregion || place.region || '';
+      // Only rank by the detected city — do NOT write it into `search`. That
+      // filters the list down to that city, so a patient anywhere we have no
+      // doctors sees an empty list with no explanation.
       setCity(detectedCity);
-      setSearch(detectedCity);
     } catch {
       Alert.alert('Error', 'Could not detect location. Try again.');
     } finally {

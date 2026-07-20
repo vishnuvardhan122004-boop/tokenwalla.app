@@ -291,6 +291,26 @@ export default function HospitalDashboard() {
     catch { Alert.alert('Error', 'Failed to mark complete'); }
   };
 
+  // Long-press action: patient never turned up. Confirmed because it drops
+  // them from the queue and can't be undone from here.
+  const noShow = (id: number | string, name: string) => {
+    Alert.alert(
+      'Mark as no-show?',
+      `${name} will be removed from today's queue.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'No-show',
+          style: 'destructive',
+          onPress: async () => {
+            try { await API.patch(`/bookings/no-show/${id}/`); loadQueue(); }
+            catch { Alert.alert('Error', 'Failed to mark no-show'); }
+          },
+        },
+      ],
+    );
+  };
+
   // ── Toggle Availability ───────────────────────────────────────────────────
   const toggleAvail = async (doc: Doctor) => {
     const newVal = !doc.available;
@@ -864,8 +884,14 @@ export default function HospitalDashboard() {
                     <Text style={styles.tokenBadge}>Token: {p.token}</Text>
                   </View>
                   <View style={styles.patientActions}>
-                    <TouchableOpacity style={styles.callBtn} onPress={() => callNext(p.id)}>
+                    <TouchableOpacity
+                      style={styles.callBtn}
+                      onPress={() => callNext(p.id)}
+                      onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
+                      delayLongPress={600}
+                    >
                       <Text style={styles.callBtnText}>Call →</Text>
+                      <Text style={[styles.btnHint, { color: Colors.white }]}>hold: no-show</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.scanShortcutBtn} onPress={() => router.push('/(hospital)/scanner')}>
                       <Text style={styles.scanShortcutText}>📷 Scan</Text>
@@ -887,8 +913,14 @@ export default function HospitalDashboard() {
                     <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
                     <Text style={styles.tokenBadge}>Token: {p.token}</Text>
                   </View>
-                  <TouchableOpacity style={styles.doneBtn} onPress={() => complete(p.id)}>
+                  <TouchableOpacity
+                    style={styles.doneBtn}
+                    onPress={() => complete(p.id)}
+                    onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
+                    delayLongPress={600}
+                  >
                     <Text style={styles.doneBtnText}>Done ✓</Text>
+                    <Text style={[styles.btnHint, { color: Colors.successText }]}>hold: no-show</Text>
                   </TouchableOpacity>
                 </View>
               ))
@@ -1096,6 +1128,7 @@ const styles = StyleSheet.create({
   patientActions:   { gap: 6, alignItems: 'stretch' },
   callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
+  btnHint:      { fontSize: 9, opacity: 0.7, marginTop: 1, textAlign: 'center' as const },
   scanShortcutBtn:  { borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
   doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9 },
