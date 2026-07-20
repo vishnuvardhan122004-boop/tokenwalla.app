@@ -16,6 +16,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
+import { parsePaymentMessage } from '../../utils/payment';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 
 export default function PaymentScreen() {
@@ -199,9 +200,8 @@ export default function PaymentScreen() {
 
   // ── Step 2: Handle messages back from the WebView ─────────────────────
   const handleMessage = async (event: any) => {
-    let msg: any;
-    try { msg = JSON.parse(event.nativeEvent.data); }
-    catch { return; }
+    const msg = parsePaymentMessage(event?.nativeEvent?.data);
+    if (!msg) return;
 
     if (msg.type === 'SUCCESS') {
       setShowWebView(false);

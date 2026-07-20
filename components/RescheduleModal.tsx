@@ -35,6 +35,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
+import { parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -325,8 +326,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
   // ── Step 3: handle WebView message ───────────────────────────────────────
   const handleMessage = async (event: any) => {
-    let msg: any;
-    try { msg = JSON.parse(event.nativeEvent.data); } catch { return; }
+    const msg = parsePaymentMessage(event?.nativeEvent?.data);
+    if (!msg) return;
 
     if (msg.type === 'CANCELLED') return; // let user retry inside WebView
 
