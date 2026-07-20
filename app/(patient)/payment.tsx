@@ -16,6 +16,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
+import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -59,6 +60,9 @@ export default function PaymentScreen() {
 
     // ✅ FIX 3: Guard — don't open if order_id is empty
     if (!rpOrderId) throw new Error('Missing order_id from backend');
+    // Guard — amount must be a finite number, or the injected `amount: NaN`
+    // would silently break the Razorpay options object.
+    if (!Number.isFinite(rpAmount)) throw new Error('Invalid amount from backend');
 
     return `
 <!DOCTYPE html>
@@ -96,11 +100,11 @@ export default function PaymentScreen() {
   <div class="card">
     <div class="icon">💳</div>
     <h2>TokenWalla Payment</h2>
-    <p class="sub">Dr. ${drName} &bull; ${apptDate} &bull; ${apptSlot}</p>
-    <div class="amount"><span class="cur">₹</span>${feeDisplay}</div>
+    <p class="sub">Dr. ${htmlEscape(drName)} &bull; ${htmlEscape(apptDate)} &bull; ${htmlEscape(apptSlot)}</p>
+    <div class="amount"><span class="cur">₹</span>${htmlEscape(feeDisplay)}</div>
     <div class="info">🔐 Secured by Razorpay &bull; UPI &bull; Cards &bull; Wallets</div>
     <button class="btn" id="payBtn" onclick="startPayment()">
-      💳 &nbsp;Pay ₹${feeDisplay} Now
+      💳 &nbsp;Pay ₹${htmlEscape(feeDisplay)} Now
     </button>
   </div>
 
@@ -113,17 +117,17 @@ export default function PaymentScreen() {
       document.getElementById('payBtn').disabled = true;
 
       var options = {
-        key:         '${rpKeyId}',
+        key:         ${jsStr(rpKeyId)},
         // ✅ FIX 2: number literal, not string
         amount:      ${rpAmount},
         currency:    'INR',
         name:        'TokenWalla',
-        description: 'Appointment – Dr. ${drName}',
+        description: ${jsStr('Appointment – Dr. ' + drName)},
         // ✅ FIX 3: real order_id from backend
-        order_id:    '${rpOrderId}',
+        order_id:    ${jsStr(rpOrderId)},
         prefill: {
-          name:    '${userName}',
-          contact: '91${userMobile}',
+          name:    ${jsStr(userName)},
+          contact: ${jsStr('91' + userMobile)},
         },
         theme: { color: '#185FA5' },
         handler: function(response) {

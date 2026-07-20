@@ -35,6 +35,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
+import { htmlEscape, jsStr } from '../utils/webviewSafe';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const RESCHEDULE_PAISE = 500;   // ₹5 in paise — must match backend VALID_AMOUNTS_PAISE
@@ -204,6 +205,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
       // ── Build HTML only after real order_id is confirmed ─────────────────
       const rpAmount   = Number(data.amount);       // paise as JS number — not string
+      if (!Number.isFinite(rpAmount)) throw new Error('Invalid amount from server.');
       const rpOrderId  = String(data.order_id);
       const userName   = String(user?.name || user?.username || '');
       const userMobile = String(user?.mobile || '');
@@ -246,8 +248,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   <div class="card">
     <div class="icon">📅</div>
     <h2>TokenWalla Payment</h2>
-    <p class="sub">Reschedule · Dr. ${drName} · ${slot}</p>
-    <div class="amount"><span class="cur">₹</span>${feeDisplay}</div>
+    <p class="sub">Reschedule · Dr. ${htmlEscape(drName)} · ${htmlEscape(slot)}</p>
+    <div class="amount"><span class="cur">₹</span>${htmlEscape(feeDisplay)}</div>
     <div class="info">🔐 Secured by Razorpay &bull; UPI &bull; Cards &bull; Wallets</div>
     <button class="btn" id="payBtn" onclick="startPayment()">
       💳 &nbsp;Pay ₹${feeDisplay} to Reschedule
@@ -261,15 +263,15 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       document.getElementById('payBtn').disabled = true;
 
       var options = {
-        key:         '${RAZORPAY_KEY_ID}',
+        key:         ${jsStr(RAZORPAY_KEY_ID)},
         amount:      ${rpAmount},
         currency:    'INR',
         name:        'TokenWalla',
-        description: 'Reschedule fee - Dr. ${drName}',
-        order_id:    '${rpOrderId}',
+        description: ${jsStr('Reschedule fee - Dr. ' + drName)},
+        order_id:    ${jsStr(rpOrderId)},
         prefill: {
-          name:    '${userName}',
-          contact: '91${userMobile}',
+          name:    ${jsStr(userName)},
+          contact: ${jsStr('91' + userMobile)},
         },
         theme: { color: '#185FA5' },
         handler: function(response) {
