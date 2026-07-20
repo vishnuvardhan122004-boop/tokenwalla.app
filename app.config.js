@@ -19,5 +19,9 @@ module.exports = ({ config }) => ({
     ...config.extra,
     apiBaseUrl: process.env.API_BASE_URL ?? config.extra.apiBaseUrl,
     razorpayKeyId: process.env.RAZORPAY_KEY_ID ?? config.extra.razorpayKeyId,
+    // Sentry DSN — safe to ship (it's a publishable ingest key), but read from
+    // env so it can be set/overridden per build without editing app.json.
+    // Empty => Sentry stays disabled (see services/sentry.ts).
+    sentryDsn: process.env.SENTRY_DSN ?? config.extra.sentryDsn,
   },
 });

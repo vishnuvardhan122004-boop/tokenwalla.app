@@ -9,8 +9,12 @@ import {
   addNotificationResponseListener,
   ensureNotificationSetup,
 } from '../services/notifications';
+import { initSentry, wrapWithSentry } from '../services/sentry';
 
-export default function RootLayout() {
+// Initialise crash reporting as early as possible so launch-time errors are caught.
+initSentry();
+
+function RootLayout() {
   useEffect(() => {
     // Ask for notification permission + create the Android channel once at launch.
     // (No-op in Expo Go — notifications require a dev/production build.)
@@ -45,3 +49,6 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+// Wrapped so Sentry can attach render/navigation context (pass-through when disabled).
+export default wrapWithSentry(RootLayout);

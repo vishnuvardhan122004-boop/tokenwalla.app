@@ -64,7 +64,8 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -74,6 +75,7 @@
       "router": {},
       "apiBaseUrl": "https://tokenwalla-production.up.railway.app/api",
       "razorpayKeyId": "rzp_live_SoKq7xISlxWRoY",
+      "sentryDsn": "",
       "eas": {
         "projectId": "a90d2f1b-7cca-4242-93d9-1a437161fef1"
       }

@@ -8,6 +8,7 @@
 import { Component, type ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
+import { captureError } from '../services/sentry';
 
 interface Props {
   children: ReactNode;
@@ -28,9 +29,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: unknown) {
-    // Surface to the console for debugging; a crash reporter could hook in here.
-    console.error('Unhandled UI error:', error);
+  componentDidCatch(error: unknown, info: { componentStack?: string }) {
+    // Report to Sentry (no-op when Sentry is disabled) with the component stack.
+    captureError(error, { componentStack: info?.componentStack });
   }
 
   reset = () => this.setState({ hasError: false, message: '' });
