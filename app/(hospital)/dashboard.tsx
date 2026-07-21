@@ -180,6 +180,51 @@ async function pickImage(type: 'doctor' | 'hospital'): Promise<ImageFile | null>
   return { uri: asset.uri, name: fileName, type: mimeType };
 }
 
+/**
+ * Turn an axios / network error into a message a human can act on.
+ *
+ * The backend (DRF) reports validation failures in several shapes:
+ *   • { message: "..." } / { detail: "..." } / { error: "..." }
+ *   • field errors at the ROOT of response.data, e.g. { mobile: ["already exists"] }
+ *   • a plain string body
+ * The old code only checked `.message` and `.errors`, then fell back to
+ * `JSON.stringify(... || {})` — which is the truthy string "{}", so staff saw a
+ * literal "{}" and the real reason was lost. This never returns "{}".
+ */
+function extractApiError(e: unknown, fallback: string): string {
+  const err = e as { response?: { data?: unknown }; message?: string };
+  const data = err?.response?.data;
+
+  if (typeof data === 'string' && data.trim()) return data.trim();
+
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    for (const key of ['message', 'detail', 'error'] as const) {
+      const v = obj[key];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    // DRF field errors: { field: ["msg", ...] | "msg" }
+    const parts: string[] = [];
+    for (const [field, val] of Object.entries(obj)) {
+      const text = Array.isArray(val)
+        ? val.filter(Boolean).join(' ')
+        : typeof val === 'string' ? val : '';
+      if (text.trim()) {
+        parts.push(field === 'non_field_errors' ? text.trim() : `${field}: ${text.trim()}`);
+      }
+    }
+    if (parts.length) return parts.join('\n');
+  }
+
+  // No response body → network/transport failure.
+  if (err?.message === 'Network Error') {
+    return 'No internet connection. Please check your network and try again.';
+  }
+  if (typeof err?.message === 'string' && err.message.trim()) return err.message.trim();
+
+  return fallback;
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function HospitalDashboard() {
@@ -469,12 +514,7 @@ export default function HospitalDashboard() {
       setShowModal(false);
       loadDoctors();
     } catch (e: unknown) {
-      const err = e as { response?: { data?: { message?: string; errors?: Record<string, unknown> } } };
-      const msg =
-        err?.response?.data?.message ||
-        JSON.stringify(err?.response?.data?.errors || {}) ||
-        'Failed to save. Please try again.';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', extractApiError(e, 'Failed to save. Please try again.'));
     } finally {
       setSaving(false);
     }
