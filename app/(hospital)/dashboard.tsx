@@ -69,10 +69,12 @@ interface Patient {
   doctor_name?: string;
   slot?: string;
   token?: string | number;
+  date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
 }
 
 interface QueueState {
   waiting: Patient[];
+  onHold: Patient[];
   inProgress: Patient[];
   completed: Patient[];
 }
@@ -232,7 +234,10 @@ export default function HospitalDashboard() {
 
   const [hospital,   setHospital]   = useState<Hospital | null>(null);
   const [activeTab,  setActiveTab]  = useState<'queue' | 'doctors'>('queue');
-  const [queue,      setQueue]      = useState<QueueState>({ waiting: [], inProgress: [], completed: [] });
+  // Which day's bookings the queue shows. The queue endpoint returns bookings
+  // from ALL dates mixed together, so staff need to split them by day.
+  const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
+  const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [loading,    setLoading]    = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -274,9 +279,10 @@ export default function HospitalDashboard() {
     try {
       const { data } = await API.get(`/bookings/queue/${hospital.id}/`);
       const waiting    = Array.isArray(data.waiting)    ? data.waiting    : [];
+      const onHold     = Array.isArray(data.onHold)     ? data.onHold     : [];
       const inProgress = Array.isArray(data.inProgress) ? data.inProgress : [];
       const completed  = Array.isArray(data.completed)  ? data.completed  : [];
-      setQueue({ waiting, inProgress, completed });
+      setQueue({ waiting, onHold, inProgress, completed });
 
       // ── Notify hospital of newly-booked (waiting) patients ──
       const allIds = [...waiting, ...inProgress, ...completed].map((p: Patient) => String(p.id));
@@ -334,6 +340,13 @@ export default function HospitalDashboard() {
   const complete = async (id: number | string) => {
     try { await API.patch(`/bookings/complete/${id}/`); loadQueue(); }
     catch { Alert.alert('Error', 'Failed to mark complete'); }
+  };
+
+  // Skip a patient who isn't ready without cancelling them. The same endpoint
+  // toggles: waiting → held (hold), held → waiting (resume).
+  const toggleHold = async (id: number | string) => {
+    try { await API.patch(`/bookings/hold/${id}/`); loadQueue(); }
+    catch { Alert.alert('Error', 'Failed to update hold status'); }
   };
 
   // Long-press action: patient never turned up. Confirmed because it drops
@@ -520,7 +533,56 @@ export default function HospitalDashboard() {
     }
   };
 
-  const totalToday = queue.waiting.length + queue.inProgress.length + queue.completed.length;
+  // ── Day filtering (Today / Tomorrow / All) ─────────────────────────────────
+  // Local calendar dates as "YYYY-MM-DD" to match the backend's date strings.
+  const toYMD = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const todayYMD    = toYMD(new Date());
+  const tomorrowYMD = toYMD(new Date(Date.now() + 86400000));
+
+  // Friendly label for a booking's date, shown on each patient card.
+  const dayLabelFor = (date?: string): string => {
+    if (!date) return 'No date';
+    if (date === todayYMD)    return 'Today';
+    if (date === tomorrowYMD) return 'Tomorrow';
+    return date;
+  };
+
+  const matchesDay = (p: Patient): boolean => {
+    if (dayFilter === 'all') return true;
+    return (p.date || '') === (dayFilter === 'today' ? todayYMD : tomorrowYMD);
+  };
+
+  const fWaiting    = queue.waiting.filter(matchesDay);
+  const fOnHold     = queue.onHold.filter(matchesDay);
+  const fInProgress = queue.inProgress.filter(matchesDay);
+  const fCompleted  = queue.completed.filter(matchesDay);
+  const filteredTotal = fWaiting.length + fOnHold.length + fInProgress.length + fCompleted.length;
+
+  // Counts per day for the filter pills, so staff see at a glance where the
+  // patients are without switching tabs.
+  const countForDay = (day: 'today' | 'tomorrow' | 'all'): number => {
+    const all = [...queue.waiting, ...queue.onHold, ...queue.inProgress, ...queue.completed];
+    if (day === 'all') return all.length;
+    const target = day === 'today' ? todayYMD : tomorrowYMD;
+    return all.filter(p => (p.date || '') === target).length;
+  };
+
+  // Tapping a token opens a quick detail popup — handy for reading the token
+  // aloud or confirming the patient at the counter.
+  const showTokenDetail = (p: Patient) => {
+    Alert.alert(
+      `Token ${p.token ?? '—'}`,
+      [
+        `Patient: ${p.user_name || 'Patient'}`,
+        p.user_mobile ? `Mobile: ${p.user_mobile}` : null,
+        p.doctor_name ? `Doctor: ${p.doctor_name}` : null,
+        p.slot ? `Slot: ${p.slot}` : null,
+        `Day: ${dayLabelFor(p.date)}`,
+      ].filter(Boolean).join('\n'),
+      [{ text: 'Close' }],
+    );
+  };
 
   if (!hospital) {
     return (
@@ -868,10 +930,10 @@ export default function HospitalDashboard() {
         {/* ── STATS ── */}
         <View style={styles.statsGrid}>
           {[
-            { label: 'Today Total',  val: totalToday,              color: Colors.blue600    },
-            { label: 'Waiting',      val: queue.waiting.length,    color: Colors.warningText },
-            { label: 'In Progress',  val: queue.inProgress.length, color: Colors.blue400    },
-            { label: 'Completed',    val: queue.completed.length,  color: Colors.successText },
+            { label: `${dayFilter === 'all' ? 'All' : dayFilter === 'today' ? 'Today' : 'Tomorrow'} Total`, val: filteredTotal,     color: Colors.blue600    },
+            { label: 'Waiting',      val: fWaiting.length,    color: Colors.warningText },
+            { label: 'In Progress',  val: fInProgress.length, color: Colors.blue400    },
+            { label: 'Completed',    val: fCompleted.length,  color: Colors.successText },
           ].map(({ label, val, color }) => (
             <View key={label} style={styles.statCard}>
               <Text style={[styles.statNum, { color }]}>{val}</Text>
@@ -887,7 +949,7 @@ export default function HospitalDashboard() {
             onPress={() => setActiveTab('queue')}
           >
             <Text style={[styles.tabText, activeTab === 'queue' && styles.tabTextActive]}>
-              🏥 Queue ({queue.waiting.length})
+              🏥 Queue ({fWaiting.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -912,16 +974,52 @@ export default function HospitalDashboard() {
         {activeTab === 'queue' && (
           <View style={{ padding: 16 }}>
 
-            <Text style={styles.queueSection}>⏳ Waiting ({queue.waiting.length})</Text>
-            {queue.waiting.length === 0
+            {/* ── DAY FILTER: Today / Tomorrow / All ── */}
+            <View style={styles.dayFilterRow}>
+              {([
+                { key: 'today',    label: 'Today',    emoji: '📅', active: styles.dayPillTodayActive    },
+                { key: 'tomorrow', label: 'Tomorrow', emoji: '⏭️', active: styles.dayPillTomorrowActive },
+                { key: 'all',      label: 'All',      emoji: '🗓️', active: styles.dayPillAllActive      },
+              ] as const).map(({ key, label, emoji, active }) => {
+                const isActive = dayFilter === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    style={[styles.dayPill, isActive && active]}
+                    onPress={() => setDayFilter(key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={`Show ${label} queue, ${countForDay(key)} patients`}
+                  >
+                    <Text style={[styles.dayPillText, isActive && styles.dayPillTextActive]}>
+                      {emoji} {label}
+                    </Text>
+                    <Text style={[styles.dayPillCount, isActive && styles.dayPillTextActive]}>
+                      {countForDay(key)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={styles.queueSection}>⏳ Waiting ({fWaiting.length})</Text>
+            {fWaiting.length === 0
               ? <Text style={styles.emptyMsg}>No patients waiting</Text>
-              : queue.waiting.map((p: Patient) => (
+              : fWaiting.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.warningText }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
                     <Text style={styles.patientMeta}>📱 {p.user_mobile || 'N/A'}</Text>
                     <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.tokenBadge}>Token: {p.token}</Text>
+                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <TouchableOpacity
+                      style={styles.tokenChip}
+                      onPress={() => showTokenDetail(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Token ${p.token}. Tap for details.`}
+                    >
+                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.patientActions}>
                     <TouchableOpacity
@@ -934,7 +1032,15 @@ export default function HospitalDashboard() {
                       accessibilityHint="Double tap to call. Press and hold to mark as no-show."
                     >
                       <Text style={styles.callBtnText}>Call →</Text>
-                      <Text style={[styles.btnHint, { color: Colors.white }]}>hold: no-show</Text>
+                      <Text style={[styles.btnHint, { color: Colors.white }]}>long-press: no-show</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.holdBtn}
+                      onPress={() => toggleHold(p.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Hold ${p.user_name || 'patient'}, token ${p.token}, and skip to the next patient`}
+                    >
+                      <Text style={styles.holdBtnText}>⏸ Hold</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.scanShortcutBtn} onPress={() => router.push('/(hospital)/scanner')}>
                       <Text style={styles.scanShortcutText}>📷 Scan</Text>
@@ -944,17 +1050,58 @@ export default function HospitalDashboard() {
               ))
             }
 
+            {fOnHold.length > 0 && (
+              <>
+                <Text style={[styles.queueSection, { marginTop: 16 }]}>
+                  ⏸ On Hold ({fOnHold.length})
+                </Text>
+                {fOnHold.map((p: Patient) => (
+                  <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.gray400 }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                      <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
+                      <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                      <TouchableOpacity
+                        style={styles.tokenChip}
+                        onPress={() => showTokenDetail(p)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Token ${p.token}. Tap for details.`}
+                      >
+                        <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.resumeBtn}
+                      onPress={() => toggleHold(p.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Resume ${p.user_name || 'patient'}, token ${p.token}, back into the waiting queue`}
+                    >
+                      <Text style={styles.resumeBtnText}>▶ Resume</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+
             <Text style={[styles.queueSection, { marginTop: 16 }]}>
-              🔄 In Progress ({queue.inProgress.length})
+              🔄 In Progress ({fInProgress.length})
             </Text>
-            {queue.inProgress.length === 0
+            {fInProgress.length === 0
               ? <Text style={styles.emptyMsg}>No one in progress</Text>
-              : queue.inProgress.map((p: Patient) => (
+              : fInProgress.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
                     <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.tokenBadge}>Token: {p.token}</Text>
+                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <TouchableOpacity
+                      style={styles.tokenChip}
+                      onPress={() => showTokenDetail(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Token ${p.token}. Tap for details.`}
+                    >
+                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                    </TouchableOpacity>
                   </View>
                   <TouchableOpacity
                     style={styles.doneBtn}
@@ -973,16 +1120,24 @@ export default function HospitalDashboard() {
             }
 
             <Text style={[styles.queueSection, { marginTop: 16 }]}>
-              ✅ Completed ({queue.completed.length})
+              ✅ Completed ({fCompleted.length})
             </Text>
-            {queue.completed.length === 0
-              ? <Text style={styles.emptyMsg}>None completed yet today</Text>
-              : queue.completed.map((p: Patient) => (
+            {fCompleted.length === 0
+              ? <Text style={styles.emptyMsg}>None completed yet</Text>
+              : fCompleted.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.successText, opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
                     <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.tokenBadge}>Token: {p.token}</Text>
+                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <TouchableOpacity
+                      style={styles.tokenChip}
+                      onPress={() => showTokenDetail(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Token ${p.token}. Tap for details.`}
+                    >
+                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.completedBadge}>
                     <Text style={styles.completedText}>✅ Done</Text>
@@ -1165,18 +1320,33 @@ const styles = StyleSheet.create({
   tabText:       { fontSize: 13, fontWeight: '500', color: Colors.gray400 },
   tabTextActive: { color: Colors.blue700, fontWeight: '700' },
 
+  // ── Day filter pills (Today / Tomorrow / All) ──
+  dayFilterRow:           { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  dayPill:                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 6 },
+  dayPillText:            { fontSize: 12, fontWeight: '700', color: Colors.gray500 },
+  dayPillCount:           { fontSize: 11, fontWeight: '800', color: Colors.gray400, backgroundColor: Colors.blue50, borderRadius: 8, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' },
+  dayPillTextActive:      { color: Colors.white },
+  dayPillTodayActive:     { backgroundColor: Colors.blue600,     borderColor: Colors.blue600 },
+  dayPillTomorrowActive:  { backgroundColor: Colors.warningText, borderColor: Colors.warningText },
+  dayPillAllActive:       { backgroundColor: Colors.gray600,     borderColor: Colors.gray600 },
+
   queueSection: { fontSize: 14, fontWeight: '800', color: Colors.gray800, marginBottom: 10 },
   emptyMsg:     { fontSize: 13, color: Colors.gray400, textAlign: 'center', padding: 20, fontStyle: 'italic' },
   patientCard:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, borderLeftWidth: 4, padding: 14, marginBottom: 10, gap: 12 },
   patientName:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
   patientMeta:  { fontSize: 12, color: Colors.gray500, marginBottom: 2 },
-  tokenBadge:   { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginTop: 4 },
+  tokenChip:    { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginTop: 6 },
+  tokenChipText:{ fontSize: 12, fontWeight: '800', color: Colors.blue700, letterSpacing: 0.3 },
   patientActions:   { gap: 6, alignItems: 'stretch' },
   callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
   btnHint:      { fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'center' as const },
   scanShortcutBtn:  { borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
+  holdBtn:      { borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
+  holdBtnText:  { color: Colors.warningText, fontWeight: '700', fontSize: 12 },
+  resumeBtn:    { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
+  resumeBtnText:{ color: Colors.white, fontWeight: '700', fontSize: 13 },
   doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
   doneBtnText:  { color: Colors.successText, fontWeight: '700', fontSize: 13 },
   completedBadge: { backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },

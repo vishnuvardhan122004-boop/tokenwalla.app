@@ -6,7 +6,7 @@
  * If you previously installed react-native-razorpay, uninstall it:
  *   npm uninstall react-native-razorpay
  */
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -102,6 +102,20 @@ export default function MyBookings() {
     }
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, [bookings, fetchBookings]);
+
+  // Deep-link from a "doctor unavailable" push (data.reschedule='free') — once the
+  // matching booking has loaded, pop the reschedule modal automatically. Consumed
+  // once via a ref so it doesn't reopen on every poll/refresh.
+  const { rescheduleId } = useLocalSearchParams<{ rescheduleId?: string }>();
+  const consumedRescheduleId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!rescheduleId || consumedRescheduleId.current === rescheduleId) return;
+    const match = bookings.find(b => String(b.id) === String(rescheduleId));
+    if (match) {
+      consumedRescheduleId.current = rescheduleId;
+      setRescheduleBooking(match);
+    }
+  }, [rescheduleId, bookings]);
 
   const handleCancel = (booking: Booking) => {
     Alert.alert(
@@ -300,18 +314,30 @@ export default function MyBookings() {
                   </TouchableOpacity>
                 )}
 
+                {/* Doctor-unavailable banner: hospital marked the doctor off,
+                    so this booking can be rescheduled for free. */}
+                {isWaiting && booking.free_reschedule && (
+                  <View style={st.unavailBanner}>
+                    <Text style={st.unavailBannerText}>
+                      ⚠️ Dr. {booking.doctor_name} is unavailable. Reschedule below at no charge.
+                    </Text>
+                  </View>
+                )}
+
                 {/* Action row */}
                 {isWaiting && (
                   <View style={st.actionRow}>
                     <TouchableOpacity
-                      style={st.rescheduleBtn}
+                      style={[st.rescheduleBtn, booking.free_reschedule && st.rescheduleBtnFree]}
                       onPress={() => setRescheduleBooking(booking)}
                       activeOpacity={0.7}
                     >
                       <Text style={{ fontSize: 18 }}>📅</Text>
                       <View>
                         <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
-                        <Text style={st.rescheduleBtnFee}>{t('reschedule_fee', { fee: RESCHEDULE_FEE })}</Text>
+                        <Text style={st.rescheduleBtnFee}>
+                          {booking.free_reschedule ? 'FREE' : t('reschedule_fee', { fee: RESCHEDULE_FEE })}
+                        </Text>
                       </View>
                     </TouchableOpacity>
 
@@ -348,6 +374,7 @@ export default function MyBookings() {
         onClose={() => setRescheduleBooking(null)}
         onSuccess={() => fetchBookings(true)}
         user={user}
+        free={!!rescheduleBooking?.free_reschedule}
       />
 
     </SafeAreaView>
@@ -423,6 +450,10 @@ const st = StyleSheet.create({
   rescheduleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.blue50, borderRightWidth: 1, borderRightColor: Colors.blue100 },
   rescheduleBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue700 ?? Colors.blue600 },
   rescheduleBtnFee:   { fontSize: 11, color: Colors.blue600, marginTop: 1 },
+  rescheduleBtnFree:  { backgroundColor: Colors.successBg ?? '#E6F6EC' },
+
+  unavailBanner:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.warningBg ?? '#FAEEDA', borderTopWidth: 1, borderTopColor: Colors.warningBorder ?? '#EF9F27', paddingVertical: 10, paddingHorizontal: 14 },
+  unavailBannerText:  { fontSize: 12, fontWeight: '600', color: Colors.warningText ?? '#854F0B', lineHeight: 17 },
 
   cancelBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.errorBg ?? '#FCEBEB' },
   cancelBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.errorText ?? '#A32D2D' },

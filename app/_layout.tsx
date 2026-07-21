@@ -23,7 +23,12 @@ function RootLayout() {
     // Tapping a notification opens the relevant screen.
     const unsubTap = addNotificationResponseListener((data) => {
       if (data?.screen === 'my-bookings') {
-        router.push('/(patient)/my-bookings');
+        // A "doctor unavailable" alert deep-links to the free reschedule flow.
+        const params =
+          data?.reschedule === 'free' && data?.bookingId
+            ? { rescheduleId: String(data.bookingId) }
+            : undefined;
+        router.push({ pathname: '/(patient)/my-bookings', params });
       } else if (data?.screen === 'hospital-dashboard') {
         router.push('/(hospital)/dashboard');
       }

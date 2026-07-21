@@ -101,12 +101,15 @@ interface Props {
   onClose:   () => void;
   onSuccess: () => void;
   user:      any | null;
+  /** When true, the ₹5 fee is waived and reschedule happens with no payment
+   *  (used when the hospital marked the doctor unavailable). */
+  free?:     boolean;
 }
 
 type Step = 'date' | 'slot' | 'pay' | 'verifying';
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function RescheduleModal({ visible, booking, onClose, onSuccess, user }: Props) {
+export default function RescheduleModal({ visible, booking, onClose, onSuccess, user, free = false }: Props) {
 
   const [step,          setStep]         = useState<Step>('date');
   const [selectedDate,  setSelectedDate] = useState('');
@@ -189,12 +192,35 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setStep('slot');
   };
 
-  // ── Step 2 → 3: slot selected, create Razorpay order then open WebView ──
+  // ── Step 2 → 3: slot selected ──
+  // Free path (doctor-unavailable): reschedule directly, no payment.
+  // Paid path: create a Razorpay order and open the checkout WebView.
   const handleSlotSelect = async (slot: string) => {
     if (payBtnDisabled.current) return;
     payBtnDisabled.current = true;
     setSelectedSlot(slot);
     setLoading(true);
+
+    if (free) {
+      try {
+        setStep('verifying');
+        await API.patch(`/bookings/reschedule/${booking.id}/`, {
+          date: selectedDate,
+          slot,
+        });
+        Alert.alert('✅ Rescheduled!', 'Your appointment has been moved at no charge.');
+        onSuccess();
+        onClose();
+      } catch (e: any) {
+        setStep('slot');
+        Alert.alert('Failed', e?.response?.data?.message || e?.message || 'Could not reschedule. Please try again.');
+      } finally {
+        setLoading(false);
+        payBtnDisabled.current = false;
+      }
+      return;
+    }
+
     try {
       const { data } = await API.post('/payment/create-order/', {
         amount:   RESCHEDULE_PAISE,
@@ -605,7 +631,9 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
             <View style={st.feeNote}>
               <Text style={st.feeNoteText}>
-                💡 A ₹{RESCHEDULE_FEE} reschedule fee applies. Razorpay will open after you select a slot.
+                {free
+                  ? '✅ Free reschedule — your doctor was marked unavailable, so there is no charge. Tap a slot to confirm.'
+                  : `💡 A ₹${RESCHEDULE_FEE} reschedule fee applies. Razorpay will open after you select a slot.`}
               </Text>
             </View>
           </ScrollView>
