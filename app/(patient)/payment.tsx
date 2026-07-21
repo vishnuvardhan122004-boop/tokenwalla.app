@@ -207,21 +207,35 @@ export default function PaymentScreen() {
       setShowWebView(false);
       setLoading(true);
       try {
-        // ✅ FIX 4: flat payload — no nested booking object
-        const { data: verifyData } = await API.post('/payment/verify/', {
-         razorpay_order_id:   msg.orderId,
-         razorpay_payment_id: msg.paymentId,
-         razorpay_signature:  msg.signature,
-           booking: {
-           doctorId:     doctorId,
-            doctorName:   doctorName,
-              hospital:     hospital,
-               date:         date,
-              slot:         slot,
-                amount:       Number(fee),
-                 queue_access: true,
-                    },
-                      });
+        // The backend verify is idempotent (a repeat of the same payment_id
+        // returns the existing booking token), so retry a couple of times to
+        // ride out a transient blip. Without this, a single hiccup right after a
+        // *successful* payment stranded the patient with a "Network Error" and
+        // no token even though they were charged.
+        const verifyPayload = {
+          razorpay_order_id:   msg.orderId,
+          razorpay_payment_id: msg.paymentId,
+          razorpay_signature:  msg.signature,
+          booking: {
+            doctorId,
+            doctorName,
+            hospital,
+            date,
+            slot,
+            amount:       Number(fee),
+            queue_access: true,
+          },
+        };
+        let verifyData: any;
+        for (let attempt = 0; ; attempt++) {
+          try {
+            ({ data: verifyData } = await API.post('/payment/verify/', verifyPayload));
+            break;
+          } catch (err) {
+            if (attempt >= 2) throw err;
+            await new Promise(res => setTimeout(res, 1500 * (attempt + 1)));
+          }
+        }
 
         if (verifyData.success) {
           router.replace({
