@@ -35,9 +35,14 @@ export const BOOKING_LEAD_MS = 2.1 * 60 * 60 * 1000; // 2h 6m
 // A hospital whose name carries this marker is a test account. Its doctors are
 // hidden from patient-facing lists so test data never shows in production.
 // (Name your test hospital e.g. "[TEST] Demo Hospital".)
+//
+// In development builds (__DEV__) we DON'T hide them — so a tester can add a
+// doctor to the test hospital and exercise the full patient flow (list → book →
+// token) on-device. Production/release builds still hide them completely.
 export const TEST_HOSPITAL_MARKER = '[TEST]';
 
 export function isTestHospital(hospitalName?: string | null): boolean {
+  if (__DEV__) return false; // show test hospitals while developing
   if (!hospitalName) return false;
   return hospitalName.toUpperCase().includes(TEST_HOSPITAL_MARKER);
 }
