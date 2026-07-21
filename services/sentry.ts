@@ -52,5 +52,18 @@ export function captureError(error: unknown, context?: Record<string, unknown>):
 /**
  * Wrap the root component so Sentry can attach render/navigation context.
  * Passes through untouched when Sentry isn't active.
+ *
+ * IMPORTANT: only call Sentry.wrap when init actually ran. Calling wrap without
+ * a preceding init warns ("Sentry.wrap was called before Sentry.init") and
+ * leaves the App Start span unfinished. `enabled` is set by initSentry(), which
+ * runs at module load before the root layout wraps its component.
  */
-export const wrapWithSentry = Sentry.wrap;
+export function wrapWithSentry<C>(RootComponent: C): C {
+  if (!enabled) return RootComponent;
+  try {
+    return Sentry.wrap(RootComponent as never) as C;
+  } catch {
+    // Never let telemetry setup take down the app.
+    return RootComponent;
+  }
+}
