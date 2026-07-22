@@ -30,6 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
+import LocationSearch from '../../components/LocationSearch';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 
@@ -39,6 +40,8 @@ interface Hospital {
   city?: string;
   address?: string;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   mobile?: string;
   status?: string;
   instagram?: string;
@@ -69,6 +72,7 @@ export default function HospitalProfile() {
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
   const [form, setForm] = useState({ name: '', city: '', address: '', location: '', mobile: '', instagram: '', youtube: '', facebook: '', description: '', announcement: '', open_time: '', close_time: '' });
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [services, setServices] = useState<string[]>([]);
   const [newService, setNewService] = useState('');
 
@@ -101,6 +105,7 @@ export default function HospitalProfile() {
         instagram: h.instagram || '', youtube: h.youtube || '', facebook: h.facebook || '',
         description: h.description || '', announcement: h.announcement || '', open_time: h.open_time || '', close_time: h.close_time || '',
       });
+      setCoords({ lat: h.latitude ?? null, lng: h.longitude ?? null });
       setServices(Array.isArray(h.services) ? h.services : []);
       setBannerPreview(h.image || null);
       setLogoPreview(h.logo || null);
@@ -204,6 +209,8 @@ export default function HospitalProfile() {
         city:      form.city.trim(),
         address:   form.address.trim(),
         location:  form.location.trim(),
+        latitude:  coords.lat,
+        longitude: coords.lng,
         instagram: form.instagram.trim(),
         youtube:   form.youtube.trim(),
         facebook:  form.facebook.trim(),
@@ -336,8 +343,19 @@ export default function HospitalProfile() {
 
                 <Text style={styles.label}>Hospital Name *</Text>
                 <TextInput style={styles.input} value={form.name} onChangeText={v => setForm(p => ({ ...p, name: v }))} placeholder="Hospital name" placeholderTextColor={Colors.gray400} />
-                <Text style={styles.label}>City</Text>
-                <TextInput style={styles.input} value={form.city} onChangeText={v => setForm(p => ({ ...p, city: v }))} placeholder="City" placeholderTextColor={Colors.gray400} />
+                <Text style={styles.label}>City / Location</Text>
+                <LocationSearch
+                  value={form.city}
+                  placeholder="Search your city or area…"
+                  onChangeText={(t) => { setForm(p => ({ ...p, city: t })); setCoords({ lat: null, lng: null }); }}
+                  onPick={({ city, lat, lng }) => { setForm(p => ({ ...p, city: city || p.city })); setCoords({ lat, lng }); }}
+                />
+                {coords.lat != null && (
+                  <Text style={{ fontSize: 12, color: Colors.successText, fontWeight: '600', marginTop: 6, marginBottom: 8 }}>
+                    ✓ Location pinned on the map
+                  </Text>
+                )}
+                <View style={{ height: 6 }} />
                 <Text style={styles.label}>Address</Text>
                 <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={v => setForm(p => ({ ...p, address: v }))} placeholder="Full address" placeholderTextColor={Colors.gray400} multiline />
 
@@ -433,6 +451,7 @@ export default function HospitalProfile() {
                     onPress={() => {
                       setEditing(false);
                       setForm({ name: hospital.name || '', city: hospital.city || '', address: hospital.address || '', location: hospital.location || '', mobile: hospital.mobile || '', instagram: hospital.instagram || '', youtube: hospital.youtube || '', facebook: hospital.facebook || '', description: hospital.description || '', announcement: hospital.announcement || '', open_time: hospital.open_time || '', close_time: hospital.close_time || '' });
+                      setCoords({ lat: hospital.latitude ?? null, lng: hospital.longitude ?? null });
                       setServices(Array.isArray(hospital.services) ? hospital.services : []);
                       setNewService('');
                       setOtpSent(false); setOtpVerified(false); setOtp('');

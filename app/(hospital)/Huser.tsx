@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import LocationSearch from '../../components/LocationSearch';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 
@@ -27,6 +28,8 @@ interface FormState {
   mobile: string;
   password: string;
   confirmPassword: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 interface FormErrors {
@@ -45,6 +48,8 @@ const EMPTY_FORM: FormState = {
   mobile: '',
   password: '',
   confirmPassword: '',
+  latitude: null,
+  longitude: null,
 };
 
 const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
@@ -144,11 +149,13 @@ export default function HospitalRegisterScreen() {
     setGlobalError('');
     try {
       await API.post('/hospitals/register/', {
-        name:     form.name.trim(),
-        city:     form.city.trim(),
-        address:  form.address.trim(),
-        mobile:   form.mobile.trim(),
-        password: form.password,
+        name:      form.name.trim(),
+        city:      form.city.trim(),
+        address:   form.address.trim(),
+        latitude:  form.latitude,
+        longitude: form.longitude,
+        mobile:    form.mobile.trim(),
+        password:  form.password,
       });
 
       setGlobalInfo('');
@@ -220,19 +227,28 @@ export default function HospitalRegisterScreen() {
           </View>
           {!!errors.name && <Text style={styles.fieldError}>{errors.name}</Text>}
 
-          {/* City */}
-          <Text style={styles.label}>City</Text>
-          <View style={[styles.inputRow, errors.city && styles.inputRowError]}>
-            <Text style={styles.inputIcon}>📍</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Hindupur"
-              placeholderTextColor={Colors.gray400}
-              value={form.city}
-              onChangeText={t => setField('city', t)}
-            />
-          </View>
+          {/* City / location — real place autocomplete (captures coordinates) */}
+          <Text style={styles.label}>City / Location</Text>
+          <LocationSearch
+            value={form.city}
+            hasError={!!errors.city}
+            placeholder="Search your city or area…"
+            onChangeText={(t) => {
+              // Free typing clears any previously picked coordinates.
+              setForm(prev => ({ ...prev, city: t, latitude: null, longitude: null }));
+              setErrors(prev => ({ ...prev, city: undefined }));
+              setGlobalError('');
+            }}
+            onPick={({ city, lat, lng }) => {
+              setForm(prev => ({ ...prev, city: city || prev.city, latitude: lat, longitude: lng }));
+              setErrors(prev => ({ ...prev, city: undefined }));
+            }}
+          />
+          {form.latitude != null && (
+            <Text style={styles.pinnedText}>✓ Location pinned on the map</Text>
+          )}
           {!!errors.city && <Text style={styles.fieldError}>{errors.city}</Text>}
+          <View style={{ height: 14 }} />
 
           {/* Address */}
           <Text style={styles.label}>Full Address</Text>
@@ -401,6 +417,8 @@ const styles = StyleSheet.create({
   input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
+
+  pinnedText:    { fontSize: 12, color: Colors.successText, fontWeight: '600', marginTop: 6 },
 
   otpRow:        { flexDirection: 'row', gap: 10, marginBottom: 6, alignItems: 'flex-start' },
   otpBtn:        { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center', minWidth: 80, alignItems: 'center', minHeight: 50 },
