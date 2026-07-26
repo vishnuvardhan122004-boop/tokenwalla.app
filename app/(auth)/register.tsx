@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -78,7 +79,8 @@ export default function RegisterScreen() {
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
-            <Text style={styles.backText}>← Back</Text>
+            <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+            <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
 
           <View style={styles.brand}>
@@ -97,21 +99,27 @@ export default function RegisterScreen() {
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.sub}>Free account · Book instantly · No hidden fees</Text>
 
-          {error ? <View style={styles.errorBox}><Text style={styles.errorText}>⚠️ {error}</Text></View> : null}
+          {error ? (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           {/* Name */}
           <Text style={styles.label}>Full Name</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>👤</Text>
-            <TextInput style={styles.input} placeholder="Your full name" placeholderTextColor={Colors.gray400} value={name} onChangeText={setName} />
+            <Ionicons name="person-outline" size={17} color={Colors.gray400} />
+            <TextInput style={styles.input} placeholder="e.g. Rahul Kumar" placeholderTextColor={Colors.gray400} value={name} onChangeText={setName} />
           </View>
+          <Text style={styles.fieldHint}>Enter your name as it should appear on your token.</Text>
 
           {/* Mobile + OTP */}
           <Text style={styles.label}>Mobile Number</Text>
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1 }]}>
-              <Text style={styles.inputIcon}>📱</Text>
-              <TextInput style={styles.input} placeholder="10-digit mobile" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} editable={!otpVerified} />
+              <Ionicons name="call-outline" size={17} color={Colors.gray400} />
+              <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} editable={!otpVerified} />
             </View>
             {!otpVerified && (
               <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading}>
@@ -119,13 +127,14 @@ export default function RegisterScreen() {
               </TouchableOpacity>
             )}
           </View>
+          <Text style={styles.fieldHint}>We&apos;ll text a one-time code to verify this number.</Text>
 
           {otpSent && !otpVerified && (
             <>
               <Text style={styles.label}>Enter OTP</Text>
               <View style={styles.inputRow}>
-                <Text style={styles.inputIcon}>🔢</Text>
-                <TextInput style={styles.input} placeholder="4-digit OTP" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={6} value={otp} onChangeText={setOtp} />
+                <Ionicons name="keypad-outline" size={17} color={Colors.gray400} />
+                <TextInput style={styles.input} placeholder="Enter the code you received" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={6} value={otp} onChangeText={setOtp} />
               </View>
               <TouchableOpacity style={styles.verifyBtn} onPress={verifyOTP}>
                 <Text style={styles.verifyBtnText}>Verify OTP →</Text>
@@ -135,21 +144,23 @@ export default function RegisterScreen() {
 
           {otpVerified && (
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedText}>✅ Mobile verified — {mobile}</Text>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.successText} />
+              <Text style={styles.verifiedText}>Mobile verified — {mobile}</Text>
             </View>
           )}
 
           {/* Password */}
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>🔑</Text>
-            <TextInput style={styles.input} placeholder="Min 6 characters" placeholderTextColor={Colors.gray400} secureTextEntry value={password} onChangeText={setPassword} />
+            <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
+            <TextInput style={styles.input} placeholder="Create a password" placeholderTextColor={Colors.gray400} secureTextEntry value={password} onChangeText={setPassword} />
           </View>
+          <Text style={styles.fieldHint}>Use at least 6 characters.</Text>
 
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>🔒</Text>
-            <TextInput style={styles.input} placeholder="Repeat password" placeholderTextColor={Colors.gray400} secureTextEntry value={confirm} onChangeText={setConfirm} />
+            <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
+            <TextInput style={styles.input} placeholder="Re-enter your password" placeholderTextColor={Colors.gray400} secureTextEntry value={confirm} onChangeText={setConfirm} />
           </View>
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
@@ -174,7 +185,7 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe:  { flex: 1, backgroundColor: Colors.white },
   root:  { padding: 24, paddingTop: 16 },
-  back:  { marginBottom: 24 },
+  back:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 24, alignSelf: 'flex-start' },
   backText: { fontSize: 14, color: Colors.blue600, fontWeight: '600' },
   brand:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
   logoBox:  { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center' },
@@ -191,12 +202,12 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   sub:   { fontSize: 14, color: Colors.gray500, marginBottom: 20 },
 
-  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 14 },
-  errorText: { fontSize: 14, color: Colors.errorText },
+  errorBox:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 14 },
+  errorText: { fontSize: 14, color: Colors.errorText, flex: 1 },
 
   label:     { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
   inputRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },
-  inputIcon: { fontSize: 16 },
+  fieldHint: { fontSize: 11.5, color: Colors.gray400, marginTop: -8, marginBottom: 14, marginLeft: 2, lineHeight: 15 },
   input:     { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
 
   otpRow:     { flexDirection: 'row', gap: 10, marginBottom: 0 },
@@ -206,7 +217,7 @@ const styles = StyleSheet.create({
   verifyBtn:     { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginBottom: 14 },
   verifyBtnText: { color: Colors.successText, fontWeight: '700', fontSize: 14 },
 
-  verifiedBadge: { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, padding: 12, marginBottom: 14 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, padding: 12, marginBottom: 14 },
   verifiedText:  { color: Colors.successText, fontWeight: '600', fontSize: 14 },
 
   submitBtn:     { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginTop: 4, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },

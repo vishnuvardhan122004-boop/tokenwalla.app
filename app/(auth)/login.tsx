@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView, Platform,
@@ -123,14 +124,14 @@ export default function LoginScreen() {
           <Text style={styles.title}>{t('welcome_back')}</Text>
           <Text style={styles.sub}>{t('login_intro')}</Text>
 
-          {[
-            { icon: '🎫', title: t('feat_instant_token_title'), desc: t('feat_instant_token_desc') },
-            { icon: '📍', title: t('feat_live_track_title'),    desc: t('feat_live_track_desc')    },
-            { icon: '🔐', title: t('feat_secure_title'),        desc: t('feat_secure_desc')        },
-          ].map(f => (
+          {([
+            { icon: 'ticket-outline',            title: t('feat_instant_token_title'), desc: t('feat_instant_token_desc') },
+            { icon: 'navigate-outline',          title: t('feat_live_track_title'),    desc: t('feat_live_track_desc')    },
+            { icon: 'shield-checkmark-outline',  title: t('feat_secure_title'),        desc: t('feat_secure_desc')        },
+          ] as { icon: ComponentProps<typeof Ionicons>['name']; title: string; desc: string }[]).map(f => (
             <View key={f.title} style={styles.featureRow}>
               <View style={styles.featureIcon}>
-                <Text style={{ fontSize: 16 }}>{f.icon}</Text>
+                <Ionicons name={f.icon} size={17} color={Colors.blue600} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
@@ -146,13 +147,14 @@ export default function LoginScreen() {
 
           {!!error && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {error}</Text>
+              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
+              <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
           <Text style={styles.label}>{t('mobile_number')}</Text>
           <View style={styles.inputRow}>
-            <Text style={styles.inputIcon}>📱</Text>
+            <Ionicons name="call-outline" size={17} color={Colors.gray400} />
             <TextInput
               style={styles.input}
               placeholder={t('mobile_placeholder')}
@@ -167,7 +169,7 @@ export default function LoginScreen() {
           <Text style={styles.label}>{t('password_otp')}</Text>
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1, marginBottom: 0 }]}>
-              <Text style={styles.inputIcon}>🔑</Text>
+              <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
               <TextInput
                 style={styles.input}
                 placeholder={otpSent ? t('enter_otp') : t('password_or_otp')}
@@ -250,11 +252,10 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Colors.blue50, marginVertical: 22 },
   formTitle: { fontSize: 20, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   formSub:   { fontSize: 13, color: Colors.gray500, marginBottom: 20 },
-  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', gap: 8 },
+  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   errorText: { fontSize: 14, color: Colors.errorText, flex: 1 },
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7, letterSpacing: 0.4 },
   inputRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },
-  inputIcon: { fontSize: 15 },
   input:     { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   otpRow:     { flexDirection: 'row', gap: 10, marginBottom: 6 },
   otpBtn:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center', minWidth: 80, alignItems: 'center', minHeight: 50 },
