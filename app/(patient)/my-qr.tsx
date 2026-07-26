@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
@@ -37,6 +40,32 @@ export default function MyQRScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [activeQR, setActiveQR] = useState<string | number | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const ticketRef = useRef<View>(null);
+
+  // Snapshot the visible ticket card to a PNG and open the share sheet so the
+  // patient can save it to Photos/Files or send it on. Only one card is
+  // rendered at a time (the active booking), so a single ref is enough.
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const uri = await captureRef(ticketRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(shareUri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Save your appointment ticket',
+          UTI: 'public.png',
+        });
+      } else {
+        Alert.alert('Not available', 'Saving is not available on this device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -132,7 +161,7 @@ export default function MyQRScreen() {
             });
 
             return (
-              <View key={String(booking.id)} style={styles.qrCard}>
+              <View key={String(booking.id)} ref={ticketRef} collapsable={false} style={styles.qrCard}>
                 {/* Card top gradient bar */}
                 <View style={styles.qrCardBar} />
 
@@ -159,6 +188,11 @@ export default function MyQRScreen() {
                     />
                   </View>
                   <Text style={styles.qrScanHint}>{t('scan_to_verify')}</Text>
+                  <View style={styles.feeNote}>
+                    <Text style={styles.feeNoteText}>
+                      ℹ️ You have paid only for the service to Tokenwalla. The doctor's consultation fee is to be paid separately at the hospital.
+                    </Text>
+                  </View>
                 </View>
 
                 {/* Token Number */}
@@ -194,6 +228,17 @@ export default function MyQRScreen() {
               </View>
             );
           })}
+
+          {/* Download / save the ticket */}
+          <TouchableOpacity
+            style={[styles.downloadBtn, downloading && styles.downloadBtnDisabled]}
+            onPress={handleDownload}
+            disabled={downloading}
+          >
+            {downloading
+              ? <ActivityIndicator size="small" color={Colors.white} />
+              : <Text style={styles.downloadBtnText}>⬇  {t('download_ticket')}</Text>}
+          </TouchableOpacity>
 
           {/* Go to My Bookings */}
           <TouchableOpacity style={styles.viewAllBtn} onPress={() => router.push('/(patient)/my-bookings')}>
@@ -249,6 +294,8 @@ const styles = StyleSheet.create({
   qrWrapper:  { alignItems: 'center', paddingVertical: 28, backgroundColor: Colors.bg },
   qrBox:      { backgroundColor: Colors.white, padding: 16, borderRadius: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3, borderWidth: 1, borderColor: Colors.blue100 },
   qrScanHint: { fontSize: 12, color: Colors.gray400, marginTop: 14, fontWeight: '500' },
+  feeNote:     { flexDirection: 'row', backgroundColor: Colors.warningBg, borderWidth: 1, borderColor: Colors.warningBorder, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, marginTop: 14, marginHorizontal: 16 },
+  feeNoteText: { flex: 1, fontSize: 12, color: Colors.warningText, lineHeight: 18, textAlign: 'center' },
 
   tokenSection: { alignItems: 'center', paddingBottom: 16 },
   tokenLabel:   { fontSize: 10, fontWeight: '700', letterSpacing: 2.5, color: Colors.gray400, textTransform: 'uppercase', marginBottom: 6 },
@@ -267,4 +314,8 @@ const styles = StyleSheet.create({
 
   viewAllBtn:     { marginHorizontal: 16, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
   viewAllBtnText: { color: Colors.blue600, fontWeight: '700', fontSize: 14 },
+
+  downloadBtn:         { marginHorizontal: 16, marginBottom: 12, backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', minHeight: 50, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  downloadBtnDisabled: { opacity: 0.7 },
+  downloadBtnText:     { color: Colors.white, fontWeight: '700', fontSize: 15 },
 });

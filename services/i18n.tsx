@@ -219,6 +219,7 @@ const en: Dict = {
   bt_queue_active_desc: 'Track your live position in My Bookings',
   bt_view_my_bookings: 'View My Bookings →',
   bt_book_another: 'Book Another Appointment',
+  download_ticket: 'Download Ticket',
   bt_note: "Keep this token handy. You'll need it at the hospital reception.\nFor support: tokentraq@gmail.com",
 
   // notifications panel
@@ -482,6 +483,7 @@ const hi: Dict = {
   bt_queue_active_desc: 'My Bookings में अपनी लाइव स्थिति ट्रैक करें',
   bt_view_my_bookings: 'मेरी बुकिंग देखें →',
   bt_book_another: 'एक और अपॉइंटमेंट बुक करें',
+  download_ticket: 'टिकट डाउनलोड करें',
   bt_note: 'यह टोकन संभाल कर रखें। अस्पताल रिसेप्शन पर इसकी ज़रूरत होगी।\nसहायता: tokentraq@gmail.com',
 
   // notifications panel
@@ -745,6 +747,7 @@ const te: Dict = {
   bt_queue_active_desc: 'My Bookings లో మీ లైవ్ స్థానాన్ని ట్రాక్ చేయండి',
   bt_view_my_bookings: 'నా బుకింగ్‌లు చూడండి →',
   bt_book_another: 'మరో అపాయింట్‌మెంట్ బుక్ చేయండి',
+  download_ticket: 'టికెట్ డౌన్‌లోడ్ చేయండి',
   bt_note: 'ఈ టోకెన్‌ను దగ్గర ఉంచుకోండి. ఆసుపత్రి రిసెప్షన్‌లో దీని అవసరం ఉంటుంది.\nసహాయం: tokentraq@gmail.com',
 
   // notifications panel
@@ -1008,6 +1011,7 @@ const kn: Dict = {
   bt_queue_active_desc: 'My Bookings ನಲ್ಲಿ ನಿಮ್ಮ ಲೈವ್ ಸ್ಥಾನ ಟ್ರ್ಯಾಕ್ ಮಾಡಿ',
   bt_view_my_bookings: 'ನನ್ನ ಬುಕಿಂಗ್‌ಗಳನ್ನು ನೋಡಿ →',
   bt_book_another: 'ಇನ್ನೊಂದು ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬುಕ್ ಮಾಡಿ',
+  download_ticket: 'ಟಿಕೆಟ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಿ',
   bt_note: 'ಈ ಟೋಕನ್ ಅನ್ನು ಹತ್ತಿರ ಇಟ್ಟುಕೊಳ್ಳಿ. ಆಸ್ಪತ್ರೆ ರಿಸೆಪ್ಶನ್‌ನಲ್ಲಿ ಇದು ಬೇಕಾಗುತ್ತದೆ.\nಬೆಂಬಲ: tokentraq@gmail.com',
 
   // notifications panel

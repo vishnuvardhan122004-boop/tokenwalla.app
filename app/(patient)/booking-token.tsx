@@ -1,11 +1,15 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ScrollView,
   StyleSheet,
   Text, TouchableOpacity,
   View,
 } from 'react-native';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../services/i18n';
@@ -16,6 +20,31 @@ export default function BookingTokenScreen() {
   const { t } = useI18n();
   const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile } = useLocalSearchParams();
   const notifiedRef = useRef(false);
+  const ticketRef = useRef<View>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  // Snapshot the token card to a PNG and open the share sheet so the patient
+  // can save it to Photos/Files or send it on.
+  const handleDownload = async () => {
+    try {
+      setDownloading(true);
+      const uri = await captureRef(ticketRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(shareUri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Save your appointment ticket',
+          UTI: 'public.png',
+        });
+      } else {
+        Alert.alert('Not available', 'Saving is not available on this device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
    useEffect(() => {
    if (!token) { router.replace('/(patient)/doctors'); return; }
@@ -57,7 +86,7 @@ export default function BookingTokenScreen() {
         <Text style={styles.sub}>{t('bt_confirmed_sub')}</Text>
 
         {/* Token Card */}
-        <View style={styles.card}>
+        <View ref={ticketRef} collapsable={false} style={styles.card}>
           <View style={styles.cardTopBar} />
 
           {/* Card Header */}
@@ -110,6 +139,16 @@ export default function BookingTokenScreen() {
         </View>
 
         {/* Actions */}
+        <TouchableOpacity
+          style={[styles.downloadBtn, downloading && styles.downloadBtnDisabled]}
+          onPress={handleDownload}
+          disabled={downloading}
+        >
+          {downloading
+            ? <ActivityIndicator size="small" color={Colors.blue600} />
+            : <Text style={styles.downloadBtnText}>⬇  {t('download_ticket')}</Text>}
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.primaryBtn}
           onPress={() => router.replace('/(patient)/my-bookings')}
@@ -170,6 +209,10 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   outlineBtn:     { width: '100%', borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
+
+  downloadBtn:         { width: '100%', flexDirection: 'row', backgroundColor: Colors.blue50, borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 50 },
+  downloadBtnDisabled: { opacity: 0.7 },
+  downloadBtnText:     { color: Colors.blue600, fontWeight: '700', fontSize: 15 },
 
   note: { fontSize: 12, color: Colors.gray400, textAlign: 'center', lineHeight: 18 },
 });

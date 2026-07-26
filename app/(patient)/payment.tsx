@@ -7,7 +7,9 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -31,6 +33,14 @@ export default function PaymentScreen() {
   const [user,         setUser]         = useState<any>(null);
   const [loading,      setLoading]      = useState(false);
   const [showWebView,  setShowWebView]  = useState(false);
+
+  // "Book for someone else" — appointment for another person (name + mobile).
+  // Notifications still go to the logged-in account holder.
+  const [forOther,    setForOther]    = useState(false);
+  const [otherName,   setOtherName]   = useState('');
+  const [otherMobile, setOtherMobile] = useState('');
+  const bookedForName   = forOther ? otherName.trim()   : '';
+  const bookedForMobile = forOther ? otherMobile.trim() : '';
   // ✅ FIX 1: Store the full HTML string after order is confirmed
   const [webviewHtml,  setWebviewHtml]  = useState<string>('');
   const payBtnDisabled = useRef(false);
@@ -176,6 +186,17 @@ export default function PaymentScreen() {
   // ── Step 1: Create order, then open WebView with baked HTML ───────────
   const createOrder = async () => {
     if (payBtnDisabled.current) return;   // ✅ FIX 7: double-tap guard
+    // Validate the "book for someone else" details before charging.
+    if (forOther) {
+      if (bookedForName.length < 2) {
+        Alert.alert('Missing name', "Please enter the other person's name.");
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(bookedForMobile)) {
+        Alert.alert('Invalid mobile', "Please enter a valid 10-digit mobile number for the other person.");
+        return;
+      }
+    }
     payBtnDisabled.current = true;
     setLoading(true);
     try {
@@ -224,6 +245,8 @@ export default function PaymentScreen() {
             slot,
             amount:       Number(fee),
             queue_access: true,
+            bookedForName,
+            bookedForMobile,
           },
         };
         let verifyData: any;
@@ -248,7 +271,7 @@ export default function PaymentScreen() {
               date:         String(date),
               slot:         String(slot),
               paymentId:    msg.paymentId,
-              userName:     user?.name || user?.username,
+              userName:     bookedForName || user?.name || user?.username,
               queue_access: 'true',
             },
           });
@@ -369,7 +392,7 @@ export default function PaymentScreen() {
               { label: 'Hospital', value: `🏥 ${hospital}`            },
               { label: 'Date',     value: String(date)                 },
               { label: 'Slot',     value: String(slot)                 },
-              { label: 'Patient',  value: user?.name || user?.username },
+              { label: 'Patient',  value: bookedForName || user?.name || user?.username },
               { label: 'Plan',     value: '📍 Queue View'             },
             ].map(({ label, value }) => (
               <View key={label} style={styles.row}>
@@ -382,6 +405,49 @@ export default function PaymentScreen() {
             <Text style={styles.totalLabel}>Total Amount</Text>
             <Text style={styles.totalAmt}>₹{fee}</Text>
           </View>
+        </View>
+
+        {/* Book for someone else */}
+        <View style={styles.otherCard}>
+          <View style={styles.otherToggleRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.otherTitle}>👥 Booking for someone else?</Text>
+              <Text style={styles.otherDesc}>Book this appointment for a family member or friend</Text>
+            </View>
+            <Switch
+              value={forOther}
+              onValueChange={setForOther}
+              trackColor={{ false: Colors.gray200, true: Colors.blue600 }}
+              thumbColor={Colors.white}
+            />
+          </View>
+
+          {forOther && (
+            <View style={styles.otherFields}>
+              <Text style={styles.otherLabel}>Patient's full name</Text>
+              <TextInput
+                style={styles.otherInput}
+                placeholder="e.g. Rahul Kumar"
+                placeholderTextColor={Colors.gray400}
+                value={otherName}
+                onChangeText={setOtherName}
+                maxLength={100}
+              />
+              <Text style={[styles.otherLabel, { marginTop: 14 }]}>Patient's mobile number</Text>
+              <TextInput
+                style={styles.otherInput}
+                placeholder="10-digit mobile number"
+                placeholderTextColor={Colors.gray400}
+                value={otherMobile}
+                onChangeText={(v) => setOtherMobile(v.replace(/\D/g, '').slice(0, 10))}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+              <Text style={styles.otherNote}>
+                ℹ️ Appointment updates (SMS/WhatsApp) are sent to your account. The hospital sees this patient's name at reception.
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.secureBadge}>
@@ -431,6 +497,15 @@ const styles = StyleSheet.create({
   totalRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.blue50 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
   totalAmt:   { fontSize: 28, fontWeight: '800', color: Colors.blue600 },
+
+  otherCard:      { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 20, marginBottom: 16, overflow: 'hidden' },
+  otherToggleRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  otherTitle:     { fontSize: 15, fontWeight: '700', color: Colors.gray900, marginBottom: 2 },
+  otherDesc:      { fontSize: 12, color: Colors.gray500 },
+  otherFields:    { paddingHorizontal: 16, paddingBottom: 18, paddingTop: 4, borderTopWidth: 1, borderTopColor: Colors.blue50 },
+  otherLabel:     { fontSize: 12, fontWeight: '600', color: Colors.gray700, marginBottom: 6, marginTop: 10 },
+  otherInput:     { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900 },
+  otherNote:      { fontSize: 11.5, color: Colors.gray500, lineHeight: 17, marginTop: 12 },
 
   secureBadge: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, padding: 16, marginBottom: 20 },
   secureTitle: { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },

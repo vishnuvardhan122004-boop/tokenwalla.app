@@ -269,6 +269,9 @@ export default function MyBookings() {
                     </View>
                     <Text style={st.doctorName}>Dr. {booking.doctor_name}</Text>
                     <Text style={st.hospitalName}>🏥 {booking.hospital_name}</Text>
+                    {booking.is_for_other ? (
+                      <Text style={st.forOther}>👥 For {booking.patient_name}</Text>
+                    ) : null}
                     {booking.hospital_mobile ? (
                       <TouchableOpacity onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
                         <Text style={st.callHospital}>📞 Call hospital · {booking.hospital_mobile}</Text>
@@ -431,6 +434,7 @@ const st = StyleSheet.create({
   statusText:   { fontSize: 11, fontWeight: '700' },
   doctorName:   { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
   hospitalName: { fontSize: 12, color: Colors.gray500, marginBottom: 4 },
+  forOther:     { alignSelf: 'flex-start', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, fontSize: 12, fontWeight: '700', color: Colors.blue700, marginBottom: 4 },
   callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginBottom: 8 },
   metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, flexWrap: 'wrap' },
   metaChip:     { fontSize: 12, color: Colors.gray400 },
