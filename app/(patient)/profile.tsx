@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ComponentProps } from 'react';
 import {
   Alert,
   ScrollView,
@@ -13,6 +15,8 @@ import { logoutUser } from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
+
+type IconName = ComponentProps<typeof Ionicons>['name'];
 
 interface UserProfile {
   name?: string;
@@ -38,7 +42,7 @@ export default function ProfileScreen() {
   if (!user) return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.loginPrompt}>
-        <Text style={{ fontSize: 56, marginBottom: 16 }}>👤</Text>
+        <Ionicons name="person-circle-outline" size={64} color={Colors.blue200} style={{ marginBottom: 12 }} />
         <Text style={styles.title}>{t('not_logged_in')}</Text>
         <Text style={styles.sub}>{t('not_logged_in_sub')}</Text>
         <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/(auth)/login')}>
@@ -68,7 +72,10 @@ export default function ProfileScreen() {
             <Text style={styles.avatarText}>{initials(user.name || user.username || '')}</Text>
           </View>
           <Text style={styles.userName}>{user.name || user.username}</Text>
-          <Text style={styles.userMobile}>📱 {user.mobile}</Text>
+          <View style={styles.userMobileRow}>
+            <Ionicons name="call-outline" size={13} color={Colors.gray500} />
+            <Text style={styles.userMobile}>{user.mobile}</Text>
+          </View>
           <View style={styles.rolePill}>
             <Text style={styles.roleText}>{(user.role || 'patient').toUpperCase()}</Text>
           </View>
@@ -78,23 +85,23 @@ export default function ProfileScreen() {
       
         {/* Menu Items */}
         <View style={styles.menuSection}>
-          {[
-            { icon: '✏️', label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/profile' : '/(patient)/edit-profile') },
-            { icon: '🔑', label: t('menu_change_password'), onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hforgotpassword' : '/(auth)/forgot-password') },
-            { icon: '🎫', label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
-            { icon: '🩺', label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
-            { icon: 'ℹ️', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },
-            { icon: '📞', label: t('menu_contact'),      onPress: () => router.push('/(patient)/contact')     },
-            { icon: '📋', label: t('menu_terms'),        onPress: () => router.push('/(patient)/terms')       },
-            { icon: '🔒', label: t('menu_privacy'),      onPress: () => router.push('/(patient)/privacy')     },
-            { icon: '💰', label: t('menu_refund'),       onPress: () => router.push('/(patient)/refund')      },
-          ].map(({ icon, label, onPress }) => (
+          {([
+            { icon: 'create-outline',            label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/profile' : '/(patient)/edit-profile') },
+            { icon: 'key-outline',               label: t('menu_change_password'), onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hforgotpassword' : '/(auth)/forgot-password') },
+            { icon: 'ticket-outline',            label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
+            { icon: 'medkit-outline',            label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
+            { icon: 'information-circle-outline', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },
+            { icon: 'call-outline',              label: t('menu_contact'),      onPress: () => router.push('/(patient)/contact')     },
+            { icon: 'document-text-outline',     label: t('menu_terms'),        onPress: () => router.push('/(patient)/terms')       },
+            { icon: 'lock-closed-outline',       label: t('menu_privacy'),      onPress: () => router.push('/(patient)/privacy')     },
+            { icon: 'cash-outline',              label: t('menu_refund'),       onPress: () => router.push('/(patient)/refund')      },
+          ] as { icon: IconName; label: string; onPress: () => void }[]).map(({ icon, label, onPress }) => (
             <TouchableOpacity key={label} style={styles.menuItem} onPress={onPress}>
               <View style={styles.menuIconBox}>
-                <Text style={{ fontSize: 18 }}>{icon}</Text>
+                <Ionicons name={icon} size={18} color={Colors.blue600} />
               </View>
               <Text style={styles.menuLabel}>{label}</Text>
-              <Text style={styles.menuArrow}>›</Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />
             </TouchableOpacity>
           ))}
         </View>
@@ -116,7 +123,8 @@ export default function ProfileScreen() {
         {/* Logout */}
         <View style={{ padding: 20, paddingBottom: 40 }}>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <Text style={styles.logoutBtnText}>🚪 {t('logout')}</Text>
+            <Ionicons name="log-out-outline" size={18} color={Colors.errorText} />
+            <Text style={styles.logoutBtnText}>{t('logout')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -142,7 +150,8 @@ const styles = StyleSheet.create({
   avatar:     { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center', marginBottom: 14, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   avatarText: { fontSize: 28, fontWeight: '800', color: Colors.white },
   userName:   { fontSize: 20, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
-  userMobile: { fontSize: 14, color: Colors.gray500, marginBottom: 12 },
+  userMobileRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 12 },
+  userMobile: { fontSize: 14, color: Colors.gray500 },
   rolePill:   { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 5 },
   roleText:   { fontSize: 11, fontWeight: '700', color: Colors.blue600, letterSpacing: 1.5 },
 
@@ -174,6 +183,6 @@ const styles = StyleSheet.create({
   infoLabel:   { fontSize: 13, color: Colors.gray400 },
   infoValue:   { fontSize: 13, fontWeight: '600', color: Colors.gray700 },
 
-  logoutBtn:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+  logoutBtn:     { flexDirection: 'row', gap: 8, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center' },
   logoutBtnText: { color: Colors.errorText, fontWeight: '700', fontSize: 15 },
 });
