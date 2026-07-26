@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -216,7 +217,7 @@ export default function DoctorsScreen() {
 
         {/* Search */}
         <View style={styles.searchBox}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <Ionicons name="search" size={17} color={Colors.gray400} />
           <TextInput
             style={styles.searchInput}
             placeholder={t('search_placeholder')}
@@ -225,8 +226,8 @@ export default function DoctorsScreen() {
             onChangeText={setSearch}
           />
           {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text style={{ fontSize: 16, color: Colors.gray400 }}>✕</Text>
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.gray400} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -240,12 +241,15 @@ export default function DoctorsScreen() {
           {locationLoading ? (
             <ActivityIndicator size="small" color={Colors.blue600} />
           ) : (
-            <Text style={styles.locationBtnText}>
-              📍 {city ? t('near_city', { city }) : t('detect_location')}
-            </Text>
+            <>
+              <Ionicons name="location-outline" size={15} color={Colors.blue600} />
+              <Text style={styles.locationBtnText}>
+                {city ? t('near_city', { city }) : t('detect_location')}
+              </Text>
+            </>
           )}
           {city && !locationLoading ? (
-            <Text style={{ fontSize: 13, color: Colors.gray400, marginLeft: 4 }}>✕</Text>
+            <Ionicons name="close" size={14} color={Colors.gray400} style={{ marginLeft: 4 }} />
           ) : null}
         </TouchableOpacity>
 
@@ -307,7 +311,7 @@ export default function DoctorsScreen() {
         </View>
       ) : error ? (
         <View style={styles.emptyState}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>📡</Text>
+          <Ionicons name="cloud-offline-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
           <Text style={styles.emptyTitle}>{t('cant_load_doctors')}</Text>
           <Text style={styles.emptySub}>{t('connection_error')}</Text>
           <TouchableOpacity style={styles.retryBtn} onPress={loadDoctors}>
@@ -316,7 +320,7 @@ export default function DoctorsScreen() {
         </View>
       ) : filtered.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={{ fontSize: 48, marginBottom: 12 }}>🔍</Text>
+          <Ionicons name="search-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
           <Text style={styles.emptyTitle}>{t('no_doctors_found')}</Text>
           <Text style={styles.emptySub}>{t('adjust_search')}</Text>
         </View>
@@ -358,7 +362,7 @@ export default function DoctorsScreen() {
                     />
                   ) : (
                     <View style={styles.docAvatarFallback}>
-                      <Text style={{ fontSize: 28 }}>🩺</Text>
+                      <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />
                     </View>
                   )}
 
@@ -366,15 +370,21 @@ export default function DoctorsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.docSpec}>{doc.specialization}</Text>
                     <Text style={styles.docName}>{doc.name}</Text>
-                    <Text style={styles.docHospital}>🏥 {doc.hospital_name}</Text>
+                    <View style={styles.docHospitalRow}>
+                      <Ionicons name="business-outline" size={12} color={Colors.gray500} />
+                      <Text style={styles.docHospital} numberOfLines={1}>{doc.hospital_name}</Text>
+                    </View>
                     <View style={styles.docMeta}>
-                      <Text style={[
-                        styles.metaChip,
-                        isNearby && { color: Colors.blue600, fontWeight: '700' }
-                      ]}>
-                        {isNearby ? '📍 Nearby · ' : '📍 '}{doc.city}
-                      </Text>
-                      <Text style={styles.metaChip}>⏳ {t('yrs_exp', { years: doc.experience })}</Text>
+                      <View style={styles.metaChipRow}>
+                        <Ionicons name="location-outline" size={12} color={isNearby ? Colors.blue600 : Colors.gray400} />
+                        <Text style={[styles.metaChip, isNearby && { color: Colors.blue600, fontWeight: '700' }]}>
+                          {isNearby ? `Nearby · ${doc.city}` : doc.city}
+                        </Text>
+                      </View>
+                      <View style={styles.metaChipRow}>
+                        <Ionicons name="time-outline" size={12} color={Colors.gray400} />
+                        <Text style={styles.metaChip}>{t('yrs_exp', { years: doc.experience })}</Text>
+                      </View>
                     </View>
                     {doc.slots && doc.slots.length > 0 && (
                       <View style={styles.slotRow}>
@@ -457,7 +467,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 10,
   },
-  searchIcon:  { fontSize: 16 },
   searchInput: { flex: 1, fontSize: 14, color: Colors.gray900 },
 
   locationBtn: {
@@ -559,8 +568,10 @@ const styles = StyleSheet.create({
 
   docSpec:     { fontSize: 10, fontWeight: '700', color: Colors.blue600, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 },
   docName:     { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
-  docHospital: { fontSize: 12, color: Colors.gray500, marginBottom: 8 },
-  docMeta:     { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  docHospitalRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  docHospital: { fontSize: 12, color: Colors.gray500, flexShrink: 1 },
+  docMeta:     { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  metaChipRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   metaChip:    { fontSize: 11, color: Colors.gray400 },
 
   slotRow:  { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
