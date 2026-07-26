@@ -6,6 +6,7 @@
  * If you previously installed react-native-razorpay, uninstall it:
  *   npm uninstall react-native-razorpay
  */
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -184,7 +185,7 @@ export default function MyBookings() {
 
   const queueMsg = (pos: number | null | undefined) => {
     if (pos == null) return 'Loading queue position…';
-    if (pos === 0)   return '✅ Your turn — go in now!';
+    if (pos === 0)   return 'Your turn — go in now!';
     if (pos === 1)   return "You're next! Head to the clinic.";
     return `${pos - 1} patient${pos > 2 ? 's' : ''} ahead of you`;
   };
@@ -203,7 +204,7 @@ export default function MyBookings() {
   if (!user) return (
     <SafeAreaView style={st.safe} edges={['top']}>
       <View style={st.centreBox}>
-        <Text style={{ fontSize: 52, marginBottom: 16 }}>🎫</Text>
+        <Ionicons name="ticket-outline" size={52} color={Colors.blue200} style={{ marginBottom: 16 }} />
         <Text style={st.emptyTitle}>{t('login_to_view_bookings')}</Text>
         <Text style={st.emptySub}>
           {t('login_to_view_bookings_sub')}
@@ -248,7 +249,7 @@ export default function MyBookings() {
       /* Error */
       ) : error && bookings.length === 0 ? (
         <View style={st.centreBox}>
-          <Text style={{ fontSize: 52, marginBottom: 12 }}>📡</Text>
+          <Ionicons name="cloud-offline-outline" size={50} color={Colors.gray400} style={{ marginBottom: 12 }} />
           <Text style={st.emptyTitle}>{t('cant_load_bookings')}</Text>
           <Text style={st.emptySub}>{t('connection_error')}</Text>
           <TouchableOpacity style={st.primaryBtn} onPress={() => fetchBookings()}>
@@ -264,7 +265,7 @@ export default function MyBookings() {
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings(true)} tintColor={Colors.blue600} />
           }
         >
-          <Text style={{ fontSize: 52, marginBottom: 12 }}>🎫</Text>
+          <Ionicons name="ticket-outline" size={50} color={Colors.blue200} style={{ marginBottom: 12 }} />
           <Text style={st.emptyTitle}>
             {tab === 'active' ? t('no_active_bookings_lc') : t('no_bookings_yet')}
           </Text>
@@ -309,18 +310,31 @@ export default function MyBookings() {
                       <Text style={[st.statusText, { color: s.text }]}>{t(STATUS_LABEL_KEY[booking.status] ?? 'status_cancelled')}</Text>
                     </View>
                     <Text style={st.doctorName}>Dr. {booking.doctor_name}</Text>
-                    <Text style={st.hospitalName}>🏥 {booking.hospital_name}</Text>
+                    <View style={st.iconTextRow}>
+                      <Ionicons name="business-outline" size={13} color={Colors.gray500} />
+                      <Text style={st.hospitalName} numberOfLines={1}>{booking.hospital_name}</Text>
+                    </View>
                     {booking.is_for_other ? (
-                      <Text style={st.forOther}>👥 For {booking.patient_name}</Text>
+                      <View style={st.forOther}>
+                        <Ionicons name="people-outline" size={12} color={Colors.blue700} />
+                        <Text style={st.forOtherText}>For {booking.patient_name}</Text>
+                      </View>
                     ) : null}
                     {booking.hospital_mobile ? (
-                      <TouchableOpacity onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
-                        <Text style={st.callHospital}>📞 Call hospital · {booking.hospital_mobile}</Text>
+                      <TouchableOpacity style={st.iconTextRow} onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
+                        <Ionicons name="call-outline" size={13} color={Colors.blue600} />
+                        <Text style={st.callHospital}>Call hospital · {booking.hospital_mobile}</Text>
                       </TouchableOpacity>
                     ) : null}
                     <View style={st.metaRow}>
-                      <Text style={st.metaChip}>📅 {booking.date}</Text>
-                      <Text style={st.metaChip}>🕐 {booking.slot}</Text>
+                      <View style={st.metaChipRow}>
+                        <Ionicons name="calendar-outline" size={12} color={Colors.gray400} />
+                        <Text style={st.metaChip}>{booking.date}</Text>
+                      </View>
+                      <View style={st.metaChipRow}>
+                        <Ionicons name="time-outline" size={12} color={Colors.gray400} />
+                        <Text style={st.metaChip}>{booking.slot}</Text>
+                      </View>
                     </View>
                     <Text style={st.amount}>₹{booking.amount}</Text>
                   </View>
@@ -330,9 +344,11 @@ export default function MyBookings() {
                 {isActive && booking.queue_access && (
                   <View style={st.queuePanel}>
                     <View style={st.queueCircle}>
-                      <Text style={st.queueNum}>
-                        {booking.status === 'in_progress' ? '🔔' : (booking.queue_position ?? '…')}
-                      </Text>
+                      {booking.status === 'in_progress' ? (
+                        <Ionicons name="notifications" size={22} color={Colors.blue600} />
+                      ) : (
+                        <Text style={st.queueNum}>{booking.queue_position ?? '…'}</Text>
+                      )}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={st.queueLabel}>{t('your_queue_position')}</Text>
@@ -353,7 +369,7 @@ export default function MyBookings() {
                     onPress={() => router.push('/(patient)/my-qr')}
                     activeOpacity={0.7}
                   >
-                    <Text style={{ fontSize: 16 }}>📷</Text>
+                    <Ionicons name="qr-code-outline" size={16} color={Colors.white} />
                     <Text style={st.qrBtnText}>{t('show_qr_checkin')}</Text>
                   </TouchableOpacity>
                 )}
@@ -369,7 +385,7 @@ export default function MyBookings() {
                     <ActivityIndicator size="small" color={Colors.blue600} />
                   ) : (
                     <>
-                      <Text style={{ fontSize: 16 }}>⬇</Text>
+                      <Ionicons name="download-outline" size={16} color={Colors.blue600} />
                       <Text style={st.downloadBtnText}>{t('download_ticket')}</Text>
                     </>
                   )}
@@ -379,8 +395,9 @@ export default function MyBookings() {
                     so this booking can be rescheduled for free. */}
                 {isWaiting && booking.free_reschedule && (
                   <View style={st.unavailBanner}>
+                    <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      ⚠️ Dr. {booking.doctor_name} is unavailable. Reschedule below at no charge.
+                      Dr. {booking.doctor_name} is unavailable. Reschedule below at no charge.
                     </Text>
                   </View>
                 )}
@@ -393,7 +410,7 @@ export default function MyBookings() {
                       onPress={() => setRescheduleBooking(booking)}
                       activeOpacity={0.7}
                     >
-                      <Text style={{ fontSize: 18 }}>📅</Text>
+                      <Ionicons name="calendar-outline" size={18} color={Colors.blue600} />
                       <View>
                         <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
                         <Text style={st.rescheduleBtnFee}>
@@ -412,7 +429,7 @@ export default function MyBookings() {
                         <ActivityIndicator size="small" color={Colors.errorText} />
                       ) : (
                         <>
-                          <Text style={{ fontSize: 18 }}>❌</Text>
+                          <Ionicons name="close-circle-outline" size={18} color={Colors.errorText} />
                           <View>
                             <Text style={st.cancelBtnTitle}>{t('cancel')}</Text>
                             <Text style={st.cancelBtnFee}>{t('refund_in_days')}</Text>
@@ -542,10 +559,13 @@ const st = StyleSheet.create({
   statusDot:    { width: 6, height: 6, borderRadius: 3 },
   statusText:   { fontSize: 11, fontWeight: '700' },
   doctorName:   { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
-  hospitalName: { fontSize: 12, color: Colors.gray500, marginBottom: 4 },
-  forOther:     { alignSelf: 'flex-start', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, fontSize: 12, fontWeight: '700', color: Colors.blue700, marginBottom: 4 },
-  callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600, marginBottom: 8 },
-  metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, flexWrap: 'wrap' },
+  iconTextRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
+  hospitalName: { fontSize: 12, color: Colors.gray500, flexShrink: 1 },
+  forOther:     { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4 },
+  forOtherText: { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
+  callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600 },
+  metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' },
+  metaChipRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaChip:     { fontSize: 12, color: Colors.gray400 },
   amount:       { fontSize: 13, fontWeight: '700', color: Colors.blue600, paddingBottom: 12 },
 
@@ -587,7 +607,7 @@ const st = StyleSheet.create({
   rescheduleBtnFree:  { backgroundColor: Colors.successBg ?? '#E6F6EC' },
 
   unavailBanner:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.warningBg ?? '#FAEEDA', borderTopWidth: 1, borderTopColor: Colors.warningBorder ?? '#EF9F27', paddingVertical: 10, paddingHorizontal: 14 },
-  unavailBannerText:  { fontSize: 12, fontWeight: '600', color: Colors.warningText ?? '#854F0B', lineHeight: 17 },
+  unavailBannerText:  { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.warningText ?? '#854F0B', lineHeight: 17 },
 
   cancelBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.errorBg ?? '#FCEBEB' },
   cancelBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.errorText ?? '#A32D2D' },
