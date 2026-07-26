@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +23,29 @@ import { useI18n } from '../../services/i18n';
 // Last successful doctor list, cached so the screen paints instantly on reopen.
 const DOCTORS_CACHE_KEY = 'doctors_cache_v1';
 
+// Maps a home specialty chip (and any typed word) to substrings that may appear
+// in the free-text `specialization` hospitals enter, so e.g. the "Skin" chip
+// finds a doctor stored as "Dermatologist". Words with no entry match as-is.
+// Keep in sync with the web app (src/componets/AllDoctor.js).
+const SPEC_SYNONYMS: Record<string, string[]> = {
+  general:  ['general', 'physician', 'family', 'medicine'],
+  heart:    ['heart', 'cardio'],
+  skin:     ['skin', 'dermat'],
+  dental:   ['dental', 'dentist', 'tooth', 'teeth', 'oral'],
+  child:    ['child', 'pediatric', 'paediatric', 'paed', 'neonat'],
+  bones:    ['bone', 'ortho', 'joint'],
+  eye:      ['eye', 'ophthal', 'optom', 'vision'],
+  ent:      ['ent', 'ear', 'nose', 'throat', 'otolar'],
+  women:    ['gyn', 'obstet', 'women', 'maternity'],
+  neuro:    ['neuro', 'nuro'],
+  mental:   ['psych', 'mental'],
+  diabetes: ['diabet', 'endocrin'],
+  kidney:   ['nephro', 'kidney', 'renal'],
+  stomach:  ['gastro', 'stomach', 'digest', 'liver', 'hepat'],
+  lungs:    ['pulmon', 'lung', 'chest', 'respir'],
+  physio:   ['physio', 'rehab', 'physical'],
+};
+
 // ── TYPE ──────────────────────────────────────────────────────────────────────
 interface Doctor {
   id: number;
@@ -44,8 +67,10 @@ interface Doctor {
 export default function DoctorsScreen() {
   const router = useRouter();
   const { t } = useI18n();
+  // A specialty chip on the home screen deep-links here with ?q=<term>.
+  const params = useLocalSearchParams<{ q?: string }>();
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
-  const [search,          setSearch]          = useState('');
+  const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
   const [specFilter,      setSpecFilter]      = useState('All');
   const [availOnly,       setAvailOnly]       = useState(false);
   const [loading,         setLoading]         = useState(true);
@@ -112,6 +137,12 @@ export default function DoctorsScreen() {
 
   useEffect(() => { loadDoctors(); }, [loadDoctors]);
 
+  // Doctors is a persistent tab, so re-apply the ?q= term each time a home
+  // specialty chip deep-links here (the initial useState only runs once).
+  useEffect(() => {
+    if (typeof params.q === 'string' && params.q) setSearch(params.q);
+  }, [params.q]);
+
   // ── LOCATION DETECTION ────────────────────────────────────────────────────
   const detectLocation = async () => {
     setLocationLoading(true);
@@ -160,12 +191,13 @@ export default function DoctorsScreen() {
   // ── FILTER + SORT ─────────────────────────────────────────────────────────
   const filtered = doctors
     .filter((doc: Doctor) => {
-      const q = search.toLowerCase();
-      const matchSearch = !search ||
-        (doc.name            || '').toLowerCase().includes(q) ||
-        (doc.specialization  || '').toLowerCase().includes(q) ||
-        (doc.hospital_name   || '').toLowerCase().includes(q) ||
-        (doc.city            || '').toLowerCase().includes(q);
+      const q = search.trim().toLowerCase();
+      // Expand common terms (skin→dermat, heart→cardio, …) so specialty chips
+      // reach doctors named with clinical terms; unknown words match as-is.
+      const terms = SPEC_SYNONYMS[q] || [q];
+      const haystack = [doc.name, doc.specialization, doc.hospital_name, doc.city]
+        .filter(Boolean).join(' ').toLowerCase();
+      const matchSearch = !search || terms.some((term) => haystack.includes(term));
       const matchSpec  = specFilter === 'All' || doc.specialization === specFilter;
       const matchAvail = !availOnly || doc.available;
       return matchSearch && matchSpec && matchAvail;

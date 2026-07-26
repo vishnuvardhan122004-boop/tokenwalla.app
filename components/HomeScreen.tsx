@@ -6,9 +6,10 @@
  * Includes a language switcher (globe button) wired to the i18n context.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -34,20 +35,32 @@ const STATS = [
   { num: '4.8★',   key: 'stat_rating'    },
 ];
 
-const FEATURES = [
-  { icon: '📍', titleKey: 'feat_queue_title',  descKey: 'feat_queue_desc'  },
-  { icon: '🔐', titleKey: 'feat_pay_title',    descKey: 'feat_pay_desc'    },
-  { icon: '♻️', titleKey: 'feat_cancel_title', descKey: 'feat_cancel_desc' },
-  { icon: '📱', titleKey: 'feat_device_title', descKey: 'feat_device_desc' },
+// Icon name typed against Ionicons' glyph set, so tsc rejects any invalid name
+// (a typo fails the build — no broken glyph boxes ever ship).
+type IconName = ComponentProps<typeof Ionicons>['name'];
+
+const FEATURES: { icon: IconName; titleKey: string; descKey: string }[] = [
+  { icon: 'navigate-outline',        titleKey: 'feat_queue_title',  descKey: 'feat_queue_desc'  },
+  { icon: 'lock-closed-outline',     titleKey: 'feat_pay_title',    descKey: 'feat_pay_desc'    },
+  { icon: 'refresh-outline',         titleKey: 'feat_cancel_title', descKey: 'feat_cancel_desc' },
+  { icon: 'phone-portrait-outline',  titleKey: 'feat_device_title', descKey: 'feat_device_desc' },
 ];
 
-const STEPS_2_4 = [
-  { icon: '📅', titleKey: 'step_slot_title',   descKey: 'step_slot_desc'   },
-  { icon: '💳', titleKey: 'step_pay_title',    descKey: 'step_pay_desc'    },
-  { icon: '🏥', titleKey: 'step_walkin_title', descKey: 'step_walkin_desc' },
+const STEPS_2_4: { icon: IconName; titleKey: string; descKey: string }[] = [
+  { icon: 'calendar-outline', titleKey: 'step_slot_title',   descKey: 'step_slot_desc'   },
+  { icon: 'card-outline',     titleKey: 'step_pay_title',    descKey: 'step_pay_desc'    },
+  { icon: 'walk-outline',     titleKey: 'step_walkin_title', descKey: 'step_walkin_desc' },
 ];
 
 const PRICE_FEATURES = ['price_f1', 'price_f2', 'price_f3', 'price_f4', 'price_f5'];
+
+// Quick-access specialty chips. `key` is the search term deep-linked to the
+// doctors tab (?q=key); doctors.tsx expands it via SPEC_SYNONYMS so e.g. "skin"
+// also finds doctors stored as "Dermatologist". Labels are translated (spec_*).
+const SPECIALTIES = [
+  'general', 'heart', 'skin', 'dental', 'child', 'bones', 'eye', 'ent',
+  'women', 'neuro', 'mental', 'diabetes', 'kidney', 'stomach', 'lungs', 'physio',
+];
 
 // A doctor image is usable only if it's a real remote URL (not a placeholder).
 function hasDoctorImage(image?: string | null): boolean {
@@ -78,7 +91,7 @@ export default function HomeScreen() {
   const [doctors, setDoctors] = useState<any[]>([]);
   const [user,    setUser]    = useState<{ name?: string; username?: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [navBusy, setNavBusy] = useState<'hospital' | 'patient' | null>(null);
+  const [navBusy, setNavBusy] = useState<'patient' | null>(null);
   const [langOpen, setLangOpen] = useState(false);
 
   useEffect(() => {
@@ -99,17 +112,6 @@ export default function HomeScreen() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
-
-  const handleHospitalLoginPress = async () => {
-    setNavBusy('hospital');
-    const auth = await getStoredAuth();
-    setNavBusy(null);
-    if (auth?.hasToken && auth.user?.role === 'hospital') {
-      router.replace('/(hospital)/dashboard');
-      return;
-    }
-    router.push('/(hospital)/login');
-  };
 
   const handlePatientLoginPress = async () => {
     setNavBusy('patient');
@@ -141,7 +143,8 @@ export default function HomeScreen() {
           <View style={styles.navRight}>
             {/* Language switcher */}
             <TouchableOpacity style={styles.langBtn} onPress={() => setLangOpen(true)}>
-              <Text style={styles.langBtnText}>🌐 {lang.toUpperCase()}</Text>
+              <Ionicons name="globe-outline" size={14} color={Colors.blue700} />
+              <Text style={styles.langBtnText}>{lang.toUpperCase()}</Text>
             </TouchableOpacity>
 
             {user ? (
@@ -188,17 +191,23 @@ export default function HomeScreen() {
           >
             <Text style={styles.primaryBtnText}>{t('book_appointment')}</Text>
           </TouchableOpacity>
+        </View>
 
-          <TouchableOpacity
-            style={styles.outlineBtn}
-            onPress={handleHospitalLoginPress}
-            disabled={navBusy === 'hospital'}
-          >
-            {navBusy === 'hospital'
-              ? <ActivityIndicator size="small" color={Colors.blue600} />
-              : <Text style={styles.outlineBtnText}>{t('hospital_login')}</Text>
-            }
-          </TouchableOpacity>
+        {/* ── Browse by specialty ── */}
+        <View style={styles.specSection}>
+          <Text style={styles.specLabel}>{t('browse_by_specialty')}</Text>
+          <View style={styles.specRow}>
+            {SPECIALTIES.map((s) => (
+              <TouchableOpacity
+                key={s}
+                style={styles.specChip}
+                activeOpacity={0.7}
+                onPress={() => router.push({ pathname: '/(patient)/doctors', params: { q: s } })}
+              >
+                <Text style={styles.specChipText}>{t(`spec_${s}`)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* ── Stats ── */}
@@ -224,7 +233,7 @@ export default function HomeScreen() {
           >
             <Text style={styles.stepNum}>01</Text>
             <View style={[styles.stepIconBox, styles.stepIconBoxActive]}>
-              <Text style={{ fontSize: 18 }}>🔍</Text>
+              <Ionicons name="search-outline" size={19} color={Colors.blue700} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.stepTitle, styles.stepTitleActive]}>{t('step_find_title')}</Text>
@@ -237,7 +246,7 @@ export default function HomeScreen() {
             <View key={step.titleKey} style={styles.stepCard}>
               <Text style={styles.stepNum}>0{i + 2}</Text>
               <View style={styles.stepIconBox}>
-                <Text style={{ fontSize: 18 }}>{step.icon}</Text>
+                <Ionicons name={step.icon} size={19} color={Colors.blue600} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.stepTitle}>{t(step.titleKey)}</Text>
@@ -267,7 +276,7 @@ export default function HomeScreen() {
                     {hasDoctorImage(doc.image) ? (
                       <Image source={{ uri: doc.image }} style={styles.docImg} resizeMode="cover" />
                     ) : (
-                      <Text style={{ fontSize: 30 }}>🩺</Text>
+                      <Ionicons name="medkit-outline" size={30} color={Colors.blue400} />
                     )}
                     <View style={[styles.availBadge, { backgroundColor: doc.available ? Colors.successBg : Colors.errorBg }]}>
                       <Text style={{ fontSize: 9, fontWeight: '700', color: doc.available ? Colors.successText : Colors.errorText }}>
@@ -278,7 +287,10 @@ export default function HomeScreen() {
                   <View style={styles.docInfo}>
                     <Text style={styles.docSpec} numberOfLines={1}>{doc.specialization}</Text>
                     <Text style={styles.docName} numberOfLines={1}>Dr. {doc.name}</Text>
-                    <Text style={styles.docMeta}>📍 {doc.city}  ·  {doc.experience}y exp</Text>
+                    <View style={styles.docMetaRow}>
+                      <Ionicons name="location-outline" size={12} color={Colors.gray400} />
+                      <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>
+                    </View>
                     <Text style={styles.docFee}>₹15 {t('per_visit')}</Text>
                   </View>
                 </TouchableOpacity>
@@ -300,7 +312,9 @@ export default function HomeScreen() {
           <View style={styles.featGrid}>
             {FEATURES.map((f) => (
               <View key={f.titleKey} style={styles.featCard}>
-                <Text style={{ fontSize: 22, marginBottom: 10 }}>{f.icon}</Text>
+                <View style={styles.featIconBox}>
+                  <Ionicons name={f.icon} size={22} color={Colors.blue600} />
+                </View>
                 <Text style={styles.featTitle}>{t(f.titleKey)}</Text>
                 <Text style={styles.featDesc}>{t(f.descKey)}</Text>
               </View>
@@ -369,7 +383,7 @@ const styles = StyleSheet.create({
   brandName:  { fontSize: 17, fontWeight: '800', color: Colors.gray900 },
   accent:     { color: Colors.blue600 },
   navRight:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  langBtn:    { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  langBtn:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   langBtnText:{ fontSize: 12, fontWeight: '700', color: Colors.blue700 },
   loginBtn:   { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, minWidth: 76, alignItems: 'center', justifyContent: 'center' },
   loginBtnText: { color: Colors.white, fontWeight: '700', fontSize: 13 },
@@ -385,8 +399,13 @@ const styles = StyleSheet.create({
   heroSub:    { fontSize: 15, color: Colors.gray500, lineHeight: 24, marginBottom: 26 },
   primaryBtn: { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginBottom: 12, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
-  outlineBtn: { borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', minHeight: 50 },
-  outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
+
+  // Browse by specialty
+  specSection: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 26, backgroundColor: Colors.bg },
+  specLabel:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: Colors.gray400, textTransform: 'uppercase', marginBottom: 12 },
+  specRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+  specChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 13, paddingVertical: 8 },
+  specChipText: { fontSize: 13, fontWeight: '600', color: Colors.gray900 },
 
   // Stats
   statsRow:   { flexDirection: 'row', backgroundColor: Colors.white, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.blue100 },
@@ -420,12 +439,14 @@ const styles = StyleSheet.create({
   docInfo:   { padding: 12 },
   docSpec:   { fontSize: 9, fontWeight: '700', color: Colors.blue600, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 },
   docName:   { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
-  docMeta:   { fontSize: 11, color: Colors.gray400, marginBottom: 6 },
+  docMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 },
+  docMeta:   { fontSize: 11, color: Colors.gray400, flexShrink: 1 },
   docFee:    { fontSize: 12, fontWeight: '700', color: Colors.blue600 },
 
   // Features
   featGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   featCard: { width: '47%', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 16 },
+  featIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   featTitle: { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
   featDesc:  { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
 
