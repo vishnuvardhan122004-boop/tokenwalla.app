@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,8 @@ export default function RefundScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
-            <Text style={styles.backText}>← Back</Text>
+            <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+            <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>LEGAL</Text>
           <Text style={styles.title}>Refund Policy</Text>
@@ -28,10 +30,13 @@ export default function RefundScreen() {
 
         {/* Quick summary */}
         <View style={styles.summaryBox}>
-          <Text style={styles.summaryTitle}>⚡ Quick Summary</Text>
-          <View style={styles.summaryRow}><Text style={styles.summaryCheck}>✅</Text><Text style={styles.summaryText}>Cancel 2+ hrs before slot → Full refund in 5–7 days</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryCheck}>❌</Text><Text style={styles.summaryText}>Cancel less than 2hrs before → No refund</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryCheck}>❌</Text><Text style={styles.summaryText}>No-show without cancellation → No refund</Text></View>
+          <View style={styles.summaryTitleRow}>
+            <Ionicons name="flash" size={15} color={Colors.blue600} />
+            <Text style={styles.summaryTitle}>Quick Summary</Text>
+          </View>
+          <View style={styles.summaryRow}><Ionicons name="checkmark-circle" size={17} color={Colors.successText} /><Text style={styles.summaryText}>Cancel 2+ hrs before slot → Full refund in 5–7 days</Text></View>
+          <View style={styles.summaryRow}><Ionicons name="close-circle" size={17} color={Colors.errorText} /><Text style={styles.summaryText}>Cancel less than 2hrs before → No refund</Text></View>
+          <View style={styles.summaryRow}><Ionicons name="close-circle" size={17} color={Colors.errorText} /><Text style={styles.summaryText}>No-show without cancellation → No refund</Text></View>
         </View>
 
         <View style={styles.body}>
@@ -55,16 +60,16 @@ export default function RefundScreen() {
 const styles = StyleSheet.create({
   safe:    { flex: 1, backgroundColor: Colors.white },
   header:  { backgroundColor: Colors.bg, padding: 20, borderBottomWidth: 1, borderBottomColor: Colors.blue100 },
-  backBtn: { marginBottom: 16 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 16, alignSelf: 'flex-start' },
   backText: { fontSize: 14, color: Colors.blue600, fontWeight: '600' },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.blue600, marginBottom: 10 },
   title:   { fontSize: 26, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   updated: { fontSize: 13, color: Colors.gray400 },
 
   summaryBox:  { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, margin: 20, borderRadius: 14, padding: 16 },
-  summaryTitle: { fontSize: 14, fontWeight: '800', color: Colors.gray900, marginBottom: 12 },
+  summaryTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  summaryTitle: { fontSize: 14, fontWeight: '800', color: Colors.gray900 },
   summaryRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
-  summaryCheck: { fontSize: 16, width: 22 },
   summaryText: { flex: 1, fontSize: 13, color: Colors.gray600, lineHeight: 19 },
 
   body:    { padding: 20 },

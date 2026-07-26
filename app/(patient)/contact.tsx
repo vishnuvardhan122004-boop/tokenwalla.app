@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { ComponentProps, useState } from 'react';
 import {
   Alert, Linking,
   ScrollView,
@@ -52,19 +53,21 @@ export default function ContactScreen() {
 
         {/* Contact Info Cards */}
         <View style={styles.contactGrid}>
-          {[
-            { icon: '📧', label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
-            { icon: '📞', label: t('ct_phone'),  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
-            { icon: '💬', label: t('ct_whatsapp'), value: t('ct_chat_with_us'), onPress: () => Linking.openURL('https://wa.me/917286995933') },
-            { icon: '🏢', label: t('ct_office'), value: 'Hindupur, AP 515201', onPress: null },
-          ].map(({ icon, label, value, onPress }) => (
+          {([
+            { icon: 'mail-outline',     label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
+            { icon: 'call-outline',     label: t('ct_phone'),  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
+            { icon: 'logo-whatsapp',    label: t('ct_whatsapp'), value: t('ct_chat_with_us'), onPress: () => Linking.openURL('https://wa.me/917286995933') },
+            { icon: 'business-outline', label: t('ct_office'), value: 'Hindupur, AP 515201', onPress: null },
+          ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string; onPress: (() => void) | null }[]).map(({ icon, label, value, onPress }) => (
             <TouchableOpacity
               key={label}
               style={styles.contactCard}
               onPress={onPress || undefined}
               disabled={!onPress}
             >
-              <Text style={{ fontSize: 26, marginBottom: 8 }}>{icon}</Text>
+              <View style={styles.contactIconBox}>
+                <Ionicons name={icon} size={22} color={Colors.blue600} />
+              </View>
               <Text style={styles.contactLabel}>{label}</Text>
               <Text style={styles.contactValue}>{value}</Text>
             </TouchableOpacity>
@@ -130,6 +133,7 @@ const styles = StyleSheet.create({
 
   contactGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 16, gap: 12 },
   contactCard:  { width: '47%', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, padding: 16, alignItems: 'center' },
+  contactIconBox: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   contactLabel: { fontSize: 11, fontWeight: '700', color: Colors.gray400, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 },
   contactValue: { fontSize: 13, fontWeight: '600', color: Colors.blue600, textAlign: 'center' },
 

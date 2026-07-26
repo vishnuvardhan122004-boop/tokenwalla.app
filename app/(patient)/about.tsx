@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { ComponentProps } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
@@ -10,11 +12,11 @@ const STATS = [
   { num: '4.8★',   label: 'Patient Rating' },
 ];
 
-const VALUES = [
-  { icon: '♻️', title: 'Zero Waiting Rooms',  desc: 'Patients arrive when their number is close. Hospitals run on schedule.' },
-  { icon: '🔐', title: 'Privacy First',        desc: 'Patient data is encrypted and never sold. Period.'                      },
-  { icon: '🌐', title: 'Accessible Anywhere',  desc: 'Works on any device. No waiting room needed.'                          },
-  { icon: '⚡', title: 'Real-time Queue',      desc: 'Live position tracking refreshed every 15 seconds.'                    },
+const VALUES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; desc: string }[] = [
+  { icon: 'refresh-outline',     title: 'Zero Waiting Rooms',  desc: 'Patients arrive when their number is close. Hospitals run on schedule.' },
+  { icon: 'lock-closed-outline', title: 'Privacy First',        desc: 'Patient data is encrypted and never sold. Period.'                      },
+  { icon: 'globe-outline',       title: 'Accessible Anywhere',  desc: 'Works on any device. No waiting room needed.'                          },
+  { icon: 'flash-outline',       title: 'Real-time Queue',      desc: 'Live position tracking refreshed every 15 seconds.'                    },
 ];
 
 export default function AboutScreen() {
@@ -27,7 +29,8 @@ export default function AboutScreen() {
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => safeBack(router)} style={styles.backBtn}>
-            <Text style={styles.backText}>← Back</Text>
+            <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+            <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>ABOUT TOKENWALLA</Text>
           <Text style={styles.title}>We built a smarter{'\n'}way to see a <Text style={styles.accent}>doctor</Text></Text>
@@ -69,7 +72,9 @@ export default function AboutScreen() {
           <View style={styles.valuesGrid}>
             {VALUES.map((v, i) => (
               <View key={i} style={styles.valueCard}>
-                <Text style={{ fontSize: 24, marginBottom: 10 }}>{v.icon}</Text>
+                <View style={styles.valueIconBox}>
+                  <Ionicons name={v.icon} size={22} color={Colors.blue600} />
+                </View>
                 <Text style={styles.valueTitle}>{v.title}</Text>
                 <Text style={styles.valueDesc}>{v.desc}</Text>
               </View>
@@ -96,7 +101,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
 
   header:      { backgroundColor: Colors.bg, padding: 20, paddingTop: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100 },
-  backBtn:     { marginBottom: 16 },
+  backBtn:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 16, alignSelf: 'flex-start' },
   backText:    { fontSize: 14, color: Colors.blue600, fontWeight: '600' },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.blue600, marginBottom: 10 },
   title:       { fontSize: 26, fontWeight: '800', color: Colors.gray900, lineHeight: 33, marginBottom: 12 },
@@ -115,6 +120,7 @@ const styles = StyleSheet.create({
 
   valuesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   valueCard:  { width: '47%', backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 16 },
+  valueIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   valueTitle: { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
   valueDesc:  { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
 
