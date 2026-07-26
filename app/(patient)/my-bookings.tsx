@@ -20,6 +20,9 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import QRCode from 'react-native-qrcode-svg';
+import { captureRef } from 'react-native-view-shot';
+import * as Sharing from 'expo-sharing';
 import RescheduleModal from '../../components/RescheduleModal';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
@@ -71,6 +74,44 @@ export default function MyBookings() {
   const [cancelling,        setCancelling]        = useState<number | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Download ticket: render a full ticket (with QR) off-screen for the chosen
+  // booking, snapshot it to a PNG, then open the share sheet. The list cards
+  // have no QR of their own, so we capture a dedicated off-screen ticket view.
+  const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+  const [ticketBooking, setTicketBooking] = useState<Booking | null>(null);
+  const ticketRef = useRef<View>(null);
+
+  const handleDownload = (booking: Booking) => {
+    setDownloadingId(booking.id);
+    setTicketBooking(booking);   // mounts the off-screen ticket → captured in the effect below
+  };
+
+  useEffect(() => {
+    if (!ticketBooking) return;
+    let cancelled = false;
+    // Give the off-screen ticket + QR a moment to lay out and paint before capture.
+    const timer = setTimeout(async () => {
+      try {
+        const uri = await captureRef(ticketRef, { format: 'png', quality: 1, result: 'tmpfile' });
+        const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(shareUri, {
+            mimeType: 'image/png',
+            dialogTitle: 'Save your appointment ticket',
+            UTI: 'public.png',
+          });
+        } else {
+          Alert.alert('Not available', 'Saving is not available on this device.');
+        }
+      } catch {
+        if (!cancelled) Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+      } finally {
+        if (!cancelled) { setTicketBooking(null); setDownloadingId(null); }
+      }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [ticketBooking]);
 
   const fetchBookings = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -317,6 +358,23 @@ export default function MyBookings() {
                   </TouchableOpacity>
                 )}
 
+                {/* Download ticket (with QR) — available for every booking */}
+                <TouchableOpacity
+                  style={st.downloadBtn}
+                  onPress={() => handleDownload(booking)}
+                  disabled={downloadingId === booking.id}
+                  activeOpacity={0.7}
+                >
+                  {downloadingId === booking.id ? (
+                    <ActivityIndicator size="small" color={Colors.blue600} />
+                  ) : (
+                    <>
+                      <Text style={{ fontSize: 16 }}>⬇</Text>
+                      <Text style={st.downloadBtnText}>{t('download_ticket')}</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
                 {/* Doctor-unavailable banner: hospital marked the doctor off,
                     so this booking can be rescheduled for free. */}
                 {isWaiting && booking.free_reschedule && (
@@ -379,6 +437,57 @@ export default function MyBookings() {
         user={user}
         free={!!rescheduleBooking?.free_reschedule}
       />
+
+      {/* Off-screen ticket (with QR) rendered only while a download is in flight;
+          captured by handleDownload's effect, never shown to the user. */}
+      {ticketBooking && (
+        <View ref={ticketRef} collapsable={false} style={st.ticketCapture}>
+          <View style={st.ticketBar} />
+          <View style={st.ticketHeader}>
+            <Text style={st.ticketBrand}><Text style={st.ticketAccent}>Token</Text>walla</Text>
+            <Text style={st.ticketConfirmed}>● Confirmed</Text>
+          </View>
+
+          <View style={st.ticketQrWrap}>
+            <View style={st.ticketQrBox}>
+              <QRCode
+                value={JSON.stringify({
+                  token_code:  ticketBooking.token,
+                  doctor_name: ticketBooking.doctor_name,
+                  hospital:    ticketBooking.hospital_name,
+                  date:        ticketBooking.date,
+                  slot:        ticketBooking.slot,
+                })}
+                size={180}
+                color="#0F172A"
+                backgroundColor="#FFFFFF"
+              />
+            </View>
+          </View>
+
+          <Text style={st.ticketTokenLabel}>YOUR TOKEN</Text>
+          <Text style={st.ticketToken}>{ticketBooking.token}</Text>
+
+          <View style={st.ticketDivider} />
+
+          <View style={st.ticketDetails}>
+            {[
+              { label: 'Patient',  value: ticketBooking.patient_name || user?.name || user?.username },
+              { label: 'Doctor',   value: `Dr. ${ticketBooking.doctor_name}` },
+              { label: 'Hospital', value: ticketBooking.hospital_name },
+              { label: 'Date',     value: ticketBooking.date },
+              { label: 'Slot',     value: ticketBooking.slot },
+            ].map(({ label, value }) => (
+              <View key={label} style={st.ticketRow}>
+                <Text style={st.ticketRowLabel}>{label}</Text>
+                <Text style={st.ticketRowValue} numberOfLines={1}>{String(value ?? '—')}</Text>
+              </View>
+            ))}
+          </View>
+
+          <Text style={st.ticketFooter}>Show this token & QR at the hospital reception</Text>
+        </View>
+      )}
 
     </SafeAreaView>
   );
@@ -449,6 +558,27 @@ const st = StyleSheet.create({
 
   qrBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, backgroundColor: Colors.blue600, borderTopWidth: 1, borderTopColor: Colors.blue100 },
   qrBtnText: { fontSize: 13, fontWeight: '700', color: Colors.white },
+
+  downloadBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, minHeight: 44, backgroundColor: Colors.blue50, borderTopWidth: 1, borderTopColor: Colors.blue100 },
+  downloadBtnText: { fontSize: 13, fontWeight: '700', color: Colors.blue700 ?? Colors.blue600 },
+
+  // Off-screen ticket used only for image capture (never visible).
+  ticketCapture:      { position: 'absolute', left: -9999, top: 0, width: 360, backgroundColor: Colors.white, borderRadius: 20, overflow: 'hidden', paddingBottom: 18 },
+  ticketBar:          { height: 5, backgroundColor: Colors.blue600 },
+  ticketHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16 },
+  ticketBrand:        { fontSize: 18, fontWeight: '800', color: Colors.gray900 },
+  ticketAccent:       { color: Colors.blue600 },
+  ticketConfirmed:    { fontSize: 12, fontWeight: '700', color: Colors.successText },
+  ticketQrWrap:       { alignItems: 'center', paddingVertical: 20 },
+  ticketQrBox:        { padding: 14, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: Colors.blue100 },
+  ticketTokenLabel:   { textAlign: 'center', fontSize: 10, fontWeight: '700', letterSpacing: 2, color: Colors.gray400 },
+  ticketToken:        { textAlign: 'center', fontSize: 26, fontWeight: '700', color: Colors.blue600, fontFamily: 'monospace', letterSpacing: 2, marginTop: 4 },
+  ticketDivider:      { height: 1, backgroundColor: Colors.blue50, marginHorizontal: 20, marginTop: 16 },
+  ticketDetails:      { paddingHorizontal: 20, paddingTop: 6 },
+  ticketRow:          { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  ticketRowLabel:     { fontSize: 12, color: Colors.gray500 },
+  ticketRowValue:     { fontSize: 13, fontWeight: '600', color: Colors.gray900, maxWidth: '60%', textAlign: 'right' },
+  ticketFooter:       { textAlign: 'center', fontSize: 11, color: Colors.gray400, marginTop: 14, paddingHorizontal: 20 },
 
   actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.blue50 },
   rescheduleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.blue50, borderRightWidth: 1, borderRightColor: Colors.blue100 },
