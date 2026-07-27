@@ -52,6 +52,7 @@ interface Doctor {
   id: number | string;
   name: string;
   specialization: string;
+  keywords?: string;
   mobile: string;
   experience: number | string;
   fee: number | string;
@@ -83,6 +84,7 @@ interface QueueState {
 interface FormState {
   name: string;
   specialization: string;
+  keywords: string;
   mobile: string;
   experience: string;
   fee: string;
@@ -133,6 +135,7 @@ const DAYS_OF_WEEK: { key: string; label: string }[] = [
 const EMPTY_FORM: FormState = {
   name:           '',
   specialization: '',
+  keywords:       '',
   mobile:         '',
   experience:     '',
   fee:            '',
@@ -427,6 +430,7 @@ export default function HospitalDashboard() {
     setForm({
       name:           doc.name            || '',
       specialization: doc.specialization  || '',
+      keywords:       doc.keywords        || '',
       mobile:         doc.mobile          || '',
       experience:     String(doc.experience   || ''),
       fee:            String(doc.fee          || ''),
@@ -493,6 +497,7 @@ export default function HospitalDashboard() {
       const payload = new FormData();
       payload.append('name',           form.name.trim());
       payload.append('specialization', form.specialization.trim());
+      payload.append('keywords',       form.keywords.trim());
       payload.append('mobile',         form.mobile.trim());
       payload.append('experience',     form.experience   || '0');
       payload.append('fee',            form.fee          || '0');
@@ -719,6 +724,18 @@ export default function HospitalDashboard() {
                 value={form.specialization}
                 onChangeText={(v: string) => setForm(p => ({ ...p, specialization: v }))}
               />
+
+              <Text style={styles.fieldLabel}>Search Keywords</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="e.g. heart, chest pain, BP, ECG"
+                placeholderTextColor={Colors.gray400}
+                value={form.keywords}
+                onChangeText={(v: string) => setForm(p => ({ ...p, keywords: v }))}
+              />
+              <Text style={styles.imageHint}>
+                Comma-separated terms patients might search — helps this doctor show up in results.
+              </Text>
 
               <Text style={styles.fieldLabel}>Mobile Number *</Text>
               <TextInput

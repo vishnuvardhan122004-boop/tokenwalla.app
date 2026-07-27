@@ -52,6 +52,7 @@ interface Doctor {
   id: number;
   name: string;
   specialization: string;
+  keywords: string;
   experience: number;
   mobile: string;
   available: boolean;
@@ -196,7 +197,7 @@ export default function DoctorsScreen() {
       // Expand common terms (skin→dermat, heart→cardio, …) so specialty chips
       // reach doctors named with clinical terms; unknown words match as-is.
       const terms = SPEC_SYNONYMS[q] || [q];
-      const haystack = [doc.name, doc.specialization, doc.hospital_name, doc.city]
+      const haystack = [doc.name, doc.specialization, doc.keywords, doc.hospital_name, doc.city]
         .filter(Boolean).join(' ').toLowerCase();
       const matchSearch = !search || terms.some((term) => haystack.includes(term));
       const matchSpec  = specFilter === 'All' || doc.specialization === specFilter;
