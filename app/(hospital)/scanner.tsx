@@ -10,6 +10,7 @@
  * Requires: expo-camera  (npx expo install expo-camera)
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -112,7 +113,7 @@ export default function HospitalScanner() {
         if (data?.booking) { setScanResult(data); setScanState('already_done'); }
         else { setErrorMsg('This patient has already been attended.'); setScanState('error'); }
       } else if (status === 403) {
-        setErrorMsg('⛔ This token belongs to a different hospital. You can only scan patients booked at your hospital.');
+        setErrorMsg('This token belongs to a different hospital. You can only scan patients booked at your hospital.');
         setScanState('error');
       } else if (status === 404) {
         setErrorMsg(`Token "${token}" not found. Please check and try again.`);
@@ -205,9 +206,10 @@ export default function HospitalScanner() {
       {/* Header */}
       <View style={styles.navbar}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+          <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.navTitle}>📷 QR Scanner</Text>
+        <Text style={styles.navTitle}>QR Scanner</Text>
         <View style={{ width: 60 }} />
       </View>
 
@@ -241,7 +243,7 @@ export default function HospitalScanner() {
               </CameraView>
             ) : (
               <View style={styles.camPlaceholder}>
-                <Text style={{ fontSize: 46 }}>📷</Text>
+                <Ionicons name="camera-outline" size={46} color={Colors.gray400} />
                 <Text style={styles.camPlaceholderText}>
                   {permission && !permission.granted && permission.canAskAgain === false
                     ? 'Camera permission denied. Enable it in Settings or use manual entry below.'
@@ -254,11 +256,13 @@ export default function HospitalScanner() {
           {/* Camera controls */}
           {!scanning ? (
             <TouchableOpacity style={styles.startBtn} onPress={startCamera}>
-              <Text style={styles.startBtnText}>📷 Start Scanner</Text>
+              <Ionicons name="camera" size={17} color={Colors.white} />
+              <Text style={styles.startBtnText}>Start Scanner</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity style={styles.stopBtn} onPress={stopCamera}>
-              <Text style={styles.stopBtnText}>⏹ Stop Camera</Text>
+              <Ionicons name="stop" size={16} color={Colors.errorText} />
+              <Text style={styles.stopBtnText}>Stop Camera</Text>
             </TouchableOpacity>
           )}
 
@@ -301,7 +305,7 @@ export default function HospitalScanner() {
           {/* Error */}
           {scanState === 'error' && (
             <View style={styles.errorBox}>
-              <Text style={{ fontSize: 20 }}>❌</Text>
+              <Ionicons name="close-circle" size={20} color={Colors.errorText} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.errorText}>{errorMsg}</Text>
                 <TouchableOpacity onPress={resetScanner}>
@@ -319,13 +323,13 @@ export default function HospitalScanner() {
             const topColor    = isConfirmed ? Colors.successText : isDone ? Colors.warningBorder : Colors.blue600;
 
             const rows: { label: string; value: string; mono?: boolean; blue?: boolean; bold?: boolean }[] = [
-              { label: 'Hospital',       value: `🏥 ${booking.hospital_name ?? ''}` },
-              { label: 'Patient',        value: `👤 ${booking.patient_name ?? ''}` },
+              { label: 'Hospital',       value: String(booking.hospital_name ?? '') },
+              { label: 'Patient',        value: String(booking.patient_name ?? '') },
               { label: 'Mobile',         value: String(booking.patient_mobile ?? ''), mono: true },
               { label: 'Doctor',         value: `Dr. ${booking.doctor_name ?? ''}` },
               { label: 'Specialization', value: booking.specialization ?? '' },
-              { label: 'Date',           value: `📅 ${booking.date ?? ''}` },
-              { label: 'Slot',           value: `🕐 ${booking.slot ?? ''}` },
+              { label: 'Date',           value: String(booking.date ?? '') },
+              { label: 'Slot',           value: String(booking.slot ?? '') },
               ...(booking.queue_position != null
                 ? [{ label: 'Queue Position', value: `#${booking.queue_position}`, bold: true }] : []),
               { label: 'Token',          value: booking.token, mono: true, blue: true },
@@ -340,9 +344,11 @@ export default function HospitalScanner() {
               <View style={styles.result}>
                 <View style={[styles.resultTopbar, { backgroundColor: topColor }]} />
                 <View style={styles.resultHeader}>
-                  <Text style={{ fontSize: 28 }}>
-                    {isConfirmed ? '✅' : isDone ? '⚠️' : '🎫'}
-                  </Text>
+                  <Ionicons
+                    name={isConfirmed ? 'checkmark-circle' : isDone ? 'alert-circle' : 'ticket'}
+                    size={28}
+                    color={topColor}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.resultTitle}>
                       {isConfirmed ? 'Marked as In Consultation!'
@@ -391,12 +397,13 @@ export default function HospitalScanner() {
                     >
                       {confirming
                         ? <ActivityIndicator color={Colors.white} size="small" />
-                        : <Text style={styles.confirmBtnText}>✅ Mark as In Consultation</Text>}
+                        : <><Ionicons name="checkmark-circle" size={17} color={Colors.white} /><Text style={styles.confirmBtnText}>Mark as In Consultation</Text></>}
                     </TouchableOpacity>
                   )}
                   {isConfirmed && (
                     <View style={styles.confirmedPill}>
-                      <Text style={styles.confirmedPillText}>✅ Patient marked In Consultation</Text>
+                      <Ionicons name="checkmark-circle" size={15} color={Colors.successText} />
+                      <Text style={styles.confirmedPillText}>Patient marked In Consultation</Text>
                     </View>
                   )}
                   <TouchableOpacity style={styles.resetBtn} onPress={resetScanner}>
@@ -420,7 +427,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
 
   navbar:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
-  backBtn:  { paddingVertical: 6, paddingHorizontal: 4, width: 60 },
+  backBtn:  { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 6, paddingHorizontal: 4, width: 60 },
   backBtnText: { fontSize: 15, fontWeight: '600', color: Colors.blue600 },
   navTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
 
@@ -438,9 +445,9 @@ const styles = StyleSheet.create({
   camPlaceholder: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
   camPlaceholderText: { color: 'rgba(255,255,255,0.65)', fontSize: 14, textAlign: 'center', lineHeight: 21 },
 
-  startBtn:  { backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
+  startBtn:  { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   startBtnText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
-  stopBtn:   { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
+  stopBtn:   { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   stopBtnText: { color: Colors.errorText, fontSize: 15, fontWeight: '700' },
 
   dividerRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
@@ -472,9 +479,9 @@ const styles = StyleSheet.create({
   statusBadge:   { borderRadius: 100, paddingHorizontal: 12, paddingVertical: 4 },
   statusBadgeText: { fontSize: 12, fontWeight: '700' },
   resultActions: { flexDirection: 'row', gap: 10, padding: 16, backgroundColor: Colors.gray50, borderTopWidth: 1, borderTopColor: Colors.blue50 },
-  confirmBtn:    { flex: 1, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  confirmBtn:    { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   confirmBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
-  confirmedPill: { flex: 1, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  confirmedPill: { flex: 1, flexDirection: 'row', gap: 7, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   confirmedPillText: { color: Colors.successText, fontSize: 14, fontWeight: '600' },
   resetBtn:      { borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.white, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   resetBtnText:  { color: Colors.gray600, fontSize: 14, fontWeight: '500' },
