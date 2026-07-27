@@ -126,7 +126,7 @@ export default function MyQRScreen() {
 
           {/* How to use info */}
           <View style={styles.infoBox}>
-            <Text style={{ fontSize: 18, marginRight: 10 }}>💡</Text>
+            <Ionicons name="bulb-outline" size={18} color={Colors.blue600} style={{ marginRight: 10, marginTop: 1 }} />
             <Text style={styles.infoText}>{t('qr_info')}</Text>
           </View>
 

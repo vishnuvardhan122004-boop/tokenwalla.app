@@ -1,11 +1,12 @@
 /**
  * components/NotificationBell.tsx
  *
- * A 🔔 button with an unread-count badge, driven by the in-app notification
+ * A bell button with an unread-count badge, driven by the in-app notification
  * centre (services/notificationStore.ts). Tapping it opens the notifications
  * list. Reused in the patient navbar and the hospital dashboard header.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
@@ -35,7 +36,7 @@ export default function NotificationBell({
         unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'
       }
     >
-      <Text style={styles.icon}>🔔</Text>
+      <Ionicons name="notifications-outline" size={20} color={Colors.gray700} />
       {unreadCount > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>

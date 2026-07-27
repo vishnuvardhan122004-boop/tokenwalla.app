@@ -5,6 +5,7 @@
  * screen instead of white-screening the whole app.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { Component, type ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
@@ -41,7 +42,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return (
       <View style={styles.root}>
-        <Text style={{ fontSize: 52, marginBottom: 16 }}>😵</Text>
+        <Ionicons name="alert-circle-outline" size={54} color={Colors.errorText} style={{ marginBottom: 16 }} />
         <Text style={styles.title}>Something went wrong</Text>
         <Text style={styles.sub}>
           The app hit an unexpected error. Please try again.
