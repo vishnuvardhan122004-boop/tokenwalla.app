@@ -139,6 +139,12 @@ export default function BookingTokenScreen() {
           </View>
         </View>
 
+        {/* Fee disclaimer — service fee only; consultation paid at hospital */}
+        <View style={styles.feeNote}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 8, marginTop: 1 }} />
+          <Text style={styles.feeNoteText}>{t('bt_fee_disclaimer')}</Text>
+        </View>
+
         {/* Actions */}
         <TouchableOpacity
           style={[styles.downloadBtn, downloading && styles.downloadBtnDisabled]}
@@ -214,6 +220,8 @@ const styles = StyleSheet.create({
   outlineBtn:     { width: '100%', borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
 
+  feeNote:             { flexDirection: 'row', alignItems: 'flex-start', width: '100%', backgroundColor: Colors.warningBg ?? '#FAEEDA', borderWidth: 1, borderColor: Colors.warningBorder ?? '#EF9F27', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 4, marginBottom: 16 },
+  feeNoteText:         { flex: 1, fontSize: 12.5, color: Colors.warningText ?? '#854F0B', lineHeight: 18 },
   downloadBtn:         { width: '100%', flexDirection: 'row', gap: 8, backgroundColor: Colors.blue50, borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 50 },
   downloadBtnDisabled: { opacity: 0.7 },
   downloadBtnText:     { color: Colors.blue600, fontWeight: '700', fontSize: 15 },
