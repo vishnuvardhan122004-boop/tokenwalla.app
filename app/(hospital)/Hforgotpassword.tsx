@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { ComponentProps, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -23,19 +24,19 @@ import { safeBack } from '../../utils/navigation';
 
 const STEPS = ['Mobile', 'Verify OTP', 'New Password'];
 
-const FEATURES = [
+const FEATURES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; desc: string }[] = [
   {
-    icon: '🔐',
+    icon: 'shield-checkmark-outline',
     title: 'Secure Reset',
     desc: 'OTP sent via SMS to your registered mobile number',
   },
   {
-    icon: '✉️',
+    icon: 'chatbox-ellipses-outline',
     title: 'SMS OTP',
     desc: 'Answer the automated sms and note the OTP spoken to you',
   },
   {
-    icon: '🏥',
+    icon: 'business-outline',
     title: 'Hospital Account',
     desc: 'Resets only your hospital admin password — not patient accounts',
   },
@@ -121,7 +122,7 @@ export default function HforgotPassword() {
     setError('');
     try {
       await API.post('/auth/otp/request/', { mobile: cleaned, via: 'SMS' });
-      setSuccess(`📞 An SMS has been sent to ${cleaned}. Please check and note the OTP.`);
+      setSuccess(`An SMS has been sent to ${cleaned}. Please check and note the OTP.`);
       setStep(2);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -160,7 +161,7 @@ export default function HforgotPassword() {
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });
       if (data.verified) {
-        setSuccess('✅ OTP verified! Now set your new password.');
+        setSuccess('OTP verified! Now set your new password.');
         setStep(3);
       } else {
         setError('Incorrect OTP. Please try again or request a new SMS.');
@@ -204,8 +205,14 @@ export default function HforgotPassword() {
 
   const Alert = ({ type, msg }: { type: 'error' | 'success'; msg: string }) => (
     <View style={[s.alert, type === 'error' ? s.alertError : s.alertSuccess]}>
+      <Ionicons
+        name={type === 'error' ? 'alert-circle' : 'checkmark-circle'}
+        size={16}
+        color={type === 'error' ? C.errorText : C.successText}
+        style={{ marginRight: 8 }}
+      />
       <Text style={[s.alertText, type === 'error' ? s.alertTextError : s.alertTextSuccess]}>
-        {type === 'error' ? '⚠️  ' : ''}{msg}
+        {msg}
       </Text>
     </View>
   );
@@ -253,7 +260,7 @@ export default function HforgotPassword() {
           {/* ── HEADER ──────────────────────────────────────────────────────── */}
           <View style={s.header}>
             <TouchableOpacity style={s.backArrow} onPress={() => safeBack(router, '/(hospital)/login')}>
-              <Text style={s.backArrowText}>←</Text>
+              <Ionicons name="chevron-back" size={22} color={C.blue600} />
             </TouchableOpacity>
             <View style={s.brandRow}>
               <View style={s.brandLogo}>
@@ -277,7 +284,7 @@ export default function HforgotPassword() {
           <View style={s.featuresRow}>
             {FEATURES.map((f, i) => (
               <View key={i} style={s.featureCard}>
-                <Text style={s.featureIcon}>{f.icon}</Text>
+                <Ionicons name={f.icon} size={20} color={C.blue600} style={s.featureIcon} />
                 <Text style={s.featureTitle}>{f.title}</Text>
                 <Text style={s.featureDesc}>{f.desc}</Text>
               </View>
@@ -330,7 +337,7 @@ export default function HforgotPassword() {
 
               <Text style={s.fieldLabel}>Registered Hospital Mobile</Text>
               <View style={s.inputWrap}>
-                <Text style={s.inputIcon}>🏥</Text>
+                <Ionicons name="business-outline" size={17} color={C.gray400} style={s.inputIcon} />
                 <TextInput
                   style={s.input}
                   placeholder="10-digit mobile number"
@@ -347,7 +354,7 @@ export default function HforgotPassword() {
               <Text style={s.fieldHint}>This must be the mobile used when registering your hospital</Text>
 
               <View style={s.voiceInfo}>
-                <Text style={s.voiceIcon}>📞</Text>
+                <Ionicons name="chatbox-ellipses-outline" size={19} color={C.blue600} style={s.voiceIcon} />
                 <Text style={s.voiceText}>
                   We'll place an <Text style={{ fontWeight: '700' }}> automated SMS </Text> to this number.
                 </Text>
@@ -387,7 +394,8 @@ export default function HforgotPassword() {
 
               {/* Mobile display */}
               <View style={s.mobileDisplay}>
-                <Text style={s.mobileDisplayText}>📱  {mobile}</Text>
+                <Ionicons name="call-outline" size={13} color={C.blue700} style={{ marginRight: 6 }} />
+                <Text style={s.mobileDisplayText}>{mobile}</Text>
                 <TouchableOpacity
                   onPress={() => { setStep(1); setError(''); setSuccess(''); setOtp(''); }}
                   style={{ marginLeft: 8 }}
@@ -426,7 +434,7 @@ export default function HforgotPassword() {
               <SubmitButton
                 onPress={verifyOTP}
                 disabled={loading || otp.length < 4}
-                label="✅  Verify OTP →"
+                label="Verify OTP →"
                 loadingLabel="Verifying…"
               />
 
@@ -455,7 +463,7 @@ export default function HforgotPassword() {
               {/* New Password field */}
               <Text style={s.fieldLabel}>New Password</Text>
               <View style={s.inputWrap}>
-                <Text style={s.inputIcon}>🔑</Text>
+                <Ionicons name="lock-closed-outline" size={17} color={C.gray400} style={s.inputIcon} />
                 <TextInput
                   style={[s.input, { paddingRight: 48 }]}
                   placeholder="Minimum 6 characters"
@@ -469,7 +477,7 @@ export default function HforgotPassword() {
                   style={s.eyeBtn}
                   onPress={() => setShowPass(p => !p)}
                 >
-                  <Text style={s.eyeIcon}>{showPass ? '🙈' : '👁️'}</Text>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={18} color={C.gray400} />
                 </TouchableOpacity>
               </View>
 
@@ -496,7 +504,7 @@ export default function HforgotPassword() {
               {/* Confirm Password */}
               <Text style={[s.fieldLabel, { marginTop: 8 }]}>Confirm Password</Text>
               <View style={s.inputWrap}>
-                <Text style={s.inputIcon}>🔒</Text>
+                <Ionicons name="lock-closed-outline" size={17} color={C.gray400} style={s.inputIcon} />
                 <TextInput
                   style={s.input}
                   placeholder="Re-enter your new password"
@@ -517,7 +525,7 @@ export default function HforgotPassword() {
               <SubmitButton
                 onPress={resetPassword}
                 disabled={loading || !password || password !== confirm || password.length < 6}
-                label="🔐  Reset Password →"
+                label="Reset Password →"
                 loadingLabel="Resetting…"
               />
             </View>
@@ -530,7 +538,7 @@ export default function HforgotPassword() {
             <View style={s.card}>
               <View style={s.successCard}>
                 <View style={s.successIconWrap}>
-                  <Text style={s.successIconText}>✅</Text>
+                  <Ionicons name="checkmark-sharp" size={34} color={C.successText} />
                 </View>
                 <Text style={s.successTitle}>Password Reset Successful!</Text>
                 <Text style={s.successSub}>
@@ -756,6 +764,8 @@ const s = StyleSheet.create({
 
   // ── Alerts ────────────────────────────────────────────────────────────────
   alert: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderRadius: 10,
     padding: 12,
     marginBottom: 14,
@@ -770,6 +780,7 @@ const s = StyleSheet.create({
     borderColor: C.successBorder,
   },
   alertText: {
+    flex: 1,
     fontSize: 13,
     lineHeight: 19,
   },
