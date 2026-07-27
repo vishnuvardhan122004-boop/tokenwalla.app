@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -102,7 +103,7 @@ export default function HospitalRegisterScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile: form.mobile });
       setOtpSent(true);
-      setGlobalInfo(`📞 OTP sent to ${form.mobile}.`);
+      setGlobalInfo(`OTP sent to ${form.mobile}.`);
     } catch (e: unknown) {
       if (axios.isAxiosError(e)) {
         setGlobalError(e.response?.data?.message || 'OTP failed. Please try again.');
@@ -128,7 +129,7 @@ export default function HospitalRegisterScreen() {
       });
       if (data.verified) {
         setOtpVerified(true);
-        setGlobalInfo('✅ Mobile verified.');
+        setGlobalInfo('Mobile verified.');
       } else {
         setGlobalError('Invalid OTP. Please try again.');
       }
@@ -185,7 +186,8 @@ export default function HospitalRegisterScreen() {
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router,'/(hospital)/login')}>
-            <Text style={styles.backText}>← Back</Text>
+            <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+            <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>
 
           <View style={styles.brand}>
@@ -204,7 +206,8 @@ export default function HospitalRegisterScreen() {
 
           {!!globalError && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠️ {globalError}</Text>
+              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
+              <Text style={styles.errorText}>{globalError}</Text>
             </View>
           )}
           {!!globalInfo && !globalError && (
@@ -216,7 +219,7 @@ export default function HospitalRegisterScreen() {
           {/* Hospital name */}
           <Text style={styles.label}>Hospital Name</Text>
           <View style={[styles.inputRow, errors.name && styles.inputRowError]}>
-            <Text style={styles.inputIcon}>🏥</Text>
+            <Ionicons name="business-outline" size={17} color={Colors.gray400} />
             <TextInput
               style={styles.input}
               placeholder="e.g. City Care Hospital"
@@ -253,7 +256,7 @@ export default function HospitalRegisterScreen() {
           {/* Address */}
           <Text style={styles.label}>Full Address</Text>
           <View style={[styles.inputRow, styles.textAreaRow, errors.address && styles.inputRowError]}>
-            <Text style={[styles.inputIcon, { marginTop: 2 }]}>🏢</Text>
+            <Ionicons name="home-outline" size={17} color={Colors.gray400} style={{ marginTop: 2 }} />
             <TextInput
               style={[styles.input, styles.textArea]}
               placeholder="Street, area, landmark, pincode"
@@ -270,7 +273,7 @@ export default function HospitalRegisterScreen() {
           <Text style={styles.label}>Mobile Number</Text>
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1, marginBottom: 0 }, errors.mobile && styles.inputRowError]}>
-              <Text style={styles.inputIcon}>📱</Text>
+              <Ionicons name="call-outline" size={17} color={Colors.gray400} />
               <TextInput
                 style={styles.input}
                 placeholder="10-digit mobile number"
@@ -298,7 +301,7 @@ export default function HospitalRegisterScreen() {
               <Text style={[styles.label, { marginTop: 6 }]}>Enter OTP</Text>
               <View style={styles.otpRow}>
                 <View style={[styles.inputRow, { flex: 1, marginBottom: 0 }]}>
-                  <Text style={styles.inputIcon}>🔢</Text>
+                  <Ionicons name="keypad-outline" size={17} color={Colors.gray400} />
                   <TextInput
                     style={styles.input}
                     placeholder="4–6 digit OTP"
@@ -318,7 +321,8 @@ export default function HospitalRegisterScreen() {
 
           {otpVerified && (
             <View style={styles.verifiedPill}>
-              <Text style={styles.verifiedPillText}>✅ Mobile verified — {form.mobile}</Text>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.successText} />
+              <Text style={styles.verifiedPillText}>Mobile verified — {form.mobile}</Text>
             </View>
           )}
 
@@ -327,7 +331,7 @@ export default function HospitalRegisterScreen() {
           {/* Password */}
           <Text style={styles.label}>Set Password</Text>
           <View style={[styles.inputRow, errors.password && styles.inputRowError]}>
-            <Text style={styles.inputIcon}>🔑</Text>
+            <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
             <TextInput
               style={styles.input}
               placeholder="Minimum 6 characters"
@@ -342,7 +346,7 @@ export default function HospitalRegisterScreen() {
           {/* Confirm password */}
           <Text style={styles.label}>Confirm Password</Text>
           <View style={[styles.inputRow, errors.confirmPassword && styles.inputRowError]}>
-            <Text style={styles.inputIcon}>🔒</Text>
+            <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
             <TextInput
               style={styles.input}
               placeholder="Re-enter your password"
@@ -365,9 +369,10 @@ export default function HospitalRegisterScreen() {
             }
           </TouchableOpacity>
 
-          <Text style={styles.pendingNote}>
-            ℹ️ Your account will be reviewed by an admin before you can log in.
-          </Text>
+          <View style={styles.pendingNote}>
+            <Ionicons name="information-circle-outline" size={15} color={Colors.blue600} style={{ marginRight: 7, marginTop: 1 }} />
+            <Text style={styles.pendingNoteText}>Your account will be reviewed by an admin before you can log in.</Text>
+          </View>
 
           <View style={styles.divider} />
 
@@ -388,7 +393,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
   root: { padding: 24, paddingTop: 16, paddingBottom: 40 },
 
-  back:     { marginBottom: 24 },
+  back:     { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 24, alignSelf: 'flex-start' },
   backText: { fontSize: 14, color: Colors.blue600, fontWeight: '600' },
 
   brand:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
@@ -403,7 +408,7 @@ const styles = StyleSheet.create({
 
   divider: { height: 1, backgroundColor: Colors.blue50, marginVertical: 20 },
 
-  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', gap: 8 },
+  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   errorText: { fontSize: 14, color: Colors.errorText, flex: 1 },
   infoBox:   { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, padding: 12, marginBottom: 16 },
   infoText:  { fontSize: 13, color: Colors.successText },
@@ -413,7 +418,6 @@ const styles = StyleSheet.create({
   inputRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },
   inputRowError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg },
   textAreaRow:   { alignItems: 'flex-start', paddingVertical: 10 },
-  inputIcon:     { fontSize: 15 },
   input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
@@ -426,14 +430,15 @@ const styles = StyleSheet.create({
   verifyBtn:     { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', minHeight: 50 },
   verifyBtnText: { fontSize: 13, fontWeight: '700', color: Colors.successText },
 
-  verifiedPill:     { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14 },
+  verifiedPill:     { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, marginBottom: 14 },
   verifiedPillText: { fontSize: 13, fontWeight: '600', color: Colors.successText },
 
   submitBtn:         { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginTop: 8, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   submitBtnDisabled: { opacity: 0.6 },
   submitBtnText:     { color: Colors.white, fontWeight: '700', fontSize: 15 },
 
-  pendingNote: { fontSize: 12, color: Colors.gray400, textAlign: 'center', marginTop: 14, lineHeight: 18 },
+  pendingNote: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 14 },
+  pendingNoteText: { flex: 1, fontSize: 12, color: Colors.gray400, lineHeight: 18 },
 
   altLink:       { alignItems: 'center' },
   altLinkText:   { fontSize: 13, color: Colors.gray500 },
