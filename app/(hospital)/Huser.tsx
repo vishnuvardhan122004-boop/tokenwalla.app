@@ -66,6 +66,9 @@ export default function HospitalRegisterScreen() {
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
 
+  const [showPass,    setShowPass]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
   const [submitting,  setSubmitting]  = useState(false);
   const [globalError, setGlobalError] = useState('');
   const [globalInfo,  setGlobalInfo]  = useState('');
@@ -182,7 +185,11 @@ export default function HospitalRegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router,'/(hospital)/login')}>
@@ -336,10 +343,13 @@ export default function HospitalRegisterScreen() {
               style={styles.input}
               placeholder="Minimum 6 characters"
               placeholderTextColor={Colors.gray400}
-              secureTextEntry
+              secureTextEntry={!showPass}
               value={form.password}
               onChangeText={t => setField('password', t)}
             />
+            <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
+              <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+            </TouchableOpacity>
           </View>
           {!!errors.password && <Text style={styles.fieldError}>{errors.password}</Text>}
 
@@ -351,10 +361,13 @@ export default function HospitalRegisterScreen() {
               style={styles.input}
               placeholder="Re-enter your password"
               placeholderTextColor={Colors.gray400}
-              secureTextEntry
+              secureTextEntry={!showConfirm}
               value={form.confirmPassword}
               onChangeText={t => setField('confirmPassword', t)}
             />
+            <TouchableOpacity onPress={() => setShowConfirm(v => !v)} hitSlop={8}>
+              <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+            </TouchableOpacity>
           </View>
           {!!errors.confirmPassword && <Text style={styles.fieldError}>{errors.confirmPassword}</Text>}
 

@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator, ScrollView,
+  ActivityIndicator,
+  KeyboardAvoidingView, Platform,
+  ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
   View,
@@ -18,6 +20,8 @@ export default function ForgotPasswordScreen() {
   const [otp,      setOtp]      = useState('');
   const [password, setPassword] = useState('');
   const [confirm,  setConfirm]  = useState('');
+  const [showPass,    setShowPass]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
   const [success,  setSuccess]  = useState('');
@@ -57,7 +61,12 @@ export default function ForgotPasswordScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.root}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+      <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.back} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backText}>Back to Login</Text>
@@ -121,12 +130,18 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.label}>New Password</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="Min 6 characters" placeholderTextColor={Colors.gray400} secureTextEntry value={password} onChangeText={setPassword} />
+              <TextInput style={styles.input} placeholder="Min 6 characters" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
+              <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+              </TouchableOpacity>
             </View>
             <Text style={styles.label}>Confirm Password</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="Repeat password" placeholderTextColor={Colors.gray400} secureTextEntry value={confirm} onChangeText={setConfirm} />
+              <TextInput style={styles.input} placeholder="Repeat password" placeholderTextColor={Colors.gray400} secureTextEntry={!showConfirm} value={confirm} onChangeText={setConfirm} />
+              <TouchableOpacity onPress={() => setShowConfirm(v => !v)} hitSlop={8}>
+                <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+              </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.submitBtn} onPress={resetPassword} disabled={loading}>
               {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitBtnText}>Reset Password →</Text>}
@@ -134,6 +149,7 @@ export default function ForgotPasswordScreen() {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -26,6 +26,8 @@ export default function RegisterScreen() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [loading,     setLoading]     = useState(false);
+  const [showPass,    setShowPass]    = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error,       setError]       = useState('');
 
   const step = otpVerified ? 3 : otpSent ? 2 : 1;
@@ -75,8 +77,12 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
             <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
@@ -153,14 +159,20 @@ export default function RegisterScreen() {
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputRow}>
             <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-            <TextInput style={styles.input} placeholder="Create a password" placeholderTextColor={Colors.gray400} secureTextEntry value={password} onChangeText={setPassword} />
+            <TextInput style={styles.input} placeholder="Create a password" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
+            <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
+              <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+            </TouchableOpacity>
           </View>
           <Text style={styles.fieldHint}>Use at least 6 characters.</Text>
 
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputRow}>
             <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-            <TextInput style={styles.input} placeholder="Re-enter your password" placeholderTextColor={Colors.gray400} secureTextEntry value={confirm} onChangeText={setConfirm} />
+            <TextInput style={styles.input} placeholder="Re-enter your password" placeholderTextColor={Colors.gray400} secureTextEntry={!showConfirm} value={confirm} onChangeText={setConfirm} />
+            <TouchableOpacity onPress={() => setShowConfirm(v => !v)} hitSlop={8}>
+              <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>

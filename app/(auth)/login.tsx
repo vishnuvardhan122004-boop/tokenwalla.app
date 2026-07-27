@@ -25,6 +25,7 @@ export default function LoginScreen() {
   const [loading,    setLoading]    = useState(false);
   const [otpSent,    setOtpSent]    = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPass,   setShowPass]   = useState(false);
   const [error,      setError]      = useState('');
 
   // Reaching this screen means there is no valid session. Any token left
@@ -108,8 +109,12 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/home')}>
             <Text style={styles.backText}>{t('back')}</Text>
@@ -174,10 +179,15 @@ export default function LoginScreen() {
                 style={styles.input}
                 placeholder={otpSent ? t('enter_otp') : t('password_or_otp')}
                 placeholderTextColor={Colors.gray400}
-                secureTextEntry={!otpSent}
+                secureTextEntry={!otpSent && !showPass}
                 value={password}
                 onChangeText={v => { setPassword(v); setError(''); }}
               />
+              {!otpSent && (
+                <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               style={styles.otpBtn}

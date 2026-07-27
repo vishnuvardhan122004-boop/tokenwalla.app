@@ -22,6 +22,7 @@ export default function HospitalLoginScreen() {
   const [loading,    setLoading]    = useState(false);
   const [otpSent,    setOtpSent]    = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [showPass,   setShowPass]   = useState(false);
   const [error,      setError]      = useState('');
 
   // If a hospital is ALREADY logged in, don't make them sign in again — send
@@ -133,8 +134,12 @@ export default function HospitalLoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* Back */}
           <TouchableOpacity style={styles.back} onPress={() => router.back()}>
@@ -216,10 +221,15 @@ export default function HospitalLoginScreen() {
                 style={styles.input}
                 placeholder={otpSent ? 'Enter OTP sent to your mobile' : 'Password or OTP'}
                 placeholderTextColor={Colors.gray400}
-                secureTextEntry={!otpSent}
+                secureTextEntry={!otpSent && !showPass}
                 value={password}
                 onChangeText={t => { setPassword(t); setError(''); }}
               />
+              {!otpSent && (
+                <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
+                  <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
+                </TouchableOpacity>
+              )}
             </View>
             <TouchableOpacity
               style={styles.otpBtn}
