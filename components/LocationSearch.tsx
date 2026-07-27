@@ -5,6 +5,7 @@
  * suggests real places and, on pick, returns the place's city + coordinates
  * so we can store an accurate map location.
  */
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
@@ -83,7 +84,7 @@ export default function LocationSearch({
   return (
     <View>
       <View style={[styles.inputRow, hasError && styles.inputRowError]}>
-        <Text style={styles.icon}>📍</Text>
+        <Ionicons name="location-outline" size={17} color={Colors.gray400} />
         <TextInput
           style={styles.input}
           placeholder={placeholder}
@@ -104,7 +105,8 @@ export default function LocationSearch({
               style={[styles.item, i > 0 && styles.itemBorder]}
               onPress={() => pick(f)}
             >
-              <Text style={styles.itemText}>📍 {labelFor(f)}</Text>
+              <Ionicons name="location-outline" size={14} color={Colors.gray400} style={{ marginRight: 7 }} />
+              <Text style={styles.itemText}>{labelFor(f)}</Text>
             </TouchableOpacity>
           ))}
         </View>
@@ -116,10 +118,9 @@ export default function LocationSearch({
 const styles = StyleSheet.create({
   inputRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, gap: 10 },
   inputRowError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg },
-  icon:          { fontSize: 15 },
   input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   dropdown:      { marginTop: 6, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, overflow: 'hidden' },
-  item:          { paddingVertical: 12, paddingHorizontal: 14 },
+  item:          { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14 },
   itemBorder:    { borderTopWidth: 1, borderTopColor: Colors.blue50 },
   itemText:      { fontSize: 14, color: Colors.gray800 },
 });

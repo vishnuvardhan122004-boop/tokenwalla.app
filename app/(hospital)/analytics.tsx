@@ -7,6 +7,7 @@
  * No new backend endpoint required.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -105,9 +106,10 @@ export default function HospitalAnalytics() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(hospital)/dashboard')}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+          <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>📊 Analytics</Text>
+        <Text style={styles.headerTitle}>Analytics</Text>
         <View style={{ width: 90 }} />
       </View>
 
@@ -162,7 +164,10 @@ export default function HospitalAnalytics() {
             <Text style={styles.empty}>No bookings today yet</Text>
           ) : bySlot.map(([slot, count]) => (
             <View key={slot} style={styles.slotRow}>
-              <Text style={styles.slotTime}>🕐 {slot}</Text>
+              <View style={styles.slotTimeWrap}>
+                <Ionicons name="time-outline" size={14} color={Colors.gray500} />
+                <Text style={styles.slotTime}>{slot}</Text>
+              </View>
               <Text style={styles.slotCount}>{count} patient{count !== 1 ? 's' : ''}</Text>
             </View>
           ))}
@@ -179,7 +184,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
 
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
-  backBtn:     { width: 90 },
+  backBtn:     { width: 90, flexDirection: 'row', alignItems: 'center', gap: 3 },
   backBtnText: { fontSize: 14, fontWeight: '600', color: Colors.blue600 },
   headerTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
 
@@ -205,6 +210,7 @@ const styles = StyleSheet.create({
   barVal:   { fontSize: 13, fontWeight: '800', color: Colors.blue600, width: 26, textAlign: 'right' },
 
   slotRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  slotTimeWrap: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   slotTime:  { fontSize: 14, fontWeight: '600', color: Colors.gray800 },
   slotCount: { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
 

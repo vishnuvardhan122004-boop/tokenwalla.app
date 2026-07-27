@@ -19,6 +19,7 @@
  *   user            — current user object { name, mobile, ... }
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -208,7 +209,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
           date: selectedDate,
           slot,
         });
-        Alert.alert('✅ Rescheduled!', 'Your appointment has been moved at no charge.');
+        Alert.alert('Rescheduled', 'Your appointment has been moved at no charge.');
         onSuccess();
         onClose();
       } catch (e: any) {
@@ -382,7 +383,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
         if (data.success) {
           Alert.alert(
-            '✅ Rescheduled!',
+            'Rescheduled',
             `Your appointment has been moved to ${selectedDate} at ${selectedSlot}.`,
             [{ text: 'OK', onPress: () => { onSuccess(); onClose(); } }],
           );
@@ -411,7 +412,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
         {/* ── Header ── */}
         <View style={st.header}>
           <TouchableOpacity onPress={onClose} style={st.closeBtn}>
-            <Text style={st.closeBtnText}>✕</Text>
+            <Ionicons name="close" size={22} color={Colors.gray600} />
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={st.headerTitle}>Reschedule Appointment</Text>
@@ -566,7 +567,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                 {/* Morning slots */}
                 {amSlots.length > 0 && (
                   <>
-                    <Text style={st.periodLabel}>🌅  Morning</Text>
+                    <Text style={st.periodLabel}>Morning</Text>
                     <View style={st.slotGrid}>
                       {amSlots.map((slot: string) => (
                         <TouchableOpacity
@@ -584,7 +585,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                             slot === booking.slot && { color: Colors.gray400 },
                             selectedSlot === slot && { color: Colors.white },
                           ]}>
-                            🕐 {slot}
+                            {slot}
                           </Text>
                           {slot === booking.slot && (
                             <Text style={st.currentBadge}>Current</Text>
@@ -598,7 +599,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                 {/* Afternoon/Evening slots */}
                 {pmSlots.length > 0 && (
                   <>
-                    <Text style={[st.periodLabel, { marginTop: 16 }]}>🌇  Afternoon / Evening</Text>
+                    <Text style={[st.periodLabel, { marginTop: 16 }]}>Afternoon / Evening</Text>
                     <View style={st.slotGrid}>
                       {pmSlots.map((slot: string) => (
                         <TouchableOpacity
@@ -616,7 +617,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                             slot === booking.slot && { color: Colors.gray400 },
                             selectedSlot === slot && { color: Colors.white },
                           ]}>
-                            🕐 {slot}
+                            {slot}
                           </Text>
                           {slot === booking.slot && (
                             <Text style={st.currentBadge}>Current</Text>
@@ -632,8 +633,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             <View style={st.feeNote}>
               <Text style={st.feeNoteText}>
                 {free
-                  ? '✅ Free reschedule — your doctor was marked unavailable, so there is no charge. Tap a slot to confirm.'
-                  : `💡 A ₹${RESCHEDULE_FEE} reschedule fee applies. Razorpay will open after you select a slot.`}
+                  ? 'Free reschedule — your doctor was marked unavailable, so there is no charge. Tap a slot to confirm.'
+                  : `A ₹${RESCHEDULE_FEE} reschedule fee applies. Razorpay will open after you select a slot.`}
               </Text>
             </View>
           </ScrollView>
