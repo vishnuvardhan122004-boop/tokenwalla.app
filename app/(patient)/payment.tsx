@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -344,11 +345,13 @@ export default function PaymentScreen() {
                 Alert.alert('Cancelled', 'Payment was cancelled. You can try again.');
               }}
             >
-              <Text style={styles.closeBtnText}>✕ Cancel</Text>
+              <Ionicons name="close" size={15} color={Colors.errorText} />
+              <Text style={styles.closeBtnText}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Secure Payment</Text>
             <View style={styles.sslBadge}>
-              <Text style={styles.sslText}>🔐 SSL</Text>
+              <Ionicons name="lock-closed" size={12} color={Colors.successText} />
+              <Text style={styles.sslText}>SSL</Text>
             </View>
           </View>
 
@@ -374,7 +377,8 @@ export default function PaymentScreen() {
       {/* ── Payment Summary Page ── */}
       <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-          <Text style={styles.backText}>← Back</Text>
+          <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
         <Text style={styles.title}>Complete Payment</Text>
@@ -383,17 +387,17 @@ export default function PaymentScreen() {
         <View style={styles.card}>
           <View style={styles.cardTop} />
           <View style={styles.cardHeader}>
-            <Text style={{ fontSize: 20 }}>📋</Text>
+            <Ionicons name="document-text-outline" size={19} color={Colors.blue600} />
             <Text style={styles.cardTitle}>Appointment Summary</Text>
           </View>
           <View style={styles.cardBody}>
             {[
               { label: 'Doctor',   value: `Dr. ${doctorName}`         },
-              { label: 'Hospital', value: `🏥 ${hospital}`            },
+              { label: 'Hospital', value: String(hospital)             },
               { label: 'Date',     value: String(date)                 },
               { label: 'Slot',     value: String(slot)                 },
               { label: 'Patient',  value: bookedForName || user?.name || user?.username },
-              { label: 'Plan',     value: '📍 Queue View'             },
+              { label: 'Plan',     value: 'Queue View'                 },
             ].map(({ label, value }) => (
               <View key={label} style={styles.row}>
                 <Text style={styles.rowLabel}>{label}</Text>
@@ -411,7 +415,7 @@ export default function PaymentScreen() {
         <View style={styles.otherCard}>
           <View style={styles.otherToggleRow}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={styles.otherTitle}>👥 Booking for someone else?</Text>
+              <Text style={styles.otherTitle}>Booking for someone else?</Text>
               <Text style={styles.otherDesc}>Book this appointment for a family member or friend</Text>
             </View>
             <Switch
@@ -444,14 +448,14 @@ export default function PaymentScreen() {
                 maxLength={10}
               />
               <Text style={styles.otherNote}>
-                ℹ️ Appointment updates (SMS/WhatsApp) are sent to your account. The hospital sees this patient's name at reception.
+                Appointment updates (SMS/WhatsApp) are sent to your account. The hospital sees this patient&apos;s name at reception.
               </Text>
             </View>
           )}
         </View>
 
         <View style={styles.secureBadge}>
-          <Text style={{ fontSize: 26, marginRight: 12 }}>🔐</Text>
+          <Ionicons name="shield-checkmark" size={26} color={Colors.blue600} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
             <Text style={styles.secureTitle}>Secured by Razorpay</Text>
             <Text style={styles.secureDesc}>256-bit SSL encrypted · PCI DSS compliant</Text>
@@ -466,7 +470,8 @@ export default function PaymentScreen() {
         </View>
 
         <TouchableOpacity style={styles.payBtn} onPress={createOrder}>
-          <Text style={styles.payBtnText}>💳  Pay ₹{fee} & Confirm Appointment</Text>
+          <Ionicons name="card-outline" size={18} color={Colors.white} />
+          <Text style={styles.payBtnText}>Pay ₹{fee} & Confirm Appointment</Text>
         </TouchableOpacity>
 
         <Text style={styles.note}>
@@ -481,7 +486,7 @@ export default function PaymentScreen() {
 const styles = StyleSheet.create({
   safe:  { flex: 1, backgroundColor: Colors.bg },
   root:  { padding: 20, paddingTop: 16, paddingBottom: 40 },
-  back:  { marginBottom: 20 },
+  back:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 20, alignSelf: 'flex-start' },
   backText: { fontSize: 14, color: Colors.blue600, fontWeight: '600' },
   title: { fontSize: 24, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   sub:   { fontSize: 14, color: Colors.gray500, marginBottom: 24 },
@@ -514,15 +519,15 @@ const styles = StyleSheet.create({
   chip:        { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   chipText:    { fontSize: 11, color: Colors.blue700, fontWeight: '600' },
 
-  payBtn:     { backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 17, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, marginBottom: 14 },
+  payBtn:     { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 17, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, marginBottom: 14 },
   payBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   note:       { fontSize: 12, color: Colors.gray400, textAlign: 'center', lineHeight: 18 },
 
   modalHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100 },
-  closeBtn:       { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  closeBtn:       { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
   closeBtnText:   { color: Colors.errorText, fontWeight: '700', fontSize: 13 },
   modalTitle:     { fontSize: 15, fontWeight: '800', color: Colors.gray900 },
-  sslBadge:       { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  sslBadge:       { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   sslText:        { fontSize: 12, fontWeight: '700', color: Colors.successText },
   webLoading:     { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg },
   webLoadingText: { marginTop: 12, color: Colors.gray500, fontSize: 14 },
