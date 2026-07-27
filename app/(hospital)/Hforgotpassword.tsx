@@ -90,6 +90,7 @@ export default function HforgotPassword() {
   const [password,  setPassword]  = useState('');
   const [confirm,   setConfirm]   = useState('');
   const [showPass,  setShowPass]  = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading,   setLoading]   = useState(false);
   const [error,     setError]     = useState('');
   const [success,   setSuccess]   = useState('');
@@ -506,15 +507,21 @@ export default function HforgotPassword() {
               <View style={s.inputWrap}>
                 <Ionicons name="lock-closed-outline" size={17} color={C.gray400} style={s.inputIcon} />
                 <TextInput
-                  style={s.input}
+                  style={[s.input, { paddingRight: 48 }]}
                   placeholder="Re-enter your new password"
                   placeholderTextColor={C.gray300}
-                  secureTextEntry
+                  secureTextEntry={!showConfirm}
                   value={confirm}
                   onChangeText={v => { setConfirm(v); setError(''); }}
                   returnKeyType="done"
                   onSubmitEditing={resetPassword}
                 />
+                <TouchableOpacity
+                  style={s.eyeBtn}
+                  onPress={() => setShowConfirm(p => !p)}
+                >
+                  <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={18} color={C.gray400} />
+                </TouchableOpacity>
               </View>
               {!!confirm && (
                 <Text style={[s.matchHint, { color: confirm === password ? C.successText : C.errorText }]}>
