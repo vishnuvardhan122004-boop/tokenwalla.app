@@ -42,7 +42,7 @@ export default function PaymentScreen() {
   const [otherMobile, setOtherMobile] = useState('');
   const bookedForName   = forOther ? otherName.trim()   : '';
   const bookedForMobile = forOther ? otherMobile.trim() : '';
-  // ✅ FIX 1: Store the full HTML string after order is confirmed
+  // FIX 1: Store the full HTML string after order is confirmed
   const [webviewHtml,  setWebviewHtml]  = useState<string>('');
   const payBtnDisabled = useRef(false);
 
@@ -56,7 +56,7 @@ export default function PaymentScreen() {
 
   // ── Build HTML only after we have real orderData ───────────────────────
   const buildRazorpayHTML = (orderData: any, currentUser: any) => {
-    // ✅ FIX 2: amount is a JS Number, not a string
+    // FIX 2: amount is a JS Number, not a string
     const rpAmount   = Number(orderData.amount);          // paise from backend
     const rpOrderId  = String(orderData.order_id || '');
     // Prefer the key the backend created the order with — checkout and order
@@ -70,7 +70,7 @@ export default function PaymentScreen() {
     const apptDate   = String(date || '');
     const apptSlot   = String(slot || '');
 
-    // ✅ FIX 3: Guard — don't open if order_id is empty
+    // FIX 3: Guard — don't open if order_id is empty
     if (!rpOrderId) throw new Error('Missing order_id from backend');
     // Guard — amount must be a finite number, or the injected `amount: NaN`
     // would silently break the Razorpay options object.
@@ -130,12 +130,12 @@ export default function PaymentScreen() {
 
       var options = {
         key:         ${jsStr(rpKeyId)},
-        // ✅ FIX 2: number literal, not string
+        // FIX 2: number literal, not string
         amount:      ${rpAmount},
         currency:    'INR',
         name:        'TokenWalla',
         description: ${jsStr('Appointment – Dr. ' + drName)},
-        // ✅ FIX 3: real order_id from backend
+        // FIX 3: real order_id from backend
         order_id:    ${jsStr(rpOrderId)},
         prefill: {
           name:    ${jsStr(userName)},
@@ -165,7 +165,7 @@ export default function PaymentScreen() {
         document.getElementById('payBtn').disabled = false;
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type:    'FAILED',
-          // ✅ FIX 6: send full error details
+          // FIX 6: send full error details
           code:    r.error.code,
           message: r.error.description,
           reason:  r.error.reason,
@@ -186,7 +186,7 @@ export default function PaymentScreen() {
 
   // ── Step 1: Create order, then open WebView with baked HTML ───────────
   const createOrder = async () => {
-    if (payBtnDisabled.current) return;   // ✅ FIX 7: double-tap guard
+    if (payBtnDisabled.current) return;   // FIX 7: double-tap guard
     // Validate the "book for someone else" details before charging.
     if (forOther) {
       if (bookedForName.length < 2) {
@@ -207,7 +207,7 @@ export default function PaymentScreen() {
         notes:    { doctorId, doctorName, hospital, date, slot },
       });
 
-      // ✅ FIX 1 & 3: build HTML now, with confirmed orderData
+      // FIX 1 & 3: build HTML now, with confirmed orderData
       const html = buildRazorpayHTML(orderData, user);
       setWebviewHtml(html);
       setShowWebView(true);
@@ -293,7 +293,7 @@ export default function PaymentScreen() {
 
     if (msg.type === 'FAILED') {
       setShowWebView(false);
-      // ✅ FIX 6: show full Razorpay error details
+      // FIX 6: show full Razorpay error details
       const detail = [
         msg.message,
         msg.reason  ? `Reason: ${msg.reason}` : null,
@@ -355,7 +355,7 @@ export default function PaymentScreen() {
             </View>
           </View>
 
-          {/* ✅ FIX 5: originWhitelist + mixedContentMode for Razorpay CDN */}
+          {/* FIX 5: originWhitelist + mixedContentMode for Razorpay CDN */}
           <WebView
             source={{ html: webviewHtml }}
             onMessage={handleMessage}
