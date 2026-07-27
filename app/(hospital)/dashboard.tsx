@@ -2,21 +2,22 @@
  * HospitalDashboard.tsx  — React Native / Expo (TypeScript)
  *
  * Fixes applied:
- *  ✅ Explicit TypeScript interfaces for Doctor, Patient, Queue, Hospital
- *  ✅ useState typed correctly — no more `never[]` errors
- *  ✅ ImageFile interface for typed image state (fixes SetStateAction<null> errors)
- *  ✅ All function parameters explicitly typed
- *  ✅ hospital null-checks with optional chaining
- *  ✅ expo-image-picker properly imported and typed
+ *  - Explicit TypeScript interfaces for Doctor, Patient, Queue, Hospital
+ *  - useState typed correctly — no more `never[]` errors
+ *  - ImageFile interface for typed image state (fixes SetStateAction<null> errors)
+ *  - All function parameters explicitly typed
+ *  - hospital null-checks with optional chaining
+ *  - expo-image-picker properly imported and typed
  *
  * Install dependencies first:
  *   npx expo install expo-image-picker expo-media-library
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -111,11 +112,11 @@ const DEFAULT_SLOTS: string[] = [
 ];
 
 const SLOT_SECTIONS = [
-  { label: "🌙 Late Night / Early Morning", slots: DEFAULT_SLOTS.slice(0, 12) },
-  { label: "🌅 Morning",                    slots: DEFAULT_SLOTS.slice(12, 24) },
-  { label: "☀️ Afternoon",                  slots: DEFAULT_SLOTS.slice(24, 32) },
-  { label: "🌆 Evening",                    slots: DEFAULT_SLOTS.slice(32, 40) },
-  { label: "🌙 Night",                      slots: DEFAULT_SLOTS.slice(40, 48) },
+  { label: "Late Night / Early Morning", slots: DEFAULT_SLOTS.slice(0, 12) },
+  { label: "Morning",                    slots: DEFAULT_SLOTS.slice(12, 24) },
+  { label: "Afternoon",                  slots: DEFAULT_SLOTS.slice(24, 32) },
+  { label: "Evening",                    slots: DEFAULT_SLOTS.slice(32, 40) },
+  { label: "Night",                      slots: DEFAULT_SLOTS.slice(40, 48) },
 ];
 
 // Days of the week the doctor is available on (separate from time slots).
@@ -516,12 +517,12 @@ export default function HospitalDashboard() {
         await API.patch(`/doctors/${editDoc.id}/`, payload, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        Alert.alert('✅ Updated', `Dr. ${form.name} updated successfully!`);
+        Alert.alert('Updated', `Dr. ${form.name} updated successfully!`);
       } else {
         await API.post('/doctors/', payload, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        Alert.alert('✅ Added', `Dr. ${form.name} added successfully!`);
+        Alert.alert('Added', `Dr. ${form.name} added successfully!`);
       }
 
       setShowModal(false);
@@ -607,11 +608,12 @@ export default function HospitalDashboard() {
             {/* Modal header */}
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowModal(false)} style={styles.modalCancel}>
-                <Text style={styles.modalCancelText}>✕ Cancel</Text>
+                <Ionicons name="close" size={15} color={Colors.errorText} />
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <Text style={styles.modalTitle} numberOfLines={1}>
-                {editDoc ? `Edit Dr. ${editDoc.name}` : '➕ Add New Doctor'}
+                {editDoc ? `Edit Dr. ${editDoc.name}` : 'Add New Doctor'}
               </Text>
 
               <TouchableOpacity
@@ -635,20 +637,21 @@ export default function HospitalDashboard() {
               <Text style={styles.formSection}>IMAGES</Text>
 
               {/* Doctor profile image */}
-              <Text style={styles.fieldLabel}>👤 Doctor Profile Photo</Text>
+              <Text style={styles.fieldLabel}>Doctor Profile Photo</Text>
               <View style={styles.imageRow}>
                 {doctorImagePreview ? (
                   <Image source={{ uri: doctorImagePreview }} style={styles.doctorImgPreview} resizeMode="cover" />
                 ) : (
                   <View style={styles.doctorImgPlaceholder}>
-                    <Text style={{ fontSize: 30 }}>🩺</Text>
+                    <Ionicons name="medkit-outline" size={30} color={Colors.blue400} />
                   </View>
                 )}
 
                 <View style={styles.imagePickerCol}>
                   <TouchableOpacity style={styles.pickImageBtn} onPress={handlePickDoctorImage}>
+                    <Ionicons name={doctorImagePreview ? 'sync-outline' : 'camera-outline'} size={15} color={Colors.blue600} />
                     <Text style={styles.pickImageBtnText}>
-                      {doctorImagePreview ? '🔄 Change Photo' : '📷 Choose Photo'}
+                      {doctorImagePreview ? 'Change Photo' : 'Choose Photo'}
                     </Text>
                   </TouchableOpacity>
 
@@ -657,7 +660,8 @@ export default function HospitalDashboard() {
                       style={styles.removeImageBtn}
                       onPress={() => { setDoctorImageFile(null); setDoctorImagePreview(null); }}
                     >
-                      <Text style={styles.removeImageBtnText}>✕ Remove</Text>
+                      <Ionicons name="close" size={13} color={Colors.errorText} />
+                      <Text style={styles.removeImageBtnText}>Remove</Text>
                     </TouchableOpacity>
                   )}
 
@@ -667,7 +671,7 @@ export default function HospitalDashboard() {
               </View>
 
               {/* Hospital banner image */}
-              <Text style={[styles.fieldLabel, { marginTop: 14 }]}>🏥 Hospital Banner Photo</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Hospital Banner Photo</Text>
 
               {hospitalImagePreview ? (
                 <View style={styles.hospitalBannerPreviewWrap}>
@@ -676,19 +680,21 @@ export default function HospitalDashboard() {
                     style={styles.bannerRemoveBtn}
                     onPress={() => { setHospitalImageFile(null); setHospitalImagePreview(null); }}
                   >
-                    <Text style={styles.bannerRemoveBtnText}>✕ Remove</Text>
+                    <Ionicons name="close" size={13} color={Colors.white} />
+                    <Text style={styles.bannerRemoveBtnText}>Remove</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.hospitalBannerPlaceholder}>
-                  <Text style={{ fontSize: 28, marginBottom: 4 }}>🏥</Text>
+                  <Ionicons name="image-outline" size={28} color={Colors.gray400} style={{ marginBottom: 4 }} />
                   <Text style={styles.imageHint}>No banner selected</Text>
                 </View>
               )}
 
               <TouchableOpacity style={[styles.pickImageBtn, { marginTop: 8 }]} onPress={handlePickHospitalImage}>
+                <Ionicons name={hospitalImagePreview ? 'sync-outline' : 'camera-outline'} size={15} color={Colors.blue600} />
                 <Text style={styles.pickImageBtnText}>
-                  {hospitalImagePreview ? '🔄 Change Banner' : '📷 Choose Banner'}
+                  {hospitalImagePreview ? 'Change Banner' : 'Choose Banner'}
                 </Text>
               </TouchableOpacity>
               <Text style={[styles.imageHint, { marginTop: 4 }]}>16:9 landscape · Max 5 MB</Text>
@@ -764,7 +770,7 @@ export default function HospitalDashboard() {
                 <View>
                   <Text style={styles.fieldLabel}>Availability</Text>
                   <Text style={{ fontSize: 12, color: Colors.gray400 }}>
-                    {form.available ? '✅ Doctor is available' : '❌ Doctor is unavailable'}
+                    {form.available ? 'Doctor is available' : 'Doctor is unavailable'}
                   </Text>
                 </View>
                 <Switch
@@ -785,20 +791,20 @@ export default function HospitalDashboard() {
                   style={styles.slotActionBtn}
                   onPress={() => setForm(p => ({ ...p, days: DAYS_OF_WEEK.map(d => d.key) }))}
                 >
-                  <Text style={styles.slotActionText}>✅ Select All</Text>
+                  <Text style={styles.slotActionText}>Select All</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
                   onPress={() => setForm(p => ({ ...p, days: [] }))}
                 >
-                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>🗑 Clear All</Text>
+                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
                 </TouchableOpacity>
               </View>
 
               {form.days.length === 0 && (
                 <View style={styles.slotWarning}>
                   <Text style={{ fontSize: 13, color: Colors.errorText }}>
-                    ⚠️ Please select at least one day
+                    Please select at least one day
                   </Text>
                 </View>
               )}
@@ -830,20 +836,20 @@ export default function HospitalDashboard() {
                   style={styles.slotActionBtn}
                   onPress={() => setForm(p => ({ ...p, slots: [...DEFAULT_SLOTS] }))}
                 >
-                  <Text style={styles.slotActionText}>✅ Select All</Text>
+                  <Text style={styles.slotActionText}>Select All</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
                   onPress={() => setForm(p => ({ ...p, slots: [] }))}
                 >
-                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>🗑 Clear All</Text>
+                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
                 </TouchableOpacity>
               </View>
 
               {form.slots.length === 0 && (
                 <View style={styles.slotWarning}>
                   <Text style={{ fontSize: 13, color: Colors.errorText }}>
-                    ⚠️ Please select at least one slot
+                    Please select at least one slot
                   </Text>
                 </View>
               )}
@@ -882,10 +888,10 @@ export default function HospitalDashboard() {
       <View style={styles.navbar}>
         <View style={styles.navLeft}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(patient)/home')}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ionicons name="chevron-back" size={22} color={Colors.blue600} />
           </TouchableOpacity>
           <View style={{ flexShrink: 1 }}>
-            <Text style={styles.navTitle} numberOfLines={1}>🏥 {hospital.name}</Text>
+            <Text style={styles.navTitle} numberOfLines={1}>{hospital.name}</Text>
             <View style={styles.liveRow}>
               <View style={styles.liveDot} />
               <Text style={styles.liveText}>Live · Auto-refreshes every 10s</Text>
@@ -898,7 +904,7 @@ export default function HospitalDashboard() {
             onPress={() => router.push('/(patient)/notifications?audience=hospital')}
           />
           <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(hospital)/profile')}>
-            <Text style={styles.profileBtnText}>👤</Text>
+            <Ionicons name="person" size={18} color={Colors.blue600} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.logoutBtn}
@@ -948,23 +954,26 @@ export default function HospitalDashboard() {
             style={[styles.tab, activeTab === 'queue' && styles.tabActive]}
             onPress={() => setActiveTab('queue')}
           >
+            <Ionicons name="people-outline" size={15} color={activeTab === 'queue' ? Colors.blue600 : Colors.gray500} />
             <Text style={[styles.tabText, activeTab === 'queue' && styles.tabTextActive]}>
-              🏥 Queue ({fWaiting.length})
+              Queue ({fWaiting.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'doctors' && styles.tabActive]}
             onPress={() => setActiveTab('doctors')}
           >
+            <Ionicons name="medkit-outline" size={15} color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500} />
             <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]}>
-              👨‍⚕️ Doctors ({doctors.length})
+              Doctors ({doctors.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.tab}
             onPress={() => router.push('/(hospital)/scanner')}
           >
-            <Text style={styles.tabText}>📷 Scan QR</Text>
+            <Ionicons name="qr-code-outline" size={15} color={Colors.gray500} />
+            <Text style={styles.tabText}>Scan QR</Text>
           </TouchableOpacity>
         </View>
 
@@ -977,10 +986,10 @@ export default function HospitalDashboard() {
             {/* ── DAY FILTER: Today / Tomorrow / All ── */}
             <View style={styles.dayFilterRow}>
               {([
-                { key: 'today',    label: 'Today',    emoji: '📅', active: styles.dayPillTodayActive    },
-                { key: 'tomorrow', label: 'Tomorrow', emoji: '⏭️', active: styles.dayPillTomorrowActive },
-                { key: 'all',      label: 'All',      emoji: '🗓️', active: styles.dayPillAllActive      },
-              ] as const).map(({ key, label, emoji, active }) => {
+                { key: 'today',    label: 'Today',    active: styles.dayPillTodayActive    },
+                { key: 'tomorrow', label: 'Tomorrow', active: styles.dayPillTomorrowActive },
+                { key: 'all',      label: 'All',      active: styles.dayPillAllActive      },
+              ] as const).map(({ key, label, active }) => {
                 const isActive = dayFilter === key;
                 return (
                   <TouchableOpacity
@@ -992,7 +1001,7 @@ export default function HospitalDashboard() {
                     accessibilityLabel={`Show ${label} queue, ${countForDay(key)} patients`}
                   >
                     <Text style={[styles.dayPillText, isActive && styles.dayPillTextActive]}>
-                      {emoji} {label}
+                      {label}
                     </Text>
                     <Text style={[styles.dayPillCount, isActive && styles.dayPillTextActive]}>
                       {countForDay(key)}
@@ -1002,23 +1011,24 @@ export default function HospitalDashboard() {
               })}
             </View>
 
-            <Text style={styles.queueSection}>⏳ Waiting ({fWaiting.length})</Text>
+            <Text style={styles.queueSection}>Waiting ({fWaiting.length})</Text>
             {fWaiting.length === 0
               ? <Text style={styles.emptyMsg}>No patients waiting</Text>
               : fWaiting.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.warningText }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
-                    <Text style={styles.patientMeta}>📱 {p.user_mobile || 'N/A'}</Text>
-                    <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <Text style={styles.patientMeta}>{p.user_mobile || 'N/A'}</Text>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                    <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
                       accessibilityRole="button"
                       accessibilityLabel={`Token ${p.token}. Tap for details.`}
                     >
-                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                      <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
+                      <Text style={styles.tokenChipText}>{p.token}</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={styles.patientActions}>
@@ -1040,10 +1050,12 @@ export default function HospitalDashboard() {
                       accessibilityRole="button"
                       accessibilityLabel={`Hold ${p.user_name || 'patient'}, token ${p.token}, and skip to the next patient`}
                     >
-                      <Text style={styles.holdBtnText}>⏸ Hold</Text>
+                      <Ionicons name="pause" size={13} color={Colors.gray600} />
+                      <Text style={styles.holdBtnText}>Hold</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.scanShortcutBtn} onPress={() => router.push('/(hospital)/scanner')}>
-                      <Text style={styles.scanShortcutText}>📷 Scan</Text>
+                      <Ionicons name="qr-code-outline" size={13} color={Colors.blue600} />
+                      <Text style={styles.scanShortcutText}>Scan</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1053,21 +1065,22 @@ export default function HospitalDashboard() {
             {fOnHold.length > 0 && (
               <>
                 <Text style={[styles.queueSection, { marginTop: 16 }]}>
-                  ⏸ On Hold ({fOnHold.length})
+                  On Hold ({fOnHold.length})
                 </Text>
                 {fOnHold.map((p: Patient) => (
                   <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.gray400 }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
-                      <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                      <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                      <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                      <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                       <TouchableOpacity
                         style={styles.tokenChip}
                         onPress={() => showTokenDetail(p)}
                         accessibilityRole="button"
                         accessibilityLabel={`Token ${p.token}. Tap for details.`}
                       >
-                        <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                        <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
+                      <Text style={styles.tokenChipText}>{p.token}</Text>
                       </TouchableOpacity>
                     </View>
                     <TouchableOpacity
@@ -1076,7 +1089,8 @@ export default function HospitalDashboard() {
                       accessibilityRole="button"
                       accessibilityLabel={`Resume ${p.user_name || 'patient'}, token ${p.token}, back into the waiting queue`}
                     >
-                      <Text style={styles.resumeBtnText}>▶ Resume</Text>
+                      <Ionicons name="play" size={13} color={Colors.blue600} />
+                      <Text style={styles.resumeBtnText}>Resume</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -1084,7 +1098,7 @@ export default function HospitalDashboard() {
             )}
 
             <Text style={[styles.queueSection, { marginTop: 16 }]}>
-              🔄 In Progress ({fInProgress.length})
+              In Progress ({fInProgress.length})
             </Text>
             {fInProgress.length === 0
               ? <Text style={styles.emptyMsg}>No one in progress</Text>
@@ -1092,15 +1106,16 @@ export default function HospitalDashboard() {
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
-                    <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                    <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
                       accessibilityRole="button"
                       accessibilityLabel={`Token ${p.token}. Tap for details.`}
                     >
-                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                      <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
+                      <Text style={styles.tokenChipText}>{p.token}</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity
@@ -1120,7 +1135,7 @@ export default function HospitalDashboard() {
             }
 
             <Text style={[styles.queueSection, { marginTop: 16 }]}>
-              ✅ Completed ({fCompleted.length})
+              Completed ({fCompleted.length})
             </Text>
             {fCompleted.length === 0
               ? <Text style={styles.emptyMsg}>None completed yet</Text>
@@ -1128,19 +1143,21 @@ export default function HospitalDashboard() {
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.successText, opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
-                    <Text style={styles.patientMeta}>🩺 {p.doctor_name}  ·  🕐 {p.slot}</Text>
-                    <Text style={styles.patientMeta}>📅 {dayLabelFor(p.date)}</Text>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                    <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
                       accessibilityRole="button"
                       accessibilityLabel={`Token ${p.token}. Tap for details.`}
                     >
-                      <Text style={styles.tokenChipText}>🎫 {p.token}</Text>
+                      <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
+                      <Text style={styles.tokenChipText}>{p.token}</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={styles.completedBadge}>
-                    <Text style={styles.completedText}>✅ Done</Text>
+                    <Ionicons name="checkmark-circle" size={13} color={Colors.successText} />
+                    <Text style={styles.completedText}>Done</Text>
                   </View>
                 </View>
               ))
@@ -1162,7 +1179,7 @@ export default function HospitalDashboard() {
               <ActivityIndicator color={Colors.blue600} style={{ marginTop: 40 }} />
             ) : doctors.length === 0 ? (
               <View style={styles.emptyDoctors}>
-                <Text style={{ fontSize: 40, marginBottom: 12 }}>👨‍⚕️</Text>
+                <Ionicons name="medkit-outline" size={40} color={Colors.blue200} style={{ marginBottom: 12 }} />
                 <Text style={styles.emptyDoctorsTitle}>No Doctors Added Yet</Text>
                 <Text style={styles.emptyDoctorsSub}>Tap "+ Add New Doctor" to get started</Text>
               </View>
@@ -1180,7 +1197,7 @@ export default function HospitalDashboard() {
                         <Image source={{ uri: doc.hospital_image }} style={styles.doctorBannerImg} resizeMode="cover" />
                       ) : (
                         <View style={styles.doctorBannerPlaceholder}>
-                          <Text style={{ fontSize: 28 }}>🏥</Text>
+                          <Ionicons name="business-outline" size={26} color={Colors.gray400} />
                           <Text style={styles.doctorBannerText}>{hospital.name}</Text>
                         </View>
                       )}
@@ -1208,21 +1225,21 @@ export default function HospitalDashboard() {
                         <Image source={{ uri: doc.image }} style={styles.doctorProfileImg} resizeMode="cover" />
                       ) : (
                         <View style={styles.doctorProfilePlaceholder}>
-                          <Text style={{ fontSize: 28 }}>🩺</Text>
+                          <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
                         <Text style={styles.doctorName}>Dr. {doc.name}</Text>
                         <Text style={styles.doctorSpec}>{doc.specialization}</Text>
-                        <Text style={styles.doctorMeta}>📱 {doc.mobile}  ·  ⏳ {doc.experience}y exp</Text>
-                        <Text style={styles.doctorMeta}>💰 ₹{doc.fee}  ·  👥 Max {doc.max_per_slot}/slot</Text>
+                        <Text style={styles.doctorMeta}>{doc.mobile}  ·  {doc.experience}y exp</Text>
+                        <Text style={styles.doctorMeta}>₹{doc.fee}  ·  Max {doc.max_per_slot}/slot</Text>
                       </View>
                     </View>
 
                     {/* ── Days Preview ── */}
                     {doc.days && doc.days.length > 0 && (
                       <View style={styles.slotPreviewRow}>
-                        <Text style={styles.slotPreviewLabel}>📅 Days:</Text>
+                        <Text style={styles.slotPreviewLabel}>Days:</Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, flex: 1 }}>
                           {doc.days.map((d: string) => (
                             <View key={d} style={styles.slotPreviewChip}>
@@ -1236,7 +1253,7 @@ export default function HospitalDashboard() {
                     {/* ── Slot Preview ── */}
                     {doc.slots && doc.slots.length > 0 && (
                       <View style={styles.slotPreviewRow}>
-                        <Text style={styles.slotPreviewLabel}>🕐 {doc.slots.length} slots:</Text>
+                        <Text style={styles.slotPreviewLabel}>{doc.slots.length} slots:</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 5 }}>
                           {doc.slots.slice(0, 5).map((s: string) => (
                             <View key={s} style={styles.slotPreviewChip}>
@@ -1263,17 +1280,18 @@ export default function HospitalDashboard() {
                           <ActivityIndicator size="small" color={Colors.blue600} />
                         ) : (
                           <Text style={styles.availBtnText}>
-                            {doc.available ? '✅ Available' : '❌ Unavailable'}
+                            {doc.available ? 'Available' : 'Unavailable'}
                           </Text>
                         )}
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(doc)}>
-                        <Text style={styles.editBtnText}>✏️ Edit</Text>
+                        <Ionicons name="create-outline" size={14} color={Colors.blue700} />
+                        <Text style={styles.editBtnText}>Edit</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteDoctor(doc)}>
-                        <Text style={styles.deleteBtnText}>🗑</Text>
+                        <Ionicons name="trash-outline" size={16} color={Colors.errorText} />
                       </TouchableOpacity>
                     </View>
 
@@ -1315,7 +1333,7 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12, color: Colors.gray400 },
 
   tabRow:        { flexDirection: 'row', marginHorizontal: 16, backgroundColor: Colors.blue50, borderRadius: 12, padding: 4, gap: 4 },
-  tab:           { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
+  tab:           { flex: 1, flexDirection: 'row', gap: 5, paddingVertical: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tabActive:     { backgroundColor: Colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, elevation: 1 },
   tabText:       { fontSize: 13, fontWeight: '500', color: Colors.gray400 },
   tabTextActive: { color: Colors.blue700, fontWeight: '700' },
@@ -1341,15 +1359,15 @@ const styles = StyleSheet.create({
   callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
   btnHint:      { fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'center' as const },
-  scanShortcutBtn:  { borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
+  scanShortcutBtn:  { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },
   scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
-  holdBtn:      { borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
+  holdBtn:      { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },
   holdBtnText:  { color: Colors.warningText, fontWeight: '700', fontSize: 12 },
-  resumeBtn:    { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
+  resumeBtn:    { flexDirection: 'row', gap: 6, backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center', justifyContent: 'center' },
   resumeBtnText:{ color: Colors.white, fontWeight: '700', fontSize: 13 },
   doneBtn:      { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignItems: 'center' },
   doneBtnText:  { color: Colors.successText, fontWeight: '700', fontSize: 13 },
-  completedBadge: { backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  completedBadge: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   completedText:  { fontSize: 12, fontWeight: '600', color: Colors.successText },
 
   addDoctorBtn:      { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 16, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
@@ -1383,13 +1401,13 @@ const styles = StyleSheet.create({
   availBtnOn:    { backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder },
   availBtnOff:   { backgroundColor: Colors.gray100, borderWidth: 1, borderColor: Colors.gray200 },
   availBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.gray700 },
-  editBtn:       { flex: 1.2, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
+  editBtn:       { flex: 1.2, flexDirection: 'row', gap: 5, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
   editBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   deleteBtn:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
   deleteBtnText: { fontSize: 14 },
 
   modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
-  modalCancel:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8 },
+  modalCancel:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8 },
   modalCancelText: { color: Colors.errorText, fontWeight: '700', fontSize: 13 },
   modalTitle:      { fontSize: 14, fontWeight: '800', color: Colors.gray900, flex: 1, textAlign: 'center', marginHorizontal: 6 },
   modalSave:       { backgroundColor: Colors.blue600, borderRadius: 9, paddingHorizontal: 18, paddingVertical: 8, minWidth: 58, alignItems: 'center' },
@@ -1406,15 +1424,15 @@ const styles = StyleSheet.create({
   doctorImgPreview:     { width: 84, height: 84, borderRadius: 14, borderWidth: 2, borderColor: Colors.blue200, flexShrink: 0 },
   doctorImgPlaceholder: { width: 84, height: 84, borderRadius: 14, borderWidth: 2, borderColor: Colors.blue100, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   imagePickerCol:       { flex: 1, gap: 7 },
-  pickImageBtn:         { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
+  pickImageBtn:         { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center' },
   pickImageBtnText:     { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
-  removeImageBtn:       { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' },
+  removeImageBtn:       { flexDirection: 'row', gap: 6, justifyContent: 'center', backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, alignItems: 'center' },
   removeImageBtnText:   { fontSize: 12, fontWeight: '700', color: Colors.errorText },
   imageHint:            { fontSize: 11, color: Colors.gray400 },
 
   hospitalBannerPreviewWrap: { position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 4 },
   hospitalBannerPreview:     { width: '100%', height: 110, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue200 },
-  bannerRemoveBtn:           { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(163,45,45,0.85)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  bannerRemoveBtn:           { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(163,45,45,0.85)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   bannerRemoveBtnText:       { fontSize: 12, fontWeight: '700', color: '#fff' },
   hospitalBannerPlaceholder: { width: '100%', height: 90, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
 
