@@ -5,12 +5,15 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
@@ -50,6 +53,39 @@ const DAYS = getNext7Days();
 
 const PLAN = { price: 15, fee: 1500, name: 'Queue View', desc: 'Token + live queue position tracking' };
 
+// Official brand logos (simple-icons paths) so the share menu shows real
+// WhatsApp/Facebook/Instagram marks instead of look-alike emoji.
+const WhatsAppLogo = ({ size = 26 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path fill="#25D366" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+  </Svg>
+);
+const FacebookLogo = ({ size = 26 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path fill="#1877F2" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+  </Svg>
+);
+const InstagramLogo = ({ size = 26 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Defs>
+      <LinearGradient id="igGrad" x1="0" y1="1" x2="1" y2="0">
+        <Stop offset="0" stopColor="#FEDA75" />
+        <Stop offset="0.25" stopColor="#FA7E1E" />
+        <Stop offset="0.5" stopColor="#D62976" />
+        <Stop offset="0.75" stopColor="#962FBF" />
+        <Stop offset="1" stopColor="#4F5BD5" />
+      </LinearGradient>
+    </Defs>
+    <Path fill="url(#igGrad)" d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z" />
+  </Svg>
+);
+const LinkLogo = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path fill="none" stroke="#185FA5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M10 13a5 5 0 007.07 0l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+    <Path fill="none" stroke="#185FA5" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" d="M14 11a5 5 0 00-7.07 0l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+  </Svg>
+);
+
 export default function DoctorDetails() {
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
@@ -63,6 +99,7 @@ export default function DoctorDetails() {
 
   const [selectedDate, setSelectedDate] = useState(DAYS[0].full);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const [shareOpen,    setShareOpen]    = useState(false);
 
   useEffect(() => {
     API.get(`/doctors/${id}/`)
@@ -153,6 +190,52 @@ export default function DoctorDetails() {
         amount:       PLAN.fee,
       },
     });
+  };
+
+  // We share the public website URL (not the tokenwalla:// deep link) so anyone
+  // — even without the app — can open it and book. The website has the same
+  // doctor page at /doctor/:id.
+  const buildShare = () => {
+    const url  = `https://www.tokenwalla.com/doctor/${doctor!.id}`;
+    const text = [
+      `👨‍⚕️ Dr. ${doctor!.name}`,
+      doctor!.specialization ? `🩺 ${doctor!.specialization}` : null,
+      doctor!.hospital_name  ? `🏥 ${doctor!.hospital_name}`  : null,
+      doctor!.city           ? `📍 ${doctor!.city}`           : null,
+      '',
+      'Book your token on Tokenwalla 👉',
+    ].filter(Boolean).join('\n');
+    return { url, text, full: `${text} ${url}` };
+  };
+
+  const shareTo = async (target: 'whatsapp' | 'facebook' | 'instagram') => {
+    if (!doctor) return;
+    const { url, full } = buildShare();
+    setShareOpen(false);
+    try {
+      if (target === 'whatsapp') {
+        await Linking.openURL(`https://wa.me/?text=${encodeURIComponent(full)}`);
+      } else if (target === 'facebook') {
+        await Linking.openURL(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+      } else {
+        // Instagram has no share-a-link URL — copy the link and open the app so
+        // the user can paste it into a story or DM.
+        await Clipboard.setStringAsync(full);
+        Alert.alert('Link copied', 'Paste it into your Instagram story or DM to share.');
+        await Linking.openURL('instagram://app').catch(() =>
+          Linking.openURL('https://www.instagram.com/'));
+      }
+    } catch {
+      Alert.alert('Not available', `Couldn't open ${target}. Is it installed?`);
+    }
+  };
+
+  const copyShareLink = async () => {
+    if (!doctor) return;
+    const { full } = buildShare();
+    await Clipboard.setStringAsync(full);
+    setShareOpen(false);
+    Alert.alert('Link copied', 'Share it anywhere so others can book this doctor.');
   };
 
   // ── slot state helpers ──────────────────────────────────────────────────
@@ -278,6 +361,9 @@ export default function DoctorDetails() {
         <View style={styles.banner}>
           <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router)}>
             <Text style={styles.backText}>← Back</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.shareBtn} onPress={() => setShareOpen(true)}>
+            <Text style={styles.shareText}>↗ Share</Text>
           </TouchableOpacity>
           {(hospitalInfo?.image?.startsWith('http') || hasHospitalImage) ? (
             <Image
@@ -632,6 +718,54 @@ export default function DoctorDetails() {
           Secured by Razorpay · Refundable if cancelled 2hrs before slot
         </Text>
       </View>
+
+      {/* ── SHARE SHEET ── */}
+      <Modal
+        visible={shareOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShareOpen(false)}
+      >
+        <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={() => setShareOpen(false)}>
+          <TouchableOpacity style={styles.shareSheet} activeOpacity={1}>
+            <View style={styles.shareHandle} />
+            <Text style={styles.shareSheetTitle}>Share this doctor</Text>
+            <Text style={styles.shareSheetSub}>So others can book the same appointment</Text>
+
+            <View style={styles.shareOptRow}>
+              {[
+                { key: 'whatsapp',  logo: <WhatsAppLogo />,  label: 'WhatsApp',  bg: '#E7F9EE', onPress: () => shareTo('whatsapp') },
+                { key: 'facebook',  logo: <FacebookLogo />,  label: 'Facebook',  bg: '#E7F0FE', onPress: () => shareTo('facebook') },
+                { key: 'instagram', logo: <InstagramLogo />, label: 'Instagram', bg: '#FCE9F1', onPress: () => shareTo('instagram') },
+              ].map(opt => (
+                <TouchableOpacity key={opt.key} style={styles.shareOpt} onPress={opt.onPress} activeOpacity={0.7}>
+                  <View style={[styles.shareOptIcon, { backgroundColor: opt.bg }]}>
+                    {opt.logo}
+                  </View>
+                  <Text style={styles.shareOptLabel}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* The link itself, shown with a Copy button */}
+            <View style={styles.shareLinkRow}>
+              <View style={styles.shareLinkTextBox}>
+                <LinkLogo size={16} />
+                <Text style={styles.shareLinkText} numberOfLines={1}>
+                  {`tokenwalla.com/doctor/${doctor.id}`}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.shareLinkCopyBtn} onPress={copyShareLink} activeOpacity={0.8}>
+                <Text style={styles.shareLinkCopyText}>Copy</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.shareCancel} onPress={() => setShareOpen(false)}>
+              <Text style={styles.shareCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -647,6 +781,26 @@ const styles = StyleSheet.create({
   bannerPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   backBtn:           { position: 'absolute', top: 14, left: 14, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   backText:          { fontSize: 13, color: Colors.blue600, fontWeight: '600' },
+  shareBtn:          { position: 'absolute', top: 14, right: 14, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.92)', borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  shareText:         { fontSize: 13, color: Colors.blue600, fontWeight: '600' },
+
+  // ── Share sheet ──
+  shareBackdrop:   { flex: 1, backgroundColor: 'rgba(4,44,83,0.45)', justifyContent: 'flex-end' },
+  shareSheet:      { backgroundColor: Colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 34 },
+  shareHandle:     { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.gray200, marginBottom: 16 },
+  shareSheetTitle: { fontSize: 17, fontWeight: '800', color: Colors.gray900, textAlign: 'center' },
+  shareSheetSub:   { fontSize: 13, color: Colors.gray400, textAlign: 'center', marginTop: 3, marginBottom: 22 },
+  shareOptRow:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 18 },
+  shareOpt:        { alignItems: 'center', flex: 1 },
+  shareOptIcon:    { width: 60, height: 60, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  shareOptLabel:   { fontSize: 12, color: Colors.gray700, fontWeight: '600' },
+  shareLinkRow:      { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  shareLinkTextBox:  { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 13 },
+  shareLinkText:     { flex: 1, fontSize: 13, color: Colors.gray700, fontWeight: '500' },
+  shareLinkCopyBtn:  { backgroundColor: Colors.blue600, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 13 },
+  shareLinkCopyText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  shareCancel:     { borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  shareCancelText: { fontSize: 15, fontWeight: '700', color: Colors.gray600 },
 
   // ── Profile Card ──
   profileCard:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 20, marginHorizontal: 16, marginTop: -30, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, overflow: 'hidden', zIndex: 5 },

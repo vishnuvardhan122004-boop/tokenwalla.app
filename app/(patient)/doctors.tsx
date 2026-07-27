@@ -73,11 +73,9 @@ export default function DoctorsScreen() {
   const params = useLocalSearchParams<{ q?: string }>();
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
-  const [specFilter,      setSpecFilter]      = useState('All');
   const [availOnly,       setAvailOnly]       = useState(false);
   const [loading,         setLoading]         = useState(true);
   const [error,           setError]           = useState(false);
-  const [specs,           setSpecs]           = useState<string[]>(['All']);
   const [city,            setCity]            = useState('');
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -87,8 +85,6 @@ export default function DoctorsScreen() {
     // Hide test/demo hospitals from the patient app.
     const list = raw.filter((d: Doctor) => !isTestHospital(d.hospital_name));
     setDoctors(list);
-    const uniqueSpecs: string[] = ['All', ...new Set(list.map((d: Doctor) => d.specialization).filter(Boolean))];
-    setSpecs(uniqueSpecs);
     return list;
   }, []);
 
@@ -200,11 +196,34 @@ export default function DoctorsScreen() {
       const haystack = [doc.name, doc.specialization, doc.keywords, doc.hospital_name, doc.city]
         .filter(Boolean).join(' ').toLowerCase();
       const matchSearch = !search || terms.some((term) => haystack.includes(term));
-      const matchSpec  = specFilter === 'All' || doc.specialization === specFilter;
       const matchAvail = !availOnly || doc.available;
-      return matchSearch && matchSpec && matchAvail;
+      return matchSearch && matchAvail;
     })
     .sort((a: Doctor, b: Doctor) => rankDoctor(b) - rankDoctor(a));
+
+  // ── KEYWORD CHIPS ─────────────────────────────────────────────────────────
+  // Tappable quick-search terms pulled from the real data: each doctor's
+  // comma-separated `keywords` plus their specialization. Deduped
+  // case-insensitively and capped so the strip stays short and scrollable.
+  const keywordChips = (() => {
+    const seen = new Set<string>();
+    const chips: string[] = [];
+    for (const doc of doctors) {
+      const terms = [
+        ...(doc.keywords || '').split(','),
+        doc.specialization || '',
+      ];
+      for (const raw of terms) {
+        const term = raw.trim();
+        const key = term.toLowerCase();
+        if (term && !seen.has(key)) {
+          seen.add(key);
+          chips.push(term);
+        }
+      }
+    }
+    return chips.slice(0, 20);
+  })();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -232,6 +251,37 @@ export default function DoctorsScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        {/* Keyword quick-search chips */}
+        {keywordChips.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.keywordScroll}
+            contentContainerStyle={styles.keywordScrollContent}
+          >
+            {keywordChips.map(kw => {
+              const active = search.trim().toLowerCase() === kw.toLowerCase();
+              return (
+                <TouchableOpacity
+                  key={kw}
+                  style={[styles.keywordChip, active && styles.keywordChipActive]}
+                  onPress={() => setSearch(active ? '' : kw)}
+                >
+                  <Ionicons
+                    name="search"
+                    size={11}
+                    color={active ? Colors.white : Colors.blue600}
+                  />
+                  <Text style={[styles.keywordChipText, active && styles.keywordChipTextActive]}>
+                    {kw}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* Location Button */}
         <TouchableOpacity
@@ -266,36 +316,15 @@ export default function DoctorsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── SPECIALIZATION PILLS ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.specScroll}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-      >
-        {specs.map(spec => (
-          <TouchableOpacity
-            key={spec}
-            style={[styles.specPill, specFilter === spec && styles.specPillActive]}
-            onPress={() => setSpecFilter(spec)}
-          >
-            <Text style={[styles.specText, specFilter === spec && styles.specTextActive]}>
-              {spec}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {/* ── RESULTS COUNT + SORT LABEL ── */}
       <View style={styles.countRow}>
         <Text style={styles.countText}>
           {t('results_count', { count: filtered.length })}
           {city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`}
         </Text>
-        {(search || specFilter !== 'All' || availOnly || city) && (
+        {(search || availOnly || city) && (
           <TouchableOpacity onPress={() => {
             setSearch('');
-            setSpecFilter('All');
             setAvailOnly(false);
             setCity('');
           }}>
@@ -470,6 +499,23 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: Colors.gray900 },
 
+  keywordScroll:        { flexGrow: 0, marginBottom: 10 },
+  keywordScrollContent: { gap: 8, paddingRight: 4 },
+  keywordChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.blue50,
+    borderWidth: 1,
+    borderColor: Colors.blue200,
+    borderRadius: 100,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  keywordChipActive:     { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
+  keywordChipText:       { fontSize: 12, fontWeight: '600', color: Colors.blue600 },
+  keywordChipTextActive: { color: Colors.white },
+
   locationBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -500,12 +546,6 @@ const styles = StyleSheet.create({
   availToggleActive: { backgroundColor: Colors.successBg, borderColor: Colors.successBorder },
   toggleDot:         { width: 8, height: 8, borderRadius: 4 },
   availToggleText:   { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
-
-  specScroll:     { flexGrow: 0, paddingVertical: 12 },
-  specPill:       { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 16, paddingVertical: 7 },
-  specPillActive: { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
-  specText:       { fontSize: 13, fontWeight: '500', color: Colors.gray600 },
-  specTextActive: { color: Colors.white, fontWeight: '600' },
 
   countRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
   countText: { fontSize: 13, color: Colors.gray400 },
