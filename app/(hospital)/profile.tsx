@@ -10,9 +10,10 @@
  * exists server-side, Save shows a friendly error instead of failing silently.
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -58,10 +59,10 @@ interface Hospital {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; label: string }> = {
-  approved: { bg: Colors.successBg, text: Colors.successText, border: Colors.successBorder, label: '✅ Approved' },
-  active:   { bg: Colors.successBg, text: Colors.successText, border: Colors.successBorder, label: '✅ Active'   },
-  pending:  { bg: Colors.warningBg, text: Colors.warningText, border: Colors.warningBorder, label: '⏳ Pending Approval' },
-  rejected: { bg: Colors.errorBg,   text: Colors.errorText,   border: Colors.errorBorder,   label: '⛔ Rejected' },
+  approved: { bg: Colors.successBg, text: Colors.successText, border: Colors.successBorder, label: 'Approved' },
+  active:   { bg: Colors.successBg, text: Colors.successText, border: Colors.successBorder, label: 'Active'   },
+  pending:  { bg: Colors.warningBg, text: Colors.warningText, border: Colors.warningBorder, label: 'Pending Approval' },
+  rejected: { bg: Colors.errorBg,   text: Colors.errorText,   border: Colors.errorBorder,   label: 'Rejected' },
 };
 
 export default function HospitalProfile() {
@@ -139,7 +140,7 @@ export default function HospitalProfile() {
     setOtpLoading(true);
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile: form.mobile.trim(), otp: otp.trim() });
-      if (data?.verified) { setOtpVerified(true); Alert.alert('✅ Verified', 'New mobile number verified.'); }
+      if (data?.verified) { setOtpVerified(true); Alert.alert('Verified', 'New mobile number verified.'); }
       else Alert.alert('Invalid OTP', 'Please check and try again.');
     } catch (e: any) {
       Alert.alert('Invalid OTP', e?.response?.data?.message || 'Please try again.');
@@ -246,7 +247,7 @@ export default function HospitalProfile() {
         await AsyncStorage.setItem('user', JSON.stringify(user));
       }
       setEditing(false);
-      Alert.alert('✅ Saved', 'Hospital details updated.');
+      Alert.alert('Saved', 'Hospital details updated.');
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 404 || status === 405 || status === 403) {
@@ -285,7 +286,8 @@ export default function HospitalProfile() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(hospital)/dashboard')}>
-          <Text style={styles.backBtnText}>← Back</Text>
+          <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
+          <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hospital Profile</Text>
         <View style={{ width: 90 }} />
@@ -298,7 +300,10 @@ export default function HospitalProfile() {
           <View style={styles.card}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
             <Text style={styles.hospName}>{hospital.name}</Text>
-            <Text style={styles.hospMobile}>📱 {hospital.mobile || '—'}</Text>
+            <View style={styles.hospMobileRow}>
+              <Ionicons name="call-outline" size={13} color={Colors.gray500} />
+              <Text style={styles.hospMobile}>{hospital.mobile || '—'}</Text>
+            </View>
             <View style={[styles.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
               <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
             </View>
@@ -309,8 +314,9 @@ export default function HospitalProfile() {
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>Hospital Details</Text>
               {!editing && (
-                <TouchableOpacity onPress={() => setEditing(true)}>
-                  <Text style={styles.editLink}>✏️ Edit</Text>
+                <TouchableOpacity style={styles.editLinkRow} onPress={() => setEditing(true)}>
+                  <Ionicons name="create-outline" size={15} color={Colors.blue600} />
+                  <Text style={styles.editLink}>Edit</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -318,25 +324,27 @@ export default function HospitalProfile() {
             {editing ? (
               <>
                 {/* Banner + logo */}
-                <Text style={styles.label}>🖼️ Banner Image (16:9)</Text>
+                <Text style={styles.label}>Banner Image (16:9)</Text>
                 {bannerPreview ? (
                   <Image source={{ uri: bannerPreview }} style={styles.bannerPreview} resizeMode="cover" />
                 ) : (
-                  <View style={styles.bannerPlaceholder}><Text style={{ fontSize: 26 }}>🏥</Text></View>
+                  <View style={styles.bannerPlaceholder}><Ionicons name="image-outline" size={28} color={Colors.gray400} /></View>
                 )}
                 <TouchableOpacity style={styles.pickBtn} onPress={pickBanner}>
-                  <Text style={styles.pickBtnText}>{bannerPreview ? '🔄 Change Banner' : '📷 Choose Banner'}</Text>
+                  <Ionicons name={bannerPreview ? 'sync-outline' : 'camera-outline'} size={16} color={Colors.blue600} />
+                  <Text style={styles.pickBtnText}>{bannerPreview ? 'Change Banner' : 'Choose Banner'}</Text>
                 </TouchableOpacity>
 
-                <Text style={[styles.label, { marginTop: 14 }]}>⭕ Logo (square)</Text>
+                <Text style={[styles.label, { marginTop: 14 }]}>Logo (square)</Text>
                 <View style={styles.logoRow}>
                   {logoPreview ? (
                     <Image source={{ uri: logoPreview }} style={styles.logoPreview} resizeMode="cover" />
                   ) : (
-                    <View style={styles.logoPlaceholder}><Text style={{ fontSize: 22 }}>🏥</Text></View>
+                    <View style={styles.logoPlaceholder}><Ionicons name="image-outline" size={22} color={Colors.gray400} /></View>
                   )}
                   <TouchableOpacity style={[styles.pickBtn, { flex: 1 }]} onPress={pickLogo}>
-                    <Text style={styles.pickBtnText}>{logoPreview ? '🔄 Change Logo' : '📷 Choose Logo'}</Text>
+                    <Ionicons name={logoPreview ? 'sync-outline' : 'camera-outline'} size={16} color={Colors.blue600} />
+                    <Text style={styles.pickBtnText}>{logoPreview ? 'Change Logo' : 'Choose Logo'}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={{ height: 14 }} />
@@ -359,7 +367,7 @@ export default function HospitalProfile() {
                 <Text style={styles.label}>Address</Text>
                 <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={v => setForm(p => ({ ...p, address: v }))} placeholder="Full address" placeholderTextColor={Colors.gray400} multiline />
 
-                <Text style={styles.label}>📍 Maps Location (Google Maps link or landmark)</Text>
+                <Text style={styles.label}>Maps Location (Google Maps link or landmark)</Text>
                 <TextInput style={styles.input} value={form.location} onChangeText={v => setForm(p => ({ ...p, location: v }))} placeholder="https://maps.google.com/…  or landmark" placeholderTextColor={Colors.gray400} autoCapitalize="none" />
 
                 <Text style={styles.label}>Mobile Number</Text>
@@ -396,15 +404,15 @@ export default function HospitalProfile() {
                 {mobileChanged && otpVerified && <Text style={styles.verifiedText}>✓ New mobile verified</Text>}
 
                 {/* About / description */}
-                <Text style={styles.label}>ℹ️ About the Hospital (shown to patients)</Text>
+                <Text style={styles.label}>About the Hospital (shown to patients)</Text>
                 <TextInput style={[styles.input, { height: 90, textAlignVertical: 'top' }]} value={form.description} onChangeText={v => setForm(p => ({ ...p, description: v }))} placeholder="Describe your hospital, specialities and what you provide…" placeholderTextColor={Colors.gray400} multiline />
 
                 {/* Announcement */}
-                <Text style={styles.label}>📢 Announcement / Notice (shown to patients)</Text>
+                <Text style={styles.label}>Announcement / Notice (shown to patients)</Text>
                 <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={form.announcement} onChangeText={v => setForm(p => ({ ...p, announcement: v }))} placeholder="e.g. Dr. Ravi on leave this Friday" placeholderTextColor={Colors.gray400} multiline maxLength={300} />
 
                 {/* Working hours */}
-                <Text style={styles.label}>🕐 Working Hours (24h, e.g. 09:00 – 18:00)</Text>
+                <Text style={styles.label}>Working Hours (24h, e.g. 09:00 – 18:00)</Text>
                 <View style={styles.otpRow}>
                   <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={form.open_time} onChangeText={v => setForm(p => ({ ...p, open_time: v }))} placeholder="Open 09:00" placeholderTextColor={Colors.gray400} maxLength={5} />
                   <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={form.close_time} onChangeText={v => setForm(p => ({ ...p, close_time: v }))} placeholder="Close 18:00" placeholderTextColor={Colors.gray400} maxLength={5} />
@@ -412,15 +420,15 @@ export default function HospitalProfile() {
                 <View style={{ height: 14 }} />
 
                 {/* Social links */}
-                <Text style={styles.label}>📸 Instagram Link</Text>
+                <Text style={styles.label}>Instagram Link</Text>
                 <TextInput style={styles.input} value={form.instagram} onChangeText={v => setForm(p => ({ ...p, instagram: v }))} placeholder="https://instagram.com/yourhospital" placeholderTextColor={Colors.gray400} autoCapitalize="none" keyboardType="url" />
-                <Text style={styles.label}>▶️ YouTube Link</Text>
+                <Text style={styles.label}>YouTube Link</Text>
                 <TextInput style={styles.input} value={form.youtube} onChangeText={v => setForm(p => ({ ...p, youtube: v }))} placeholder="https://youtube.com/@yourhospital" placeholderTextColor={Colors.gray400} autoCapitalize="none" keyboardType="url" />
-                <Text style={styles.label}>👍 Facebook Link</Text>
+                <Text style={styles.label}>Facebook Link</Text>
                 <TextInput style={styles.input} value={form.facebook} onChangeText={v => setForm(p => ({ ...p, facebook: v }))} placeholder="https://facebook.com/yourhospital" placeholderTextColor={Colors.gray400} autoCapitalize="none" keyboardType="url" />
 
                 {/* Services */}
-                <Text style={styles.label}>🏥 Services Offered</Text>
+                <Text style={styles.label}>Services Offered</Text>
                 <View style={styles.otpRow}>
                   <TextInput
                     style={[styles.input, { flex: 1, marginBottom: 0 }]}
@@ -439,7 +447,8 @@ export default function HospitalProfile() {
                   <View style={styles.chipWrap}>
                     {services.map(s => (
                       <TouchableOpacity key={s} style={styles.serviceChip} onPress={() => removeService(s)}>
-                        <Text style={styles.serviceChipText}>{s}  ✕</Text>
+                        <Text style={styles.serviceChipText}>{s}</Text>
+                        <Ionicons name="close" size={13} color={Colors.blue700} />
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -491,9 +500,11 @@ export default function HospitalProfile() {
                 {(hospital.instagram || hospital.youtube || hospital.facebook) && (
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Social</Text>
-                    <Text style={styles.detailValue}>
-                      {[hospital.instagram && '📸', hospital.youtube && '▶️', hospital.facebook && '👍'].filter(Boolean).join('  ')}
-                    </Text>
+                    <View style={styles.socialRow}>
+                      {hospital.instagram ? <Ionicons name="logo-instagram" size={18} color={Colors.gray600} /> : null}
+                      {hospital.youtube ? <Ionicons name="logo-youtube" size={18} color={Colors.gray600} /> : null}
+                      {hospital.facebook ? <Ionicons name="logo-facebook" size={18} color={Colors.gray600} /> : null}
+                    </View>
                   </View>
                 )}
 
@@ -517,7 +528,12 @@ export default function HospitalProfile() {
             <View style={styles.sectionHead}>
               <Text style={styles.sectionTitle}>Photo Gallery</Text>
               <TouchableOpacity onPress={addPhoto} disabled={photoBusy}>
-                {photoBusy ? <ActivityIndicator size="small" color={Colors.blue600} /> : <Text style={styles.editLink}>＋ Add Photo</Text>}
+                {photoBusy ? <ActivityIndicator size="small" color={Colors.blue600} /> : (
+                  <View style={styles.editLinkRow}>
+                    <Ionicons name="add" size={16} color={Colors.blue600} />
+                    <Text style={styles.editLink}>Add Photo</Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </View>
             {gallery.length === 0 ? (
@@ -527,7 +543,7 @@ export default function HospitalProfile() {
                 {gallery.map(p => (
                   <TouchableOpacity key={p.id} onPress={() => removePhoto(p.id)} activeOpacity={0.8}>
                     <Image source={{ uri: p.url }} style={styles.galleryImg} resizeMode="cover" />
-                    <View style={styles.galleryRemove}><Text style={{ color: Colors.white, fontSize: 11, fontWeight: '700' }}>✕</Text></View>
+                    <View style={styles.galleryRemove}><Ionicons name="close" size={12} color={Colors.white} /></View>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -537,24 +553,25 @@ export default function HospitalProfile() {
           {/* Operations */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Operations</Text>
-            {[
-              { icon: '🏥', label: 'Queue & Doctors Dashboard', onPress: () => router.replace('/(hospital)/dashboard') },
-              { icon: '📊', label: 'Analytics',                 onPress: () => router.push('/(hospital)/analytics')    },
-              { icon: '📷', label: 'Scan Patient QR',           onPress: () => router.push('/(hospital)/scanner')      },
-              { icon: '🔑', label: 'Change Password',           onPress: () => router.push('/(hospital)/Hforgotpassword') },
-              { icon: '📞', label: 'Contact Support',           onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
-            ].map(({ icon, label, onPress }) => (
+            {([
+              { icon: 'grid-outline',        label: 'Queue & Doctors Dashboard', onPress: () => router.replace('/(hospital)/dashboard') },
+              { icon: 'stats-chart-outline', label: 'Analytics',                 onPress: () => router.push('/(hospital)/analytics')    },
+              { icon: 'qr-code-outline',     label: 'Scan Patient QR',           onPress: () => router.push('/(hospital)/scanner')      },
+              { icon: 'key-outline',         label: 'Change Password',           onPress: () => router.push('/(hospital)/Hforgotpassword') },
+              { icon: 'call-outline',        label: 'Contact Support',           onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
+            ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }[]).map(({ icon, label, onPress }) => (
               <TouchableOpacity key={label} style={styles.opRow} onPress={onPress}>
-                <View style={styles.opIcon}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+                <View style={styles.opIcon}><Ionicons name={icon} size={18} color={Colors.blue600} /></View>
                 <Text style={styles.opLabel}>{label}</Text>
-                <Text style={styles.opArrow}>›</Text>
+                <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />
               </TouchableOpacity>
             ))}
           </View>
 
           {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={confirmLogout}>
-            <Text style={styles.logoutBtnText}>🚪 Logout</Text>
+            <Ionicons name="log-out-outline" size={18} color={Colors.errorText} />
+            <Text style={styles.logoutBtnText}>Logout</Text>
           </TouchableOpacity>
 
         </ScrollView>
@@ -567,7 +584,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
 
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
-  backBtn:     { width: 90 },
+  backBtn:     { width: 90, flexDirection: 'row', alignItems: 'center', gap: 3 },
   backBtnText: { fontSize: 14, fontWeight: '600', color: Colors.blue600 },
   headerTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
 
@@ -575,14 +592,17 @@ const styles = StyleSheet.create({
   avatar:    { width: 76, height: 76, borderRadius: 20, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   avatarText:{ fontSize: 26, fontWeight: '800', color: Colors.white },
   hospName:  { fontSize: 19, fontWeight: '800', color: Colors.gray900, textAlign: 'center', marginBottom: 4 },
-  hospMobile:{ fontSize: 13, color: Colors.gray500, marginBottom: 12 },
+  hospMobileRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 12 },
+  hospMobile:{ fontSize: 13, color: Colors.gray500 },
   statusPill:{ borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 5 },
   statusText:{ fontSize: 12, fontWeight: '700' },
 
   section:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, padding: 16, marginBottom: 16 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:{ fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 12 },
+  editLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   editLink:    { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
+  socialRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   detailRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   detailLabel: { fontSize: 13, color: Colors.gray500 },
@@ -605,13 +625,13 @@ const styles = StyleSheet.create({
   logoRow:           { flexDirection: 'row', alignItems: 'center', gap: 12 },
   logoPreview:       { width: 60, height: 60, borderRadius: 14, borderWidth: 2, borderColor: Colors.blue200 },
   logoPlaceholder:   { width: 60, height: 60, borderRadius: 14, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
-  pickBtn:           { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  pickBtn:           { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   pickBtnText:       { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   galleryImg:        { width: 120, height: 90, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100 },
   galleryRemove:     { position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(163,45,45,0.9)', alignItems: 'center', justifyContent: 'center' },
 
   chipWrap:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 6 },
-  serviceChip: { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
+  serviceChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
   serviceChipText: { fontSize: 12, fontWeight: '600', color: Colors.blue700 },
 
   editActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
@@ -625,6 +645,6 @@ const styles = StyleSheet.create({
   opLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.gray800 },
   opArrow: { fontSize: 22, color: Colors.gray400 },
 
-  logoutBtn:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
+  logoutBtn:     { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
   logoutBtnText: { color: Colors.errorText, fontWeight: '700', fontSize: 15 },
 });
