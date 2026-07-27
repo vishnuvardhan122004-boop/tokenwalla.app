@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -80,7 +81,7 @@ export default function BookingTokenScreen() {
 
         {/* Success Icon */}
         <View style={styles.successIcon}>
-          <Text style={{ fontSize: 40 }}>✅</Text>
+          <Ionicons name="checkmark-sharp" size={40} color={Colors.successText} />
         </View>
         <Text style={styles.title}>{t('bt_confirmed')}</Text>
         <Text style={styles.sub}>{t('bt_confirmed_sub')}</Text>
@@ -117,8 +118,8 @@ export default function BookingTokenScreen() {
               { label: t('bt_patient'),  value: String(userName || '—') },
               { label: t('bt_date'),     value: String(date || '—') },
               { label: t('bt_slot'),     value: String(slot || '—') },
-              { label: t('bt_hospital'), value: `🏥 ${hospital}` },
-              { label: t('bt_contact'),  value: `📞 ${doctorMobile || '—'}` },
+              { label: t('bt_hospital'), value: String(hospital || '—') },
+              { label: t('bt_contact'),  value: String(doctorMobile || '—') },
               ...(paymentId ? [{ label: t('bt_payment_id'), value: String(paymentId).slice(0, 20) + '...' }] : []),
             ].map(({ label, value }) => (
               <View key={label} style={styles.infoRow}>
@@ -130,7 +131,7 @@ export default function BookingTokenScreen() {
 
           {/* Queue Access */}
           <View style={styles.queueRow}>
-            <Text style={{ fontSize: 18, marginRight: 10 }}>📍</Text>
+            <Ionicons name="navigate" size={18} color={Colors.blue600} style={{ marginRight: 10 }} />
             <View>
               <Text style={styles.queueTitle}>{t('bt_queue_active')}</Text>
               <Text style={styles.queueDesc}>{t('bt_queue_active_desc')}</Text>
@@ -146,7 +147,10 @@ export default function BookingTokenScreen() {
         >
           {downloading
             ? <ActivityIndicator size="small" color={Colors.blue600} />
-            : <Text style={styles.downloadBtnText}>⬇  {t('download_ticket')}</Text>}
+            : <>
+                <Ionicons name="download-outline" size={17} color={Colors.blue600} />
+                <Text style={styles.downloadBtnText}>{t('download_ticket')}</Text>
+              </>}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -210,7 +214,7 @@ const styles = StyleSheet.create({
   outlineBtn:     { width: '100%', borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
 
-  downloadBtn:         { width: '100%', flexDirection: 'row', backgroundColor: Colors.blue50, borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 50 },
+  downloadBtn:         { width: '100%', flexDirection: 'row', gap: 8, backgroundColor: Colors.blue50, borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 50 },
   downloadBtnDisabled: { opacity: 0.7 },
   downloadBtnText:     { color: Colors.blue600, fontWeight: '700', fontSize: 15 },
 

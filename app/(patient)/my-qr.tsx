@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -85,7 +86,7 @@ export default function MyQRScreen() {
   if (!user) return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.center}>
-        <Text style={{ fontSize: 48, marginBottom: 16 }}>📷</Text>
+        <Ionicons name="qr-code-outline" size={48} color={Colors.blue200} style={{ marginBottom: 16 }} />
         <Text style={styles.emptyTitle}>{t('login_required')}</Text>
         <Text style={styles.emptySub}>{t('login_see_qr')}</Text>
         <TouchableOpacity style={styles.loginBtn} onPress={() => router.push('/(auth)/login')}>
@@ -113,7 +114,7 @@ export default function MyQRScreen() {
         </View>
       ) : bookings.length === 0 ? (
         <View style={styles.center}>
-          <Text style={{ fontSize: 48, marginBottom: 16 }}>🎫</Text>
+          <Ionicons name="ticket-outline" size={48} color={Colors.blue200} style={{ marginBottom: 16 }} />
           <Text style={styles.emptyTitle}>{t('no_active_bookings')}</Text>
           <Text style={styles.emptySub}>{t('book_to_get_qr')}</Text>
           <TouchableOpacity style={styles.bookBtn} onPress={() => router.push('/(patient)/doctors')}>
@@ -189,8 +190,9 @@ export default function MyQRScreen() {
                   </View>
                   <Text style={styles.qrScanHint}>{t('scan_to_verify')}</Text>
                   <View style={styles.feeNote}>
+                    <Ionicons name="information-circle-outline" size={15} color={Colors.blue600} style={{ marginRight: 7, marginTop: 1 }} />
                     <Text style={styles.feeNoteText}>
-                      ℹ️ You have paid only for the service to Tokenwalla. The doctor's consultation fee is to be paid separately at the hospital.
+                      You have paid only for the service to Tokenwalla. The doctor&apos;s consultation fee is to be paid separately at the hospital.
                     </Text>
                   </View>
                 </View>
@@ -205,14 +207,14 @@ export default function MyQRScreen() {
 
                 {/* Booking Details */}
                 <View style={styles.qrDetails}>
-                  {[
-                    { icon: '🩺', label: 'Doctor',   value: `Dr. ${booking.doctor_name}` },
-                    { icon: '🏥', label: 'Hospital', value: booking.hospital_name         },
-                    { icon: '📅', label: 'Date',     value: booking.date                  },
-                    { icon: '🕐', label: 'Slot',     value: booking.slot                  },
-                  ].map(({ icon, label, value }) => (
+                  {([
+                    { icon: 'medkit-outline',   label: 'Doctor',   value: `Dr. ${booking.doctor_name}` },
+                    { icon: 'business-outline', label: 'Hospital', value: booking.hospital_name         },
+                    { icon: 'calendar-outline', label: 'Date',     value: booking.date                  },
+                    { icon: 'time-outline',     label: 'Slot',     value: booking.slot                  },
+                  ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string }[]).map(({ icon, label, value }) => (
                     <View key={label} style={styles.detailRow}>
-                      <Text style={styles.detailIcon}>{icon}</Text>
+                      <Ionicons name={icon} size={15} color={Colors.gray400} style={styles.detailIcon} />
                       <Text style={styles.detailLabel}>{label}</Text>
                       <Text style={styles.detailValue} numberOfLines={1}>{value}</Text>
                     </View>
@@ -221,8 +223,9 @@ export default function MyQRScreen() {
 
                 {/* Footer note */}
                 <View style={styles.qrFooter}>
+                  <Ionicons name="lock-closed" size={12} color={Colors.gray400} style={{ marginRight: 5 }} />
                   <Text style={styles.qrFooterText}>
-                    🔒 Valid for this appointment only · tokenwalla.com
+                    Valid for this appointment only · tokenwalla.com
                   </Text>
                 </View>
               </View>
@@ -237,7 +240,10 @@ export default function MyQRScreen() {
           >
             {downloading
               ? <ActivityIndicator size="small" color={Colors.white} />
-              : <Text style={styles.downloadBtnText}>⬇  {t('download_ticket')}</Text>}
+              : <>
+                  <Ionicons name="download-outline" size={17} color={Colors.white} />
+                  <Text style={styles.downloadBtnText}>{t('download_ticket')}</Text>
+                </>}
           </TouchableOpacity>
 
           {/* Go to My Bookings */}
@@ -305,17 +311,17 @@ const styles = StyleSheet.create({
 
   qrDetails:  { padding: 20 },
   detailRow:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
-  detailIcon: { fontSize: 16, width: 26 },
+  detailIcon: { width: 26 },
   detailLabel: { fontSize: 12, color: Colors.gray500, width: 64 },
   detailValue: { flex: 1, fontSize: 13, fontWeight: '600', color: Colors.gray900, textAlign: 'right' },
 
-  qrFooter:     { backgroundColor: Colors.bg, padding: 14, alignItems: 'center' },
+  qrFooter:     { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg, padding: 14 },
   qrFooterText: { fontSize: 11, color: Colors.gray400, textAlign: 'center' },
 
   viewAllBtn:     { marginHorizontal: 16, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center' },
   viewAllBtnText: { color: Colors.blue600, fontWeight: '700', fontSize: 14 },
 
-  downloadBtn:         { marginHorizontal: 16, marginBottom: 12, backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', minHeight: 50, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  downloadBtn:         { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginBottom: 12, backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', minHeight: 50, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   downloadBtnDisabled: { opacity: 0.7 },
   downloadBtnText:     { color: Colors.white, fontWeight: '700', fontSize: 15 },
 });

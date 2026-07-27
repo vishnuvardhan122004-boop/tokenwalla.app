@@ -9,7 +9,9 @@
  * actions: "Read all" and "Clear".
  */
 
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ComponentProps } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -41,13 +43,13 @@ function relativeTime(ts: number, t: TFn): string {
   return new Date(ts).toLocaleDateString();
 }
 
-function iconFor(n: AppNotification): string {
+function iconFor(n: AppNotification): ComponentProps<typeof Ionicons>['name'] {
   switch (n.type) {
-    case 'booking_confirmed':   return '✅';
-    case 'appointment_reminder':return '⏰';
-    case 'queue_advance':       return '🚶';
-    case 'new_booking':         return '🔔';
-    default:                    return '🔔';
+    case 'booking_confirmed':   return 'checkmark-circle';
+    case 'appointment_reminder':return 'alarm-outline';
+    case 'queue_advance':       return 'walk-outline';
+    case 'new_booking':         return 'notifications-outline';
+    default:                    return 'notifications-outline';
   }
 }
 
@@ -77,7 +79,7 @@ export default function NotificationsScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.iconWrap}>
-        <Text style={styles.iconText}>{iconFor(item)}</Text>
+        <Ionicons name={iconFor(item)} size={18} color={Colors.blue600} />
       </View>
       <View style={styles.cardBody}>
         <View style={styles.cardTopRow}>
@@ -100,7 +102,7 @@ export default function NotificationsScreen() {
           style={styles.backBtn}
           onPress={() => safeBack(router, audience === 'hospital' ? '/(hospital)/dashboard' : '/(patient)/home')}
         >
-          <Text style={styles.backText}>‹</Text>
+          <Ionicons name="chevron-back" size={22} color={Colors.blue600} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('nt_title')}</Text>
         <TouchableOpacity
@@ -123,7 +125,7 @@ export default function NotificationsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🔕</Text>
+            <Ionicons name="notifications-off-outline" size={44} color={Colors.gray400} style={styles.emptyIcon} />
             <Text style={styles.emptyTitle}>{t('nt_empty_title')}</Text>
             <Text style={styles.emptyText}>
               {audience === 'hospital' ? t('nt_empty_hospital') : t('nt_empty_patient')}
