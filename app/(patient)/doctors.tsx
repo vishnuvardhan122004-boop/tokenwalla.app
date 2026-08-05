@@ -448,7 +448,7 @@ export default function DoctorsScreen() {
                         {doc.available ? t('available') : t('busy')}
                       </Text>
                     </View>
-                    <Text style={styles.feeText}>₹{doc.fee || 15}</Text>
+                    <Text style={styles.feeText}>₹{doc.fee ?? 0}</Text>
                     <Text style={styles.feeSub}>per visit</Text>
                   </View>
                 </View>

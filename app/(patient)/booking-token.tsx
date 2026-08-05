@@ -13,13 +13,17 @@ import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { money } from '../../utils/fees';
 import { useI18n } from '../../services/i18n';
 import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
   const { t } = useI18n();
-  const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile } = useLocalSearchParams();
+  const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee } = useLocalSearchParams();
+  // Consultation fee still payable at the hospital. 0 when it was collected
+  // online (FULL) — nothing is owed at the desk, so the disclaimer is dropped.
+  const dueAtHospital = Number(offlineFee || 0);
   const notifiedRef = useRef(false);
   const ticketRef = useRef<View>(null);
   const [downloading, setDownloading] = useState(false);
@@ -139,11 +143,14 @@ export default function BookingTokenScreen() {
           </View>
         </View>
 
-        {/* Fee disclaimer — service fee only; consultation paid at hospital */}
-        <View style={styles.feeNote}>
-          <Ionicons name="information-circle-outline" size={16} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 8, marginTop: 1 }} />
-          <Text style={styles.feeNoteText}>{t('bt_fee_disclaimer')}</Text>
-        </View>
+        {/* Fee disclaimer — only when the consultation fee is still owed at the
+            hospital. If it was paid online, there's nothing left to warn about. */}
+        {dueAtHospital > 0 && (
+          <View style={styles.feeNote}>
+            <Ionicons name="information-circle-outline" size={16} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 8, marginTop: 1 }} />
+            <Text style={styles.feeNoteText}>{t('bt_fee_disclaimer', { fee: money(dueAtHospital) })}</Text>
+          </View>
+        )}
 
         {/* Actions */}
         <TouchableOpacity

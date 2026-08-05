@@ -291,7 +291,9 @@ export default function HomeScreen() {
                       <Ionicons name="location-outline" size={12} color={Colors.gray400} />
                       <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>
                     </View>
-                    <Text style={styles.docFee}>₹15 {t('per_visit')}</Text>
+                    {/* The doctor's consultation fee. The ₹15 queue plan is
+                        retired — checkout prices the bill server-side. */}
+                    <Text style={styles.docFee}>₹{doc.fee ?? 0} {t('per_visit')}</Text>
                   </View>
                 </TouchableOpacity>
               ))}

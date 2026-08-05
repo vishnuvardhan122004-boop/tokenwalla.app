@@ -36,12 +36,14 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
+import { money } from '../utils/fees';
 import { parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-const RESCHEDULE_PAISE = 500;   // ₹5 in paise — must match backend VALID_AMOUNTS_PAISE
-const RESCHEDULE_FEE   = 5;     // display only
+// ₹5 in RUPEES — must match a key of the backend's VALID_PLAN_AMOUNTS. The
+// backend switched from paise to rupees when checkout moved to Razorpay.
+const RESCHEDULE_FEE = 5;
 const MAX_BOOKING_DAYS_AHEAD = 30; // how far into the future the calendar allows booking
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -224,7 +226,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
     try {
       const { data } = await API.post('/payment/create-order/', {
-        amount:   RESCHEDULE_PAISE,
+        amount:   RESCHEDULE_FEE,
         currency: 'INR',
         notes:    { type: 'reschedule', booking_id: booking.id },
       });
@@ -232,13 +234,16 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       if (!data.order_id) throw new Error('No order_id returned from server.');
 
       // ── Build HTML only after real order_id is confirmed ─────────────────
-      const rpAmount   = Number(data.amount);       // paise as JS number — not string
-      if (!Number.isFinite(rpAmount)) throw new Error('Invalid amount from server.');
+      // The backend prices in RUPEES; Razorpay Checkout wants paise.
+      const rpRupees   = Number(data.amount);
+      if (!Number.isFinite(rpRupees)) throw new Error('Invalid amount from server.');
+      const rpAmount   = Math.round(rpRupees * 100);
       const rpOrderId  = String(data.order_id);
+      const rpKeyId    = String(data.key || data.key_id || RAZORPAY_KEY_ID);
       const userName   = String(user?.name || user?.username || '');
       const userMobile = String(user?.mobile || '');
       const drName     = String(booking.doctor_name || '');
-      const feeDisplay = String(RESCHEDULE_FEE);
+      const feeDisplay = money(rpRupees);
 
       const html = `<!DOCTYPE html>
 <html>
@@ -291,7 +296,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       document.getElementById('payBtn').disabled = true;
 
       var options = {
-        key:         ${jsStr(RAZORPAY_KEY_ID)},
+        key:         ${jsStr(rpKeyId)},
         amount:      ${rpAmount},
         currency:    'INR',
         name:        'TokenWalla',
@@ -370,9 +375,9 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       setStep('verifying');
       try {
         const { data } = await API.post('/payment/verify/', {
-          razorpay_order_id:   msg.orderId,
-          razorpay_payment_id: msg.paymentId,
-          razorpay_signature:  msg.signature,
+          // Razorpay contract: only the order_id we checked out with. The
+          // server confirms the payment with Razorpay itself.
+          order_id: msg.orderId,
           // Backend _handle_reschedule reads from booking: {}
           booking: {
             booking_id: booking.id,

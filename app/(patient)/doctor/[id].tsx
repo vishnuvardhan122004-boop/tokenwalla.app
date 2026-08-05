@@ -23,6 +23,7 @@ import {
   isOpenNow,
   isSlotTooSoon,
 } from '../../../utils/booking';
+import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
 import { safeBack } from '../../../utils/navigation';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 
@@ -45,13 +46,20 @@ interface Doctor {
   hospital_name?: string; hospital_image?: string; image?: string;
   mobile?: string; fee?: number;
   slots?: string[]; days?: string[]; max_per_slot?: number;
+  // Server-computed patient bill (payments/fees.py). SERVICE_ONLY doctors
+  // collect the consultation fee at the clinic, so it isn't part of the
+  // online total — see offline_doctor_fee.
+  fee_breakdown?: FeeBreakdown;
+  payment_collection_mode?: string;
 }
 
 // The next 7 days, computed once at module load (the date/slot/open-hours
 // helpers now live in utils/booking.ts and are unit-tested there).
 const DAYS = getNext7Days();
 
-const PLAN = { price: 15, fee: 1500, name: 'Queue View', desc: 'Token + live queue position tracking' };
+// The full fee (doctor fee + platform + gateway + GST) is computed server-side
+// at checkout from the doctor's consultation fee. This is just the plan label.
+const PLAN = { name: 'Queue View', desc: 'Token + live queue position tracking' };
 
 // Official brand logos (simple-icons paths) so the share menu shows real
 // WhatsApp/Facebook/Instagram marks instead of look-alike emoji.
@@ -186,8 +194,8 @@ export default function DoctorDetails() {
         hospital:     doctor.hospital_name,
         date:         selectedDate,
         slot:         selectedSlot,
-        fee:          PLAN.price,
-        amount:       PLAN.fee,
+        // No fee params: checkout fetches the server's fee_breakdown for this
+        // doctor, and the order is priced server-side from doctorId alone.
       },
     });
   };
@@ -275,6 +283,11 @@ export default function DoctorDetails() {
   const am        = slots.filter(s => s.includes('AM'));
   const pm        = slots.filter(s => s.includes('PM'));
   const dateLabel = DAYS.find(d => d.full === selectedDate);
+  // Server-priced bill; the local mirror only covers backends that predate
+  // fee_breakdown. Checkout re-fetches it and the order is priced server-side.
+  const fees      = doctor.fee_breakdown
+    || computeFeeBreakdown(doctor.fee ?? 0, doctor.payment_collection_mode);
+  const atClinic  = Number(fees.offline_doctor_fee) > 0;
   const isBookable = selectedSlot && doctor.available &&
     !slotAvail[selectedSlot]?.full && !isSlotTooSoon(selectedDate, selectedSlot);
 
@@ -686,10 +699,29 @@ export default function DoctorDetails() {
             </View>
           </View>
 
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalAmount}>₹{PLAN.price}</Text>
+          <View style={styles.summaryRow}>
+            <View style={styles.feeLabelRow}>
+              <Text style={styles.summaryLabel}>Consultation fee</Text>
+              {atClinic && (
+                <View style={styles.clinicTag}>
+                  <Text style={styles.clinicTagText}>pay at clinic</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.summaryValue}>
+              ₹{money(atClinic ? fees.offline_doctor_fee : fees.doctor_fee)}
+            </Text>
           </View>
+
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Payable Now</Text>
+            <Text style={styles.totalAmount}>₹{money(fees.final_amount)}</Text>
+          </View>
+          <Text style={styles.feeNote}>
+            {atClinic
+              ? 'Booking charge only — the consultation fee is paid at the clinic'
+              : 'Includes platform fee, payment gateway fee & GST'}
+          </Text>
         </View>
 
         <View style={{ height: 120 }} />
@@ -710,7 +742,7 @@ export default function DoctorDetails() {
               : slotAvail[selectedSlot]?.full
               ? '⛔ Slot is Full'
               : user
-              ? `💳 Pay ₹${PLAN.price} & Book Appointment`
+              ? `💳 Pay ₹${money(fees.final_amount)} & Book Appointment`
               : '🔐 Login to Book'}
           </Text>
         </TouchableOpacity>
@@ -920,6 +952,10 @@ const styles = StyleSheet.create({
   totalRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 14, marginTop: 4 },
   totalLabel:  { fontSize: 15, fontWeight: '700', color: Colors.gray700 },
   totalAmount: { fontSize: 26, fontWeight: '800', color: Colors.blue600 },
+  feeNote:      { fontSize: 11, color: Colors.gray500, textAlign: 'right', marginTop: 2 },
+  feeLabelRow:  { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  clinicTag:    { backgroundColor: Colors.blue50, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  clinicTagText:{ fontSize: 10, fontWeight: '700', color: Colors.blue700, textTransform: 'uppercase', letterSpacing: 0.3 },
 
   // ── Sticky bar ──
   stickyBar: {

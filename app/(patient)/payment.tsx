@@ -20,6 +20,7 @@ import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { parsePaymentMessage } from '../../utils/payment';
+import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 
 export default function PaymentScreen() {
@@ -28,8 +29,17 @@ export default function PaymentScreen() {
   const {
     doctorId, doctorName, doctorMobile,
     hospital, date, slot,
-    fee = '15', amount = '1500',
   } = params;
+
+  // The itemised bill comes from the SERVER (doctor.fee_breakdown, computed by
+  // payments/fees.py — the same code that prices the order). We don't recompute
+  // it here: a client-side copy can drift from the backend, and it would get
+  // SERVICE_ONLY doctors wrong (their consultation fee is paid at the clinic,
+  // not online). Until it loads, the pay button stays disabled.
+  const [breakdown, setBreakdown] = useState<FeeBreakdown | null>(null);
+  const [feeError,  setFeeError]  = useState('');
+  const [feeReload, setFeeReload] = useState(0);
+  const total = breakdown ? Number(breakdown.final_amount) : null;
 
   const [user,         setUser]         = useState<any>(null);
   const [loading,      setLoading]      = useState(false);
@@ -54,18 +64,43 @@ export default function PaymentScreen() {
     })();
   }, []);
 
+  // ── Server-computed fee breakdown for this doctor ──────────────────────
+  useEffect(() => {
+    if (!doctorId) return;
+    let cancelled = false;
+    // Drop the previous doctor's figures first — otherwise a slow or failed
+    // load leaves the last doctor's price on screen as if it were this one's.
+    setBreakdown(null);
+    setFeeError('');
+    API.get(`/doctors/${doctorId}/`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        // A backend that predates fee_breakdown would leave this screen stuck
+        // on "Loading…" forever, so fall back to the local mirror. It's a
+        // preview either way — the amount charged is the server's order amount.
+        setBreakdown(data.fee_breakdown
+          || computeFeeBreakdown(data.fee, data.payment_collection_mode));
+      })
+      .catch(() => {
+        if (!cancelled) setFeeError('Could not load the fee details. Check your connection and try again.');
+      });
+    return () => { cancelled = true; };
+  }, [doctorId, feeReload]);
+
   // ── Build HTML only after we have real orderData ───────────────────────
   const buildRazorpayHTML = (orderData: any, currentUser: any) => {
-    // FIX 2: amount is a JS Number, not a string
-    const rpAmount   = Number(orderData.amount);          // paise from backend
+    // The backend prices orders in RUPEES; Razorpay Checkout wants paise.
+    const rpRupees   = Number(orderData.amount);
+    const rpAmount   = Math.round(rpRupees * 100);        // FIX 2: a JS Number, not a string
     const rpOrderId  = String(orderData.order_id || '');
     // Prefer the key the backend created the order with — checkout and order
     // must be in the same mode, and the backend is the source of truth for
     // which (test/live) that is. Falls back to the build-time constant.
-    const rpKeyId    = String(orderData.key_id || RAZORPAY_KEY_ID);
+    const rpKeyId    = String(orderData.key || orderData.key_id || RAZORPAY_KEY_ID);
     const userName   = String(currentUser?.name || currentUser?.username || '');
     const userMobile = String(currentUser?.mobile || '');
-    const feeDisplay = String(fee);
+    // Display the server-authoritative amount, not a client guess.
+    const feeDisplay = money(rpRupees);
     const drName     = String(doctorName || '');
     const apptDate   = String(date || '');
     const apptSlot   = String(slot || '');
@@ -74,7 +109,7 @@ export default function PaymentScreen() {
     if (!rpOrderId) throw new Error('Missing order_id from backend');
     // Guard — amount must be a finite number, or the injected `amount: NaN`
     // would silently break the Razorpay options object.
-    if (!Number.isFinite(rpAmount)) throw new Error('Invalid amount from backend');
+    if (!Number.isFinite(rpRupees)) throw new Error('Invalid amount from backend');
 
     return `
 <!DOCTYPE html>
@@ -201,8 +236,10 @@ export default function PaymentScreen() {
     payBtnDisabled.current = true;
     setLoading(true);
     try {
+      // Server computes the full fee from the doctor's consultation fee — we
+      // send only doctorId, never an amount.
       const { data: orderData } = await API.post('/payment/create-order/', {
-        amount:   Number(amount),
+        doctorId,
         currency: 'INR',
         notes:    { doctorId, doctorName, hospital, date, slot },
       });
@@ -234,17 +271,17 @@ export default function PaymentScreen() {
         // ride out a transient blip. Without this, a single hiccup right after a
         // *successful* payment stranded the patient with a "Network Error" and
         // no token even though they were charged.
+        // Razorpay contract: send only the order_id we checked out with. The
+        // server confirms the payment with Razorpay itself — the signature
+        // Checkout hands back is not trusted and not sent.
         const verifyPayload = {
-          razorpay_order_id:   msg.orderId,
-          razorpay_payment_id: msg.paymentId,
-          razorpay_signature:  msg.signature,
+          order_id: msg.orderId,
           booking: {
             doctorId,
             doctorName,
             hospital,
             date,
             slot,
-            amount:       Number(fee),
             queue_access: true,
             bookedForName,
             bookedForMobile,
@@ -274,6 +311,10 @@ export default function PaymentScreen() {
               paymentId:    msg.paymentId,
               userName:     bookedForName || user?.name || user?.username,
               queue_access: 'true',
+              // What's still owed at the hospital desk: 0 when the consultation
+              // fee was collected online (FULL), so the ticket can drop the
+              // "pay the doctor at the hospital" note.
+              offlineFee:   String(breakdown?.offline_doctor_fee ?? 0),
             },
           });
         } else {
@@ -397,7 +438,6 @@ export default function PaymentScreen() {
               { label: 'Date',     value: String(date)                 },
               { label: 'Slot',     value: String(slot)                 },
               { label: 'Patient',  value: bookedForName || user?.name || user?.username },
-              { label: 'Plan',     value: 'Queue View'                 },
             ].map(({ label, value }) => (
               <View key={label} style={styles.row}>
                 <Text style={styles.rowLabel}>{label}</Text>
@@ -405,9 +445,60 @@ export default function PaymentScreen() {
               </View>
             ))}
           </View>
+
+          {/* Itemised fee breakdown, straight from the server */}
+          {!breakdown ? (
+            <View style={styles.feeBox}>
+              {feeError ? (
+                <View style={styles.feeErrorBox}>
+                  <Text style={styles.feeErrorText}>{feeError}</Text>
+                  <TouchableOpacity style={styles.retryBtn} onPress={() => setFeeReload(n => n + 1)}>
+                    <Ionicons name="refresh" size={14} color={Colors.blue600} />
+                    <Text style={styles.retryText}>Retry</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.feeLoadingRow}>
+                  <ActivityIndicator size="small" color={Colors.blue600} />
+                  <Text style={styles.feeLabel}>Loading fee details…</Text>
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.feeBox}>
+              {/* SERVICE_ONLY doctors collect the consultation fee at the
+                  clinic, so it is NOT part of the online total. */}
+              {Number(breakdown.offline_doctor_fee) > 0 ? (
+                <View style={styles.feeRow}>
+                  <View style={styles.feeLabelRow}>
+                    <Text style={styles.feeLabel}>Consultation fee</Text>
+                    <View style={styles.clinicTag}>
+                      <Text style={styles.clinicTagText}>pay at clinic</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.feeValueMuted}>₹{money(breakdown.offline_doctor_fee)}</Text>
+                </View>
+              ) : (
+                <View style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>Consultation fee</Text>
+                  <Text style={styles.feeValue}>₹{money(breakdown.doctor_fee)}</Text>
+                </View>
+              )}
+              {[
+                { label: 'Platform fee',    value: breakdown.platform_fee },
+                { label: 'Payment gateway', value: breakdown.gateway_fee  },
+                { label: 'GST (18%)',       value: breakdown.gst_amount   },
+              ].map(({ label, value }) => (
+                <View key={label} style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>{label}</Text>
+                  <Text style={styles.feeValue}>₹{money(value)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalAmt}>₹{fee}</Text>
+            <Text style={styles.totalLabel}>Total Payable Now</Text>
+            <Text style={styles.totalAmt}>{total === null ? '—' : `₹${money(total)}`}</Text>
           </View>
         </View>
 
@@ -469,9 +560,17 @@ export default function PaymentScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.payBtn} onPress={createOrder}>
+        <TouchableOpacity
+          style={[styles.payBtn, !breakdown && styles.payBtnDisabled]}
+          onPress={createOrder}
+          disabled={!breakdown}
+        >
           <Ionicons name="card-outline" size={18} color={Colors.white} />
-          <Text style={styles.payBtnText}>Pay ₹{fee} & Confirm Appointment</Text>
+          <Text style={styles.payBtnText}>
+            {breakdown
+              ? `Pay ₹${money(total!)} & Confirm Appointment`
+              : feeError ? 'Fee details unavailable' : 'Loading…'}
+          </Text>
         </TouchableOpacity>
 
         <Text style={styles.note}>
@@ -499,6 +598,19 @@ const styles = StyleSheet.create({
   row:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   rowLabel:   { fontSize: 13, color: Colors.gray500 },
   rowValue:   { fontSize: 13, fontWeight: '600', color: Colors.gray900, maxWidth: '55%', textAlign: 'right' },
+  feeBox:      { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
+  feeRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  feeLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  feeLabel:    { fontSize: 13, color: Colors.gray500 },
+  feeValue:    { fontSize: 13, fontWeight: '600', color: Colors.gray900 },
+  feeValueMuted: { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
+  clinicTag:     { backgroundColor: Colors.blue50, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  clinicTagText: { fontSize: 10, fontWeight: '700', color: Colors.blue700, textTransform: 'uppercase', letterSpacing: 0.3 },
+  feeLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  feeErrorBox:   { paddingVertical: 8, gap: 8 },
+  feeErrorText:  { fontSize: 13, color: Colors.errorText, lineHeight: 19 },
+  retryBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderWidth: 1, borderColor: Colors.blue200, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  retryText:     { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
   totalRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.blue50 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
   totalAmt:   { fontSize: 28, fontWeight: '800', color: Colors.blue600 },
@@ -520,6 +632,7 @@ const styles = StyleSheet.create({
   chipText:    { fontSize: 11, color: Colors.blue700, fontWeight: '600' },
 
   payBtn:     { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 17, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, marginBottom: 14 },
+  payBtnDisabled: { backgroundColor: Colors.gray400, shadowOpacity: 0 },
   payBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   note:       { fontSize: 12, color: Colors.gray400, textAlign: 'center', lineHeight: 18 },
 
