@@ -18,6 +18,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { normalizeBookingStatus } from '../../utils/booking';
 
 interface Booking {
   id: string | number;
@@ -75,7 +76,10 @@ export default function MyQRScreen() {
         const { data } = await API.get('/bookings/my/');
         const list: Booking[] = Array.isArray(data) ? data : (data?.results || []);
         // Only active bookings (waiting / in_progress) have a usable QR
-        const active = list.filter(b => b.status === 'waiting' || b.status === 'in_progress');
+        const active = list.filter(b => {
+          const s = normalizeBookingStatus(b.status);
+          return s === 'waiting' || s === 'in_progress';
+        });
         setBookings(active);
         if (active.length > 0) setActiveQR(active[0].id);
       } catch {}
@@ -152,7 +156,8 @@ export default function MyQRScreen() {
 
           {/* QR Code Cards */}
           {bookings.filter(b => b.id === activeQR || bookings.length === 1).map(booking => {
-            const st = STATUS_MAP[booking.status ?? 'waiting'] || STATUS_MAP.waiting;
+            const cs = normalizeBookingStatus(booking.status);
+            const st = STATUS_MAP[cs] || STATUS_MAP.waiting;
             const qrData = JSON.stringify({
               token_code:  booking.token,
               doctor_name: booking.doctor_name,
@@ -174,7 +179,7 @@ export default function MyQRScreen() {
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: st.bg }]}>
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: st.text, marginRight: 5 }} />
-                    <Text style={[styles.statusText, { color: st.text }]}>{t(booking.status === 'in_progress' ? 'status_in_consult' : 'status_waiting')}</Text>
+                    <Text style={[styles.statusText, { color: st.text }]}>{t(cs === 'in_progress' ? 'status_in_consult' : 'status_waiting')}</Text>
                   </View>
                 </View>
 

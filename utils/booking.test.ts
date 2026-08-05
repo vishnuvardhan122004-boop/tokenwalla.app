@@ -5,6 +5,7 @@ import {
   hmToMinutes,
   isOpenNow,
   isSlotTooSoon,
+  normalizeBookingStatus,
   slotDateTime,
   toLocalISODate,
 } from './booking';
@@ -198,5 +199,33 @@ describe('directionsUrl', () => {
 
   it('handles a missing hospital by returning an empty search', () => {
     expect(directionsUrl()).toBe('https://www.google.com/maps/search/?api=1&query=');
+  });
+});
+
+describe('normalizeBookingStatus', () => {
+  it('folds the new UPPERCASE lifecycle to canonical UI keys', () => {
+    expect(normalizeBookingStatus('CONFIRMED')).toBe('waiting');
+    expect(normalizeBookingStatus('PENDING')).toBe('waiting');
+    expect(normalizeBookingStatus('ON_HOLD')).toBe('waiting');
+    expect(normalizeBookingStatus('IN_PROGRESS')).toBe('in_progress');
+    expect(normalizeBookingStatus('COMPLETED')).toBe('completed');
+    expect(normalizeBookingStatus('CANCELLED')).toBe('cancelled');
+    expect(normalizeBookingStatus('NO_SHOW')).toBe('cancelled');
+  });
+
+  it('passes legacy lowercase values through unchanged', () => {
+    expect(normalizeBookingStatus('waiting')).toBe('waiting');
+    expect(normalizeBookingStatus('in_progress')).toBe('in_progress');
+    expect(normalizeBookingStatus('held')).toBe('waiting');
+    expect(normalizeBookingStatus('completed')).toBe('completed');
+    expect(normalizeBookingStatus('cancelled')).toBe('cancelled');
+  });
+
+  it('defaults unknown / empty / nullish statuses to waiting', () => {
+    expect(normalizeBookingStatus(undefined)).toBe('waiting');
+    expect(normalizeBookingStatus(null)).toBe('waiting');
+    expect(normalizeBookingStatus('')).toBe('waiting');
+    expect(normalizeBookingStatus('  CONFIRMED  ')).toBe('waiting');
+    expect(normalizeBookingStatus('something_new')).toBe('waiting');
   });
 });

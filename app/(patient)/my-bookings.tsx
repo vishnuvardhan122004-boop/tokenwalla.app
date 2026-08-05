@@ -30,6 +30,7 @@ import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { syncAppointmentReminders } from '../../services/notifications';
+import { normalizeBookingStatus } from '../../utils/booking';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -138,7 +139,10 @@ export default function MyBookings() {
 
   useEffect(() => {
     if (pollingRef.current) clearInterval(pollingRef.current);
-    const hasActive = bookings.some(b => b.status === 'waiting' || b.status === 'in_progress');
+    const hasActive = bookings.some(b => {
+      const s = normalizeBookingStatus(b.status);
+      return s === 'waiting' || s === 'in_progress';
+    });
     if (hasActive) {
       pollingRef.current = setInterval(() => fetchBookings(true), 15_000);
     }
@@ -191,13 +195,15 @@ export default function MyBookings() {
   };
 
   const filtered = bookings.filter(b => {
-    if (tab === 'active')    return b.status === 'waiting' || b.status === 'in_progress';
-    if (tab === 'completed') return b.status === 'completed' || b.status === 'cancelled';
+    const s = normalizeBookingStatus(b.status);
+    if (tab === 'active')    return s === 'waiting' || s === 'in_progress';
+    if (tab === 'completed') return s === 'completed' || s === 'cancelled';
     return true;
   });
-  const activeCount = bookings.filter(
-    b => b.status === 'waiting' || b.status === 'in_progress'
-  ).length;
+  const activeCount = bookings.filter(b => {
+    const s = normalizeBookingStatus(b.status);
+    return s === 'waiting' || s === 'in_progress';
+  }).length;
 
   // ── Not logged in ─────────────────────────────────────────────────────────
 
@@ -287,9 +293,10 @@ export default function MyBookings() {
           }
         >
           {filtered.map(booking => {
-            const s         = STATUS_MAP[booking.status] ?? STATUS_MAP.cancelled;
-            const isActive  = booking.status === 'waiting' || booking.status === 'in_progress';
-            const isWaiting = booking.status === 'waiting';
+            const cs        = normalizeBookingStatus(booking.status);
+            const s         = STATUS_MAP[cs] ?? STATUS_MAP.cancelled;
+            const isActive  = cs === 'waiting' || cs === 'in_progress';
+            const isWaiting = cs === 'waiting';
 
             return (
               <View key={booking.id} style={st.card}>
@@ -307,7 +314,7 @@ export default function MyBookings() {
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <View style={[st.statusBadge, { backgroundColor: s.bg, borderColor: s.border }]}>
                       {isActive && <View style={[st.statusDot, { backgroundColor: s.text }]} />}
-                      <Text style={[st.statusText, { color: s.text }]}>{t(STATUS_LABEL_KEY[booking.status] ?? 'status_cancelled')}</Text>
+                      <Text style={[st.statusText, { color: s.text }]}>{t(STATUS_LABEL_KEY[cs] ?? 'status_cancelled')}</Text>
                     </View>
                     <Text style={st.doctorName}>Dr. {booking.doctor_name}</Text>
                     <View style={st.iconTextRow}>
@@ -344,7 +351,7 @@ export default function MyBookings() {
                 {isActive && booking.queue_access && (
                   <View style={st.queuePanel}>
                     <View style={st.queueCircle}>
-                      {booking.status === 'in_progress' ? (
+                      {cs === 'in_progress' ? (
                         <Ionicons name="notifications" size={22} color={Colors.blue600} />
                       ) : (
                         <Text style={st.queueNum}>{booking.queue_position ?? '…'}</Text>
@@ -353,7 +360,7 @@ export default function MyBookings() {
                     <View style={{ flex: 1 }}>
                       <Text style={st.queueLabel}>{t('your_queue_position')}</Text>
                       <Text style={st.queueDesc}>
-                        {booking.status === 'in_progress'
+                        {cs === 'in_progress'
                           ? t('your_turn')
                           : queueMsg(booking.queue_position)}
                       </Text>

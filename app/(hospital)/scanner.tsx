@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { normalizeBookingStatus } from '../../utils/booking';
 
 // ── Extract token from QR data ──────────────────────────────────────────────
 function extractToken(raw: string): string {
@@ -103,7 +104,7 @@ export default function HospitalScanner() {
       const { data } = await API.get(`/bookings/scan/${token}/`);
       setScanResult(data);
       setScanState(
-        data.already_done || data.booking?.status === 'completed' ? 'already_done' : 'found',
+        data.already_done || normalizeBookingStatus(data.booking?.status) === 'completed' ? 'already_done' : 'found',
       );
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: any } };
@@ -317,7 +318,7 @@ export default function HospitalScanner() {
 
           {/* Result */}
           {['found', 'already_done', 'confirmed'].includes(scanState) && booking && (() => {
-            const st          = STATUS_STYLE[booking.status] || STATUS_STYLE.waiting;
+            const st          = STATUS_STYLE[normalizeBookingStatus(booking.status)] || STATUS_STYLE.waiting;
             const isDone      = scanState === 'already_done';
             const isConfirmed = scanState === 'confirmed';
             const topColor    = isConfirmed ? Colors.successText : isDone ? Colors.warningBorder : Colors.blue600;

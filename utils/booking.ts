@@ -96,6 +96,41 @@ export function isOpenNow(open?: string, close?: string, now: Date = new Date())
   return o <= c ? (cur >= o && cur < c) : (cur >= o || cur < c); // handle overnight
 }
 
+/**
+ * Booking status normalisation.
+ *
+ * The backend lifecycle was expanded to a superset of UPPERCASE values
+ * (PENDING / CONFIRMED / IN_PROGRESS / ON_HOLD / COMPLETED / CANCELLED /
+ * NO_SHOW) and the API now serialises the raw status field, so the `status`
+ * this app receives changed (e.g. old `waiting` → `CONFIRMED`). Rather than
+ * re-key every screen, we fold each backend value back to the four canonical
+ * keys the UI already renders. Legacy lowercase values are passed through, so
+ * this is safe against both old and new backends.
+ */
+export type CanonicalStatus = 'waiting' | 'in_progress' | 'completed' | 'cancelled';
+
+const STATUS_CANONICAL: Record<string, CanonicalStatus> = {
+  // new backend lifecycle
+  PENDING:     'waiting',
+  CONFIRMED:   'waiting',
+  IN_PROGRESS: 'in_progress',
+  ON_HOLD:     'waiting',      // queue paused, but still an active booking to the patient
+  COMPLETED:   'completed',
+  CANCELLED:   'cancelled',
+  NO_SHOW:     'cancelled',    // terminal, non-active — grouped with cancelled in the UI
+  // legacy lowercase (pre-rename backends)
+  waiting:     'waiting',
+  in_progress: 'in_progress',
+  held:        'waiting',
+  completed:   'completed',
+  cancelled:   'cancelled',
+};
+
+/** Fold any backend status (new UPPERCASE or legacy lowercase) to a canonical UI key. */
+export function normalizeBookingStatus(status?: string | null): CanonicalStatus {
+  return STATUS_CANONICAL[(status || '').trim()] ?? 'waiting';
+}
+
 export interface DirectionsHospital {
   location?: string;
   name?: string;

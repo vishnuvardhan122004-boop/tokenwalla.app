@@ -26,6 +26,7 @@ import { Platform } from 'react-native';
 import type * as NotificationsModule from 'expo-notifications';
 import { recordNotification, setBadgeSync, type NotificationAudience } from './notificationStore';
 import API from './api';
+import { normalizeBookingStatus } from '../utils/booking';
 
 /**
  * Format a doctor's display name for a message body. Handles a missing name
@@ -371,7 +372,8 @@ export async function syncAppointmentReminders(
   for (const b of bookings) {
     const key = b.token ?? b.id;
     if (key == null) continue;
-    if (b.status === 'waiting' || b.status === 'in_progress') {
+    const cs = normalizeBookingStatus(b.status);
+    if (cs === 'waiting' || cs === 'in_progress') {
       await scheduleAppointmentReminder(b);
     } else {
       await cancelAppointmentReminder(key);
