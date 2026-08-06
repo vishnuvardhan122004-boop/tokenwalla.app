@@ -38,11 +38,19 @@ function isPublicRoute(url = ''): boolean {
 // would wrongly blank the public doctor list (and log the user out on refresh
 // failure). So we treat read-only doctor fetches as public too. Writes
 // (POST/PATCH/DELETE from the hospital dashboard) still carry the token.
-function isPublicRequest(config: { url?: string; method?: string }): boolean {
+// …EXCEPT these sub-routes: they sit under /doctors/ but serve a hospital's own
+// money and payout/KYC data (IsAuthenticated + IsHospitalStaff), so stripping
+// the token turns them into a 401 — which is exactly what the Doctor Payments
+// screen hit before this carve-out.
+const PRIVATE_DOCTOR_PATHS = ['payment-details', 'payment-summary'];
+
+export function isPublicRequest(config: { url?: string; method?: string }): boolean {
   const url = config.url || '';
   if (isPublicRoute(url)) return true;
   const method = (config.method || 'get').toLowerCase();
-  if (method === 'get' && url.includes('/doctors/')) return true;
+  if (method === 'get' && url.includes('/doctors/')) {
+    return !PRIVATE_DOCTOR_PATHS.some(p => url.includes(p));
+  }
   return false;
 }
 
