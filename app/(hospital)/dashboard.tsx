@@ -36,6 +36,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
@@ -231,6 +232,40 @@ function extractApiError(e: unknown, fallback: string): string {
   return fallback;
 }
 
+/**
+ * Field → message for the doctor form. Mirrors the website's validate()
+ * (src/hospital/Hdashboard.js) so both front-ends reject the same things —
+ * including the numeric ranges the app used to let through and the backend
+ * then rejected with a raw DRF error.
+ */
+function validateDoctor(f: FormState): Record<string, string> {
+  const e: Record<string, string> = {};
+  const num = (v: string) => Number(v);
+
+  if (!f.name.trim())                  e.name = 'Doctor name is required.';
+  else if (f.name.trim().length < 2)   e.name = 'Name must be at least 2 characters.';
+
+  if (!f.specialization.trim())        e.specialization = 'Specialization is required.';
+
+  if (!f.mobile.trim())                e.mobile = 'Mobile number is required.';
+  else if (!/^[6-9]\d{9}$/.test(f.mobile.trim()))
+    e.mobile = 'Enter a valid 10-digit Indian mobile number.';
+
+  if (f.experience !== '' && (isNaN(num(f.experience)) || num(f.experience) < 0))
+    e.experience = 'Experience must be a positive number.';
+
+  if (f.fee !== '' && (isNaN(num(f.fee)) || num(f.fee) < 0))
+    e.fee = 'Fee must be a positive number.';
+
+  if (f.max_per_slot !== '' && (isNaN(num(f.max_per_slot)) || num(f.max_per_slot) < 1))
+    e.max_per_slot = 'Must be at least 1 patient per slot.';
+
+  if (f.days.length === 0)             e.days = 'Select at least one available day.';
+  if (f.slots.length === 0)            e.slots = 'Select at least one time slot.';
+
+  return e;
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function HospitalDashboard() {
@@ -249,6 +284,9 @@ export default function HospitalDashboard() {
   const [showModal,  setShowModal]  = useState<boolean>(false);
   const [editDoc,    setEditDoc]    = useState<Doctor | null>(null);
   const [form,       setForm]       = useState<FormState>(EMPTY_FORM);
+  // Per-field messages shown under the inputs. Cleared for a field as soon as
+  // it's edited, so a fixed field stops shouting while you fill the next one.
+  const [errors,     setErrors]     = useState<Record<string, string>>({});
   const [saving,     setSaving]     = useState<boolean>(false);
   const [toggling,   setToggling]   = useState<number | string | null>(null);
 
@@ -417,6 +455,7 @@ export default function HospitalDashboard() {
   const openAdd = () => {
     setEditDoc(null);
     setForm(EMPTY_FORM);
+    setErrors({});
     setDoctorImageFile(null);
     setDoctorImagePreview(null);
     setHospitalImageFile(null);
@@ -439,6 +478,7 @@ export default function HospitalDashboard() {
       slots:          doc.slots           || [],
       days:           doc.days            || [],
     });
+    setErrors({});
     setDoctorImageFile(null);
     setDoctorImagePreview(isValidImage(doc.image) ? doc.image! : null);
     setHospitalImageFile(null);
@@ -461,6 +501,12 @@ export default function HospitalDashboard() {
     setHospitalImagePreview(file.uri);
   };
 
+  // ── Field edit: set the value and drop that field's error ─────────────────
+  const setField = (field: keyof FormState, value: string) => {
+    setForm(p => ({ ...p, [field]: value }));
+    setErrors(p => (p[field] ? { ...p, [field]: '' } : p));
+  };
+
   // ── Slot toggle ───────────────────────────────────────────────────────────
   const toggleSlot = (slot: string) => {
     setForm(prev => ({
@@ -469,6 +515,7 @@ export default function HospitalDashboard() {
         ? prev.slots.filter((s: string) => s !== slot)
         : [...prev.slots, slot],
     }));
+    setErrors(p => (p.slots ? { ...p, slots: '' } : p));
   };
 
   // ── Day toggle ────────────────────────────────────────────────────────────
@@ -479,18 +526,21 @@ export default function HospitalDashboard() {
         ? prev.days.filter((d: string) => d !== day)
         : [...prev.days, day],
     }));
+    setErrors(p => (p.days ? { ...p, days: '' } : p));
   };
+
+  const specSuggestions = suggestSpecializations(form.specialization);
 
   // ── Submit doctor form ────────────────────────────────────────────────────
   const submitForm = async () => {
-    if (!form.name.trim())           { Alert.alert('Validation', 'Doctor name is required');       return; }
-    if (!form.specialization.trim()) { Alert.alert('Validation', 'Specialization is required');    return; }
-    if (!/^[6-9]\d{9}$/.test(form.mobile.trim())) {
-      Alert.alert('Validation', 'Enter a valid 10-digit Indian mobile number');
+    const errs = validateDoctor(form);
+    setErrors(errs);
+    if (Object.keys(errs).length) {
+      // The messages sit under their fields; this points staff at the first one
+      // in case it's scrolled off screen.
+      Alert.alert('Check the form', Object.values(errs)[0]);
       return;
     }
-    if (form.days.length === 0)  { Alert.alert('Validation', 'Select at least one available day'); return; }
-    if (form.slots.length === 0) { Alert.alert('Validation', 'Select at least one time slot'); return; }
 
     setSaving(true);
     try {
@@ -575,8 +625,9 @@ export default function HospitalDashboard() {
   };
 
   // Tapping a token opens a quick detail popup — handy for reading the token
-  // aloud or confirming the patient at the counter.
-  const showTokenDetail = (p: Patient) => {
+  // aloud or confirming the patient at the counter. `done` popups (completed
+  // bookings) drop the no-show action: that visit already happened.
+  const showTokenDetail = (p: Patient, done = false) => {
     Alert.alert(
       `Token ${p.token ?? '—'}`,
       [
@@ -586,7 +637,16 @@ export default function HospitalDashboard() {
         p.slot ? `Slot: ${p.slot}` : null,
         `Day: ${dayLabelFor(p.date)}`,
       ].filter(Boolean).join('\n'),
-      [{ text: 'Close' }],
+      done
+        ? [{ text: 'Close' }]
+        : [
+            { text: 'Close', style: 'cancel' },
+            {
+              text: 'Mark as No-show',
+              style: 'destructive',
+              onPress: () => noShow(p.id, p.user_name || 'This patient'),
+            },
+          ],
     );
   };
 
@@ -709,21 +769,38 @@ export default function HospitalDashboard() {
 
               <Text style={styles.fieldLabel}>Doctor Name *</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, errors.name && styles.fieldInputError]}
                 placeholder="e.g. Ravi Kumar"
                 placeholderTextColor={Colors.gray400}
                 value={form.name}
-                onChangeText={(v: string) => setForm(p => ({ ...p, name: v }))}
+                onChangeText={(v: string) => setField('name', v)}
               />
+              <FieldError msg={errors.name} />
 
               <Text style={styles.fieldLabel}>Specialization *</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, errors.specialization && styles.fieldInputError]}
                 placeholder="e.g. Cardiologist"
                 placeholderTextColor={Colors.gray400}
                 value={form.specialization}
-                onChangeText={(v: string) => setForm(p => ({ ...p, specialization: v }))}
+                onChangeText={(v: string) => setField('specialization', v)}
               />
+              <FieldError msg={errors.specialization} />
+              {/* Free-text field — these are quick picks that keep spelling
+                  consistent, which is what patient search matches on. */}
+              {specSuggestions.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.suggestRow}>
+                  {specSuggestions.map(s => (
+                    <TouchableOpacity
+                      key={s}
+                      style={styles.suggestChip}
+                      onPress={() => setField('specialization', s)}
+                    >
+                      <Text style={styles.suggestChipText}>{s}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
 
               <Text style={styles.fieldLabel}>Search Keywords</Text>
               <TextInput
@@ -731,7 +808,7 @@ export default function HospitalDashboard() {
                 placeholder="e.g. heart, chest pain, BP, ECG"
                 placeholderTextColor={Colors.gray400}
                 value={form.keywords}
-                onChangeText={(v: string) => setForm(p => ({ ...p, keywords: v }))}
+                onChangeText={(v: string) => setField('keywords', v)}
               />
               <Text style={styles.imageHint}>
                 Comma-separated terms patients might search — helps this doctor show up in results.
@@ -739,49 +816,53 @@ export default function HospitalDashboard() {
 
               <Text style={styles.fieldLabel}>Mobile Number *</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, errors.mobile && styles.fieldInputError]}
                 placeholder="10-digit mobile"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="numeric"
                 maxLength={10}
                 value={form.mobile}
-                onChangeText={(v: string) => setForm(p => ({ ...p, mobile: v.replace(/\D/, '') }))}
+                onChangeText={(v: string) => setField('mobile', v.replace(/\D/, ''))}
               />
+              <FieldError msg={errors.mobile} />
 
               <View style={styles.fieldRow}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.fieldLabel}>Experience (years)</Text>
                   <TextInput
-                    style={styles.fieldInput}
+                    style={[styles.fieldInput, errors.experience && styles.fieldInputError]}
                     placeholder="e.g. 5"
                     placeholderTextColor={Colors.gray400}
                     keyboardType="numeric"
                     value={form.experience}
-                    onChangeText={(v: string) => setForm(p => ({ ...p, experience: v }))}
+                    onChangeText={(v: string) => setField('experience', v)}
                   />
+                  <FieldError msg={errors.experience} />
                 </View>
                 <View style={{ flex: 1, marginLeft: 8 }}>
                   <Text style={styles.fieldLabel}>Fee (₹)</Text>
                   <TextInput
-                    style={styles.fieldInput}
+                    style={[styles.fieldInput, errors.fee && styles.fieldInputError]}
                     placeholder="e.g. 300"
                     placeholderTextColor={Colors.gray400}
                     keyboardType="numeric"
                     value={form.fee}
-                    onChangeText={(v: string) => setForm(p => ({ ...p, fee: v }))}
+                    onChangeText={(v: string) => setField('fee', v)}
                   />
+                  <FieldError msg={errors.fee} />
                 </View>
               </View>
 
               <Text style={styles.fieldLabel}>Max Patients Per Slot</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, errors.max_per_slot && styles.fieldInputError]}
                 placeholder="e.g. 10"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="numeric"
                 value={form.max_per_slot}
-                onChangeText={(v: string) => setForm(p => ({ ...p, max_per_slot: v }))}
+                onChangeText={(v: string) => setField('max_per_slot', v)}
               />
+              <FieldError msg={errors.max_per_slot} />
 
               <View style={styles.switchRow}>
                 <View>
@@ -972,8 +1053,8 @@ export default function HospitalDashboard() {
             onPress={() => setActiveTab('queue')}
           >
             <Ionicons name="people-outline" size={15} color={activeTab === 'queue' ? Colors.blue600 : Colors.gray500} />
-            <Text style={[styles.tabText, activeTab === 'queue' && styles.tabTextActive]}>
-              Queue ({fWaiting.length})
+            <Text style={[styles.tabText, activeTab === 'queue' && styles.tabTextActive]} numberOfLines={1}>
+              Queue {fWaiting.length}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -981,9 +1062,16 @@ export default function HospitalDashboard() {
             onPress={() => setActiveTab('doctors')}
           >
             <Ionicons name="medkit-outline" size={15} color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500} />
-            <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]}>
-              Doctors ({doctors.length})
+            <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]} numberOfLines={1}>
+              Doctors {doctors.length}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tab}
+            onPress={() => router.push('/(hospital)/payments')}
+          >
+            <Ionicons name="card-outline" size={15} color={Colors.gray500} />
+            <Text style={styles.tabText}>Payments</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.tab}
@@ -1164,7 +1252,7 @@ export default function HospitalDashboard() {
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
                       style={styles.tokenChip}
-                      onPress={() => showTokenDetail(p)}
+                      onPress={() => showTokenDetail(p, true)}
                       accessibilityRole="button"
                       accessibilityLabel={`Token ${p.token}. Tap for details.`}
                     >
@@ -1325,6 +1413,9 @@ export default function HospitalDashboard() {
   );
 }
 
+const FieldError = ({ msg }: { msg?: string }) =>
+  msg ? <Text style={styles.fieldError}>{msg}</Text> : null;
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -1350,9 +1441,9 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 12, color: Colors.gray400 },
 
   tabRow:        { flexDirection: 'row', marginHorizontal: 16, backgroundColor: Colors.blue50, borderRadius: 12, padding: 4, gap: 4 },
-  tab:           { flex: 1, flexDirection: 'row', gap: 5, paddingVertical: 10, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  tab:           { flex: 1, flexDirection: 'row', gap: 4, paddingVertical: 10, paddingHorizontal: 2, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tabActive:     { backgroundColor: Colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, elevation: 1 },
-  tabText:       { fontSize: 13, fontWeight: '500', color: Colors.gray400 },
+  tabText:       { fontSize: 12, fontWeight: '500', color: Colors.gray400, flexShrink: 1 },
   tabTextActive: { color: Colors.blue700, fontWeight: '700' },
 
   // ── Day filter pills (Today / Tomorrow / All) ──
@@ -1435,6 +1526,13 @@ const styles = StyleSheet.create({
   fieldLabel:   { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
   fieldInput:   { backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900, marginBottom: 14 },
   fieldRow:     { flexDirection: 'row' },
+  // An errored input keeps its own margin; the message sits in the gap below it.
+  fieldInputError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, marginBottom: 4 },
+  fieldError:      { fontSize: 11.5, color: Colors.errorText, marginBottom: 12 },
+
+  suggestRow:      { gap: 6, paddingBottom: 14, paddingRight: 4 },
+  suggestChip:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
+  suggestChipText: { fontSize: 12, fontWeight: '600', color: Colors.blue700 },
   switchRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, padding: 14, marginBottom: 14 },
 
   imageRow:             { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 6 },

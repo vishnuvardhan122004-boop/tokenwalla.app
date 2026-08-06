@@ -34,6 +34,10 @@ import API, { logoutUser } from '../../services/api';
 import LocationSearch from '../../components/LocationSearch';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
+import {
+  EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
+  validatePayout, type PayoutForm,
+} from '../../utils/payout';
 
 interface Hospital {
   id: number | string;
@@ -85,6 +89,15 @@ export default function HospitalProfile() {
   const [gallery,       setGallery]       = useState<{ id: number; url: string }[]>([]);
   const [photoBusy,     setPhotoBusy]     = useState(false);
 
+  // Payout account — where salaried doctors' consultation fees are settled
+  // (Doctor Payments → "Pay fees to the hospital"). Separate endpoint from the
+  // hospital's own details because the bank/UPI fields are sensitive.
+  const [payout,       setPayout]       = useState<PayoutForm>(EMPTY_PAYOUT);
+  const [payoutSaved,  setPayoutSaved]  = useState<PayoutForm | null>(null);
+  const [payoutEdit,   setPayoutEdit]   = useState(false);
+  const [payoutErrors, setPayoutErrors] = useState<Record<string, string>>({});
+  const [payoutSaving, setPayoutSaving] = useState(false);
+
   // OTP state for a mobile change
   const [origMobile,  setOrigMobile]  = useState('');
   const [otp,         setOtp]         = useState('');
@@ -118,9 +131,18 @@ export default function HospitalProfile() {
         const list = Array.isArray(data) ? data : (data.results || []);
         setDoctorCount(list.length);
       } catch { /* ignore */ }
+
+      // Payout account (owner-only read)
+      try {
+        const { data } = await API.get(`/hospitals/${h.id}/payment-details/`);
+        const p = payoutFromApi(data);
+        setPayout(p);
+        setPayoutSaved(p);
+      } catch { /* older backend or no access — the section stays empty */ }
     })();
   }, []);
 
+  const hasPayout = !!(payoutSaved?.upi_id || payoutSaved?.account_number);
   const mobileChanged = form.mobile.trim() !== origMobile;
   const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m.trim());
 
@@ -189,6 +211,32 @@ export default function HospitalProfile() {
         }
       } },
     ]);
+  };
+
+  const savePayout = async () => {
+    if (!hospital) return;
+    const errs = validatePayout(payout);
+    setPayoutErrors(errs);
+    if (Object.keys(errs).length) return;
+
+    setPayoutSaving(true);
+    try {
+      const { data } = await API.put(`/hospitals/${hospital.id}/payment-details/`, payoutPayload(payout));
+      const p = payoutFromApi(data);
+      setPayout(p);
+      setPayoutSaved(p);
+      setPayoutEdit(false);
+      Alert.alert('Saved', 'Payout account updated.');
+    } catch (e: any) {
+      const apiErrs = e?.response?.data?.errors;
+      if (apiErrs && typeof apiErrs === 'object') {
+        const flat: Record<string, string> = {};
+        Object.entries(apiErrs).forEach(([k, v]) => { flat[k] = Array.isArray(v) ? String(v[0]) : String(v); });
+        setPayoutErrors(flat);
+      } else {
+        Alert.alert('Error', e?.response?.data?.message || 'Could not save payout details.');
+      }
+    } finally { setPayoutSaving(false); }
   };
 
   const addService = () => {
@@ -550,11 +598,184 @@ export default function HospitalProfile() {
             )}
           </View>
 
+          {/* Payout account — used for doctors set to "pay fees to the hospital" */}
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Payout Account</Text>
+              {!payoutEdit && (
+                <TouchableOpacity
+                  style={styles.editLinkRow}
+                  onPress={() => { setPayoutErrors({}); setPayoutEdit(true); }}
+                >
+                  <Ionicons name="create-outline" size={16} color={Colors.blue600} />
+                  <Text style={styles.editLink}>{hasPayout ? 'Edit' : 'Add Account'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {!payoutEdit ? (
+              hasPayout ? (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Method</Text>
+                    <Text style={styles.detailValue}>
+                      {payoutSaved?.payment_method === 'BANK' ? 'Bank Account'
+                        : payoutSaved?.payment_method === 'UPI' ? 'UPI' : 'Not set'}
+                    </Text>
+                  </View>
+                  {!!payoutSaved?.upi_id && (
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>UPI ID</Text>
+                      <Text style={styles.detailValue}>{payoutSaved.upi_id}</Text>
+                    </View>
+                  )}
+                  {!!payoutSaved?.account_number && (
+                    <>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Account</Text>
+                        <Text style={styles.detailValue}>
+                          {payoutSaved.bank_name ? `${payoutSaved.bank_name} · ` : ''}
+                          ••••{payoutSaved.account_number.slice(-4)}
+                        </Text>
+                      </View>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>IFSC</Text>
+                        <Text style={styles.detailValue}>{payoutSaved.ifsc_code || '—'}</Text>
+                      </View>
+                    </>
+                  )}
+                  {!!payoutSaved?.payout_notes && (
+                    <View style={{ paddingTop: 12 }}>
+                      <Text style={styles.detailLabel}>Notes</Text>
+                      <Text style={{ fontSize: 13, color: Colors.gray700, lineHeight: 19, marginTop: 4 }}>
+                        {payoutSaved.payout_notes}
+                      </Text>
+                    </View>
+                  )}
+                </>
+              ) : (
+                <Text style={{ fontSize: 13, color: Colors.gray400, lineHeight: 19 }}>
+                  Not set. Add a UPI ID or bank account to receive payouts for doctors whose
+                  fees are settled to the hospital.
+                </Text>
+              )
+            ) : (
+              <>
+                <Text style={styles.label}>Payment Method</Text>
+                <View style={styles.methodRow}>
+                  {PAYMENT_METHODS.map(m => {
+                    const on = payout.payment_method === m.value;
+                    return (
+                      <TouchableOpacity
+                        key={m.label}
+                        style={[styles.methodChip, on && styles.methodChipOn]}
+                        onPress={() => setPayout(p => ({ ...p, payment_method: m.value }))}
+                      >
+                        <Text style={[styles.methodChipText, on && styles.methodChipTextOn]}>{m.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {payout.payment_method === 'UPI' && (
+                  <>
+                    <Text style={styles.label}>UPI ID</Text>
+                    <TextInput
+                      style={[styles.input, payoutErrors.upi_id && styles.inputError]}
+                      placeholder="hospital@okhdfc"
+                      placeholderTextColor={Colors.gray400}
+                      autoCapitalize="none"
+                      value={payout.upi_id}
+                      onChangeText={v => setPayout(p => ({ ...p, upi_id: v }))}
+                    />
+                    {!!payoutErrors.upi_id && <Text style={styles.fieldError}>{payoutErrors.upi_id}</Text>}
+                  </>
+                )}
+
+                {payout.payment_method === 'BANK' && (
+                  <>
+                    <Text style={styles.label}>Account Holder Name</Text>
+                    <TextInput
+                      style={[styles.input, payoutErrors.account_holder_name && styles.inputError]}
+                      placeholder="As printed on the passbook"
+                      placeholderTextColor={Colors.gray400}
+                      value={payout.account_holder_name}
+                      onChangeText={v => setPayout(p => ({ ...p, account_holder_name: v }))}
+                    />
+                    {!!payoutErrors.account_holder_name && <Text style={styles.fieldError}>{payoutErrors.account_holder_name}</Text>}
+
+                    <Text style={styles.label}>Bank Name</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. HDFC Bank"
+                      placeholderTextColor={Colors.gray400}
+                      value={payout.bank_name}
+                      onChangeText={v => setPayout(p => ({ ...p, bank_name: v }))}
+                    />
+
+                    <Text style={styles.label}>Account Number</Text>
+                    <TextInput
+                      style={[styles.input, payoutErrors.account_number && styles.inputError]}
+                      placeholder="Bank account number"
+                      placeholderTextColor={Colors.gray400}
+                      keyboardType="number-pad"
+                      value={payout.account_number}
+                      onChangeText={v => setPayout(p => ({ ...p, account_number: v.replace(/\s/g, '') }))}
+                    />
+                    {!!payoutErrors.account_number && <Text style={styles.fieldError}>{payoutErrors.account_number}</Text>}
+
+                    <Text style={styles.label}>IFSC Code</Text>
+                    <TextInput
+                      style={[styles.input, payoutErrors.ifsc_code && styles.inputError]}
+                      placeholder="HDFC0001234"
+                      placeholderTextColor={Colors.gray400}
+                      autoCapitalize="characters"
+                      maxLength={11}
+                      value={payout.ifsc_code}
+                      onChangeText={v => setPayout(p => ({ ...p, ifsc_code: v.toUpperCase() }))}
+                    />
+                    {!!payoutErrors.ifsc_code && <Text style={styles.fieldError}>{payoutErrors.ifsc_code}</Text>}
+                  </>
+                )}
+
+                <Text style={styles.label}>Notes (optional)</Text>
+                <TextInput
+                  style={[styles.input, { height: 74, textAlignVertical: 'top' }]}
+                  placeholder="e.g. Settle weekly, GST invoice to accounts@…"
+                  placeholderTextColor={Colors.gray400}
+                  multiline
+                  value={payout.payout_notes}
+                  onChangeText={v => setPayout(p => ({ ...p, payout_notes: v }))}
+                />
+
+                <View style={styles.editActions}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => { setPayout(payoutSaved || EMPTY_PAYOUT); setPayoutErrors({}); setPayoutEdit(false); }}
+                    disabled={payoutSaving}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, payoutSaving && { opacity: 0.6 }]}
+                    onPress={savePayout}
+                    disabled={payoutSaving}
+                  >
+                    {payoutSaving
+                      ? <ActivityIndicator color={Colors.white} size="small" />
+                      : <Text style={styles.saveBtnText}>Save Account</Text>}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+
           {/* Operations */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Operations</Text>
             {([
               { icon: 'grid-outline',        label: 'Queue & Doctors Dashboard', onPress: () => router.replace('/(hospital)/dashboard') },
+              { icon: 'card-outline',        label: 'Doctor Payments',           onPress: () => router.push('/(hospital)/payments')     },
               { icon: 'stats-chart-outline', label: 'Analytics',                 onPress: () => router.push('/(hospital)/analytics')    },
               { icon: 'qr-code-outline',     label: 'Scan Patient QR',           onPress: () => router.push('/(hospital)/scanner')      },
               { icon: 'key-outline',         label: 'Change Password',           onPress: () => router.push('/(hospital)/Hforgotpassword') },
@@ -610,6 +831,14 @@ const styles = StyleSheet.create({
 
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
   input: { backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900, marginBottom: 14 },
+  inputError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, marginBottom: 4 },
+  fieldError: { fontSize: 11.5, color: Colors.errorText, marginBottom: 12 },
+
+  methodRow:        { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  methodChip:       { borderWidth: 1, borderColor: Colors.blue100, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  methodChipOn:     { borderColor: Colors.blue400, backgroundColor: Colors.blue50 },
+  methodChipText:   { fontSize: 13, fontWeight: '600', color: Colors.gray600 },
+  methodChipTextOn: { color: Colors.blue700, fontWeight: '700' },
   otpBox:    { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, padding: 14, marginBottom: 14 },
   otpHint:   { fontSize: 12, color: Colors.blue700, marginBottom: 10 },
   otpBtn:    { backgroundColor: Colors.blue600, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
