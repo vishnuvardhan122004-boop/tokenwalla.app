@@ -49,6 +49,11 @@ function iconFor(n: AppNotification): ComponentProps<typeof Ionicons>['name'] {
     case 'appointment_reminder':return 'alarm-outline';
     case 'queue_advance':       return 'walk-outline';
     case 'new_booking':         return 'notifications-outline';
+    case 'booking_cancelled':   return 'close-circle';
+    case 'booking_on_hold':     return 'pause-circle-outline';
+    case 'booking_no_show':     return 'person-remove-outline';
+    case 'doctor_unavailable':  return 'alert-circle-outline';
+    case 'payout_paid':         return 'cash-outline';
     default:                    return 'notifications-outline';
   }
 }
