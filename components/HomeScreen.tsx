@@ -291,7 +291,7 @@ export default function HomeScreen() {
                       <Ionicons name="location-outline" size={12} color={Colors.gray400} />
                       <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>
                     </View>
-                    {/* The doctor's consultation fee. The ₹15 queue plan is
+                    {/* The doctor's consultation fee. The ₹20 queue plan is
                         retired — checkout prices the bill server-side. */}
                     <Text style={styles.docFee}>₹{doc.fee ?? 0} {t('per_visit')}</Text>
                   </View>
@@ -335,7 +335,7 @@ export default function HomeScreen() {
             <Text style={styles.pricePlan}>{t('queue_view')}</Text>
             <View style={styles.priceAmtRow}>
               <Text style={styles.priceCur}>₹</Text>
-              <Text style={styles.priceAmt}>15</Text>
+              <Text style={styles.priceAmt}>20</Text>
             </View>
             <Text style={styles.priceSub}>{t('per_appointment')}</Text>
             {PRICE_FEATURES.map((f) => (
