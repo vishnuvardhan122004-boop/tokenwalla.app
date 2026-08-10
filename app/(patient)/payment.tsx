@@ -238,8 +238,18 @@ export default function PaymentScreen() {
     try {
       // Server computes the full fee from the doctor's consultation fee — we
       // send only doctorId, never an amount.
+      //
+      // `date` and `slot` go at the TOP LEVEL, not just inside `notes`:
+      // CreateOrderView reads them from there to reject a full or past-cutoff
+      // slot BEFORE any money moves. Sending them only in `notes` (as this did)
+      // means the server can't check, and every collision falls through to
+      // /verify/, which has to capture the payment and then refund it. Same
+      // outcome for the patient, far worse experience — and a real refund on
+      // our books every time.
       const { data: orderData } = await API.post('/payment/create-order/', {
         doctorId,
+        date,
+        slot,
         currency: 'INR',
         notes:    { doctorId, doctorName, hospital, date, slot },
       });
@@ -249,7 +259,11 @@ export default function PaymentScreen() {
       setWebviewHtml(html);
       setShowWebView(true);
     } catch (e: any) {
-      const msg = e?.message || e?.response?.data?.message || 'Could not initiate payment.';
+      // Server message FIRST. On an axios error `e.message` is always the
+      // useless "Request failed with status code 409", so checking it first
+      // swallowed the server's actual explanation ("This slot is full…").
+      // That only became visible once we started sending date/slot above.
+      const msg = e?.response?.data?.message || e?.message || 'Could not initiate payment.';
       Alert.alert('Payment Error', msg);
     } finally {
       setLoading(false);
@@ -292,7 +306,15 @@ export default function PaymentScreen() {
           try {
             ({ data: verifyData } = await API.post('/payment/verify/', verifyPayload));
             break;
-          } catch (err) {
+          } catch (err: any) {
+            // Only retry what a retry can fix. A 4xx is the server's final
+            // answer — 409 means the slot filled while the patient was paying
+            // (money already auto-refunded), 400 means the slot was invalid.
+            // Retrying those just makes the patient stare at "Verifying
+            // Payment..." for another 4.5s before hearing the same thing.
+            // Network blips and 5xx still get the original three attempts.
+            const status = err?.response?.status;
+            if (status && status >= 400 && status < 500) throw err;
             if (attempt >= 2) throw err;
             await new Promise(res => setTimeout(res, 1500 * (attempt + 1)));
           }
