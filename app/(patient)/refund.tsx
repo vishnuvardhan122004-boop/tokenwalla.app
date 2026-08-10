@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 const SECTIONS = [
   { title: 'Cancellations',            body: 'You may cancel a waiting booking from your "My Bookings" page at least 2 hours before your scheduled slot. Refunds are processed within 5–7 business days to your original payment method.' },
@@ -15,6 +16,7 @@ const SECTIONS = [
 
 export default function RefundScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>

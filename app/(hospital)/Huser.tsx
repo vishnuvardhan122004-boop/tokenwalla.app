@@ -18,6 +18,7 @@ import { Colors } from '../../constants/colors';
 import LocationSearch from '../../components/LocationSearch';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 // Matches the route used everywhere else for the hospital login screen.
 const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
@@ -57,6 +58,7 @@ const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
 
 export default function HospitalRegisterScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/login'));
 
   const [form,    setForm]    = useState<FormState>(EMPTY_FORM);
   const [errors,  setErrors]  = useState<FormErrors>({});

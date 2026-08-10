@@ -23,12 +23,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 import API from '../../services/api';
 
 interface Patient { doctor_name?: string; slot?: string; }
 
 export default function HospitalAnalytics() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
 
   const [hospitalId, setHospitalId] = useState<string | number | null>(null);
   const [queue, setQueue] = useState<{ waiting: Patient[]; inProgress: Patient[]; completed: Patient[] }>({ waiting: [], inProgress: [], completed: [] });

@@ -16,9 +16,11 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function LoginScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   const { t } = useI18n();
   const [mobile,     setMobile]     = useState('');
   const [password,   setPassword]   = useState('');

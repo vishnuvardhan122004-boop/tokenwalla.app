@@ -14,9 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function RegisterScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(auth)/login'));
   const [name,        setName]        = useState('');
   const [mobile,      setMobile]      = useState('');
   const [password,    setPassword]    = useState('');

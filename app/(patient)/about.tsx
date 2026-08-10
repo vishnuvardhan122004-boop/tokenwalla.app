@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 const STATS = [
   { num: '2,400+', label: 'Tokens Issued'  },
   { num: '18',     label: 'Hospitals'      },
@@ -21,6 +22,7 @@ const VALUES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; de
 
 export default function AboutScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

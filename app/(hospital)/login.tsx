@@ -15,9 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function HospitalLoginScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   const [mobile,     setMobile]     = useState('');
   const [password,   setPassword]   = useState('');
   const [loading,    setLoading]    = useState(false);

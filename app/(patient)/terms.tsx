@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 const SECTIONS = [
   { title: '1. Eligibility',            body: 'You must be at least 18 years old and capable of entering into a legally binding contract to use TokenWalla services.' },
   { title: '2. Services',               body: 'TokenWalla provides hospital token booking services to reduce patient wait times. We are not a medical provider and are not responsible for medical outcomes.' },
@@ -16,6 +17,7 @@ const SECTIONS = [
 
 export default function TermsScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>

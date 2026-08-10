@@ -20,6 +20,7 @@ import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { normalizeBookingStatus } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 interface Booking {
   id: string | number;
@@ -38,6 +39,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; text: string }> = 
 
 export default function MyQRScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/my-bookings'));
   const { t } = useI18n();
   const { user } = useCurrentUser();
   const [bookings, setBookings] = useState<Booking[]>([]);

@@ -13,9 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(auth)/login'));
   const [step,     setStep]     = useState(1);
   const [mobile,   setMobile]   = useState('');
   const [otp,      setOtp]      = useState('');

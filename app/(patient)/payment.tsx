@@ -23,6 +23,7 @@ import { parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -56,6 +57,15 @@ export default function PaymentScreen() {
   // FIX 1: Store the full HTML string after order is confirmed
   const [webviewHtml,  setWebviewHtml]  = useState<string>('');
   const payBtnDisabled = useRef(false);
+
+  // Hardware back must never leave the screen with money in flight. While the
+  // Razorpay modal is up, RN's Modal handles back itself (onRequestClose —
+  // cancel + tell the patient); while an order is being created or a capture
+  // verified, there is nothing safe to do but wait, so back is swallowed.
+  useAndroidBack(() => {
+    if (showWebView || loading) return;
+    safeBack(router, '/(patient)/doctors');
+  });
 
   useEffect(() => {
     (async () => {

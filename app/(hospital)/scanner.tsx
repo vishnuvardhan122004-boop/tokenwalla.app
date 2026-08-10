@@ -30,6 +30,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { normalizeBookingStatus } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 // ── Extract token from QR data ──────────────────────────────────────────────
 function extractToken(raw: string): string {
@@ -76,6 +77,7 @@ interface ScanResult {
 
 export default function HospitalScanner() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
   const [permission, requestPermission] = useCameraPermissions();
 
   const [scanning,   setScanning]   = useState(false);

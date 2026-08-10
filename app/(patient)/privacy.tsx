@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 const SECTIONS = [
   { title: 'What We Collect',          body: 'We collect your name, mobile number, booking history, and payment transaction IDs. Payments are processed via Razorpay — we never store card data.' },
@@ -15,6 +16,7 @@ const SECTIONS = [
 
 export default function PrivacyScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>

@@ -31,9 +31,11 @@ import { Colors } from '../../constants/colors';
 import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function EditProfile() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/profile'));
   const { t } = useI18n();
 
   const [origName,   setOrigName]   = useState('');

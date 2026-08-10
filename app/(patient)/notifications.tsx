@@ -28,6 +28,7 @@ import {
   type NotificationAudience,
 } from '../../services/notificationStore';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
@@ -63,6 +64,7 @@ export default function NotificationsScreen() {
   const { t } = useI18n();
   const params = useLocalSearchParams<{ audience?: string }>();
   const audience: NotificationAudience = params.audience === 'hospital' ? 'hospital' : 'patient';
+  useAndroidBack(() => safeBack(router, audience === 'hospital' ? '/(hospital)/dashboard' : '/(patient)/home'));
 
   const { notifications, unreadCount, markRead, markAllRead, clearAll } =
     useNotificationCenter(audience);
