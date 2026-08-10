@@ -20,6 +20,12 @@ describe('isPublicRequest', () => {
     expect(get('/doctors/4/')).toBe(true);
   });
 
+  it('treats the launch-time version check as public', () => {
+    // Runs before login. A stale token would 401 it and pull the launch path
+    // into the refresh-retry flow, logging the patient out over a version check.
+    expect(get('/app-version/')).toBe(true);
+  });
+
   it('keeps the token on the hospital-only money endpoints', () => {
     expect(get('/doctors/payment-summary/?hospital=6')).toBe(false);
     expect(get('/doctors/19/payment-details/')).toBe(false);
