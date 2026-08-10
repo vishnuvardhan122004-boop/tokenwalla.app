@@ -22,6 +22,7 @@ import API from '../../services/api';
 import { parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
+import { safeBack } from '../../utils/navigation';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -439,7 +440,7 @@ export default function PaymentScreen() {
 
       {/* ── Payment Summary Page ── */}
       <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/doctors')}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>

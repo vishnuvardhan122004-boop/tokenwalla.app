@@ -40,6 +40,7 @@ import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
+import { safeBack } from '../../utils/navigation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -985,7 +986,7 @@ export default function HospitalDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       <View style={styles.navbar}>
         <View style={styles.navLeft}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(patient)/home')}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(patient)/home')}>
             <Ionicons name="chevron-back" size={22} color={Colors.blue600} />
           </TouchableOpacity>
           <View style={{ flexShrink: 1 }}>

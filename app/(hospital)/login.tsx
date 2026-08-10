@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { safeBack } from '../../utils/navigation';
 
 export default function HospitalLoginScreen() {
   const router = useRouter();
@@ -142,7 +143,7 @@ export default function HospitalLoginScreen() {
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
           {/* Back */}
-          <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/home')}>
             <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>

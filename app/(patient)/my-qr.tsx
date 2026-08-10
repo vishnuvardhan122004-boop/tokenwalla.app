@@ -19,6 +19,7 @@ import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { normalizeBookingStatus } from '../../utils/booking';
+import { safeBack } from '../../utils/navigation';
 
 interface Booking {
   id: string | number;
@@ -104,7 +105,7 @@ export default function MyQRScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => safeBack(router, '/(patient)/my-bookings')} style={styles.backBtn}>
           <Text style={styles.backBtnText}>{t('back')}</Text>
         </TouchableOpacity>
         <Text style={styles.title}>{t('my_qr_codes')}</Text>

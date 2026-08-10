@@ -120,7 +120,7 @@ export default function DoctorDetails() {
             .catch(() => {});
         }
       })
-      .catch(() => router.back())
+      .catch(() => safeBack(router, '/(patient)/doctors'))
       .finally(() => setLoading(false));
   }, [id]);
 
