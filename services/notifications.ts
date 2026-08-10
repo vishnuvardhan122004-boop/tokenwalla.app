@@ -143,6 +143,10 @@ export async function registerPushToken(role: NotificationAudience): Promise<voi
     const token = resp.data;
     if (!token) return;
 
+    // Dev-only: surface the token in the Metro console so it can be used with
+    // `node scripts/send-test-push.js "<token>"` to test push end-to-end.
+    if (__DEV__) console.log('[push] Expo push token:', token);
+
     const key = `${role}:${token}`;
     if (_registeredKey === key) return; // already registered this session
     await API.post('/notifications/register-device/', { token, role });
