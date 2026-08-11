@@ -32,6 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
 import LocationSearch from '../../components/LocationSearch';
+import LocationPickerModal from '../../components/LocationPickerModal';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 import {
@@ -78,6 +79,7 @@ export default function HospitalProfile() {
   const [saving,  setSaving]  = useState(false);
   const [form, setForm] = useState({ name: '', city: '', address: '', location: '', mobile: '', instagram: '', youtube: '', facebook: '', description: '', announcement: '', open_time: '', close_time: '' });
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [services, setServices] = useState<string[]>([]);
   const [newService, setNewService] = useState('');
 
@@ -406,11 +408,39 @@ export default function HospitalProfile() {
                   onChangeText={(t) => { setForm(p => ({ ...p, city: t })); setCoords({ lat: null, lng: null }); }}
                   onPick={({ city, lat, lng }) => { setForm(p => ({ ...p, city: city || p.city })); setCoords({ lat, lng }); }}
                 />
-                {coords.lat != null && (
-                  <Text style={{ fontSize: 12, color: Colors.successText, fontWeight: '600', marginTop: 6, marginBottom: 8 }}>
-                    ✓ Location pinned on the map
-                  </Text>
+                {coords.lat != null ? (
+                  <View style={styles.pinnedRow}>
+                    <Ionicons name="checkmark-circle" size={18} color={Colors.successText} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.pinnedTitle}>Pinned on the map</Text>
+                      <Text style={styles.pinnedCoords} numberOfLines={1}>
+                        {coords.lat.toFixed(6)}, {coords.lng!.toFixed(6)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setPickerOpen(true)} style={styles.pinnedChange}>
+                      <Text style={styles.pinnedChangeText}>Change</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={[styles.pickBtn, { marginTop: 8 }]} onPress={() => setPickerOpen(true)}>
+                    <Ionicons name="map-outline" size={16} color={Colors.blue700} />
+                    <Text style={styles.pickBtnText}>Pin exact location on map</Text>
+                  </TouchableOpacity>
                 )}
+                <Text style={styles.pinnedHint}>
+                  An exact pin helps patients find your entrance and get directions.
+                </Text>
+
+                <LocationPickerModal
+                  visible={pickerOpen}
+                  initial={coords}
+                  onClose={() => setPickerOpen(false)}
+                  onPick={({ city, label, lat, lng }) => {
+                    setForm(p => ({ ...p, city: p.city || city, location: p.location || label }));
+                    setCoords({ lat, lng });
+                  }}
+                />
+
                 <View style={{ height: 6 }} />
                 <Text style={styles.label}>Address</Text>
                 <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} value={form.address} onChangeText={v => setForm(p => ({ ...p, address: v }))} placeholder="Full address" placeholderTextColor={Colors.gray400} multiline />
@@ -856,6 +886,20 @@ const styles = StyleSheet.create({
   logoPlaceholder:   { width: 60, height: 60, borderRadius: 14, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
   pickBtn:           { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
   pickBtnText:       { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+
+  pinnedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+    backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder,
+    borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11,
+  },
+  pinnedTitle:  { fontSize: 13, fontWeight: '700', color: Colors.successText },
+  pinnedCoords: { fontSize: 11, color: Colors.gray500, marginTop: 1 },
+  pinnedChange: {
+    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.successBorder,
+  },
+  pinnedChangeText: { fontSize: 12, fontWeight: '700', color: Colors.successText },
+  pinnedHint: { fontSize: 11.5, color: Colors.gray500, marginTop: 6, marginBottom: 2 },
   galleryImg:        { width: 120, height: 90, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100 },
   galleryRemove:     { position: 'absolute', top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(163,45,45,0.9)', alignItems: 'center', justifyContent: 'center' },
 
