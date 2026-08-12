@@ -147,6 +147,7 @@ const en: Dict = {
   book_now: 'Book Now →',
   unavailable: 'Unavailable',
   slots_today: '{count} slots today',
+  walk_in_contact: 'Walk-in · Contact hospital',
   top_match: '⭐ Top Match',
   yrs_exp: '{years}y exp',
 
@@ -429,6 +430,7 @@ const hi: Dict = {
   book_now: 'अभी बुक करें →',
   unavailable: 'अनुपलब्ध',
   slots_today: 'आज {count} स्लॉट',
+  walk_in_contact: 'वॉक-इन · अस्पताल से संपर्क करें',
   top_match: '⭐ टॉप मैच',
   yrs_exp: '{years} वर्ष अनुभव',
 
@@ -711,6 +713,7 @@ const te: Dict = {
   book_now: 'ఇప్పుడే బుక్ చేయండి →',
   unavailable: 'అందుబాటులో లేదు',
   slots_today: 'ఈరోజు {count} స్లాట్‌లు',
+  walk_in_contact: 'వాక్-ఇన్ · హాస్పిటల్‌ను సంప్రదించండి',
   top_match: '⭐ టాప్ మ్యాచ్',
   yrs_exp: '{years} సం. అనుభవం',
 
@@ -993,6 +996,7 @@ const kn: Dict = {
   book_now: 'ಈಗ ಬುಕ್ ಮಾಡಿ →',
   unavailable: 'ಲಭ್ಯವಿಲ್ಲ',
   slots_today: 'ಇಂದು {count} ಸ್ಲಾಟ್‌ಗಳು',
+  walk_in_contact: 'ವಾಕ್-ಇನ್ · ಆಸ್ಪತ್ರೆಯನ್ನು ಸಂಪರ್ಕಿಸಿ',
   top_match: '⭐ ಟಾಪ್ ಮ್ಯಾಚ್',
   yrs_exp: '{years} ವರ್ಷ ಅನುಭವ',
 

@@ -455,7 +455,11 @@ export default function DoctorsScreen() {
 
                 {/* ── FOOTER ── */}
                 <View style={styles.cardFooter}>
-                  <Text style={styles.slotsCount}>{t('slots_today', { count: doc.slots?.length || 0 })}</Text>
+                  <Text style={styles.slotsCount}>
+                    {doc.slots?.length
+                      ? t('slots_today', { count: doc.slots.length })
+                      : t('walk_in_contact')}
+                  </Text>
                   <View style={[styles.bookBtn, !doc.available && styles.bookBtnDisabled]}>
                     <Text style={styles.bookBtnText}>
                       {doc.available ? t('book_now') : t('unavailable')}
