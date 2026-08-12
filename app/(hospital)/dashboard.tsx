@@ -55,6 +55,7 @@ interface Doctor {
   specialization: string;
   keywords?: string;
   mobile: string;
+  landline?: string;
   experience: number | string;
   fee: number | string;
   max_per_slot: number | string;
@@ -87,6 +88,7 @@ interface FormState {
   specialization: string;
   keywords: string;
   mobile: string;
+  landline: string;
   experience: string;
   fee: string;
   max_per_slot: string;
@@ -102,6 +104,11 @@ interface ImageFile {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
+
+// Mirrors backend/tokenwalla/utils.py — a mobile is the only number WhatsApp
+// can reach; a landline is a call-us number for clinics that have nothing else.
+const MOBILE_RE   = /^[6-9][0-9]{9}$/;
+const LANDLINE_RE = /^0[1-9][0-9]{1,3}[- ]?[0-9]{6,8}$/;
 
 const DEFAULT_SLOTS: string[] = [
   "12:00 AM","12:30 AM","01:00 AM","01:30 AM","02:00 AM","02:30 AM",
@@ -138,6 +145,7 @@ const EMPTY_FORM: FormState = {
   specialization: '',
   keywords:       '',
   mobile:         '',
+  landline:       '',
   experience:     '',
   fee:            '',
   max_per_slot:   '10',
@@ -247,9 +255,14 @@ function validateDoctor(f: FormState): Record<string, string> {
 
   if (!f.specialization.trim())        e.specialization = 'Specialization is required.';
 
-  if (!f.mobile.trim())                e.mobile = 'Mobile number is required.';
-  else if (!/^[6-9]\d{9}$/.test(f.mobile.trim()))
+  const mobile   = f.mobile.trim();
+  const landline = f.landline.trim();
+  if (mobile && !MOBILE_RE.test(mobile))
     e.mobile = 'Enter a valid 10-digit Indian mobile number.';
+  if (landline && !LANDLINE_RE.test(landline))
+    e.landline = 'Enter a valid landline with the STD code, e.g. 08812-234567.';
+  if (!mobile && !landline)
+    e.mobile = 'Enter a mobile number or a landline.';
 
   if (f.experience !== '' && (isNaN(num(f.experience)) || num(f.experience) < 0))
     e.experience = 'Experience must be a positive number.';
@@ -261,7 +274,9 @@ function validateDoctor(f: FormState): Record<string, string> {
     e.max_per_slot = 'Must be at least 1 patient per slot.';
 
   if (f.days.length === 0)             e.days = 'Select at least one available day.';
-  if (f.slots.length === 0)            e.slots = 'Select at least one time slot.';
+  // No slot requirement on purpose: a walk-in clinic cannot promise a time.
+  // Zero slots lists the doctor without online booking — patients see the
+  // hospital's hours and call. Days still say which days the doctor sits.
 
   return e;
 }
@@ -471,6 +486,7 @@ export default function HospitalDashboard() {
       specialization: doc.specialization  || '',
       keywords:       doc.keywords        || '',
       mobile:         doc.mobile          || '',
+      landline:       doc.landline        || '',
       experience:     String(doc.experience   || ''),
       fee:            String(doc.fee          || ''),
       max_per_slot:   String(doc.max_per_slot || 10),
@@ -549,6 +565,7 @@ export default function HospitalDashboard() {
       payload.append('specialization', form.specialization.trim());
       payload.append('keywords',       form.keywords.trim());
       payload.append('mobile',         form.mobile.trim());
+      payload.append('landline',       form.landline.trim());
       payload.append('experience',     form.experience   || '0');
       payload.append('fee',            form.fee          || '0');
       payload.append('max_per_slot',   form.max_per_slot || '10');
@@ -814,7 +831,7 @@ export default function HospitalDashboard() {
                 Comma-separated terms patients might search — helps this doctor show up in results.
               </Text>
 
-              <Text style={styles.fieldLabel}>Mobile Number *</Text>
+              <Text style={styles.fieldLabel}>Mobile Number</Text>
               <TextInput
                 style={[styles.fieldInput, errors.mobile && styles.fieldInputError]}
                 placeholder="10-digit mobile"
@@ -825,6 +842,21 @@ export default function HospitalDashboard() {
                 onChangeText={(v: string) => setField('mobile', v.replace(/\D/, ''))}
               />
               <FieldError msg={errors.mobile} />
+
+              <Text style={styles.fieldLabel}>Landline</Text>
+              <TextInput
+                style={[styles.fieldInput, errors.landline && styles.fieldInputError]}
+                placeholder="08812-234567"
+                placeholderTextColor={Colors.gray400}
+                keyboardType="phone-pad"
+                maxLength={15}
+                value={form.landline}
+                onChangeText={(v: string) => setField('landline', v.replace(/[^\d\-\s]/g, ''))}
+              />
+              <FieldError msg={errors.landline} />
+              <Text style={styles.imageHint}>
+                Mobile or landline — at least one. Only a mobile receives WhatsApp updates.
+              </Text>
 
               <View style={styles.fieldRow}>
                 <View style={{ flex: 1, marginRight: 8 }}>
@@ -945,9 +977,14 @@ export default function HospitalDashboard() {
               </View>
 
               {form.slots.length === 0 && (
-                <View style={styles.slotWarning}>
-                  <Text style={{ fontSize: 13, color: Colors.errorText }}>
-                    Please select at least one slot
+                <View style={styles.walkInNote}>
+                  <Text style={{ fontSize: 13, color: Colors.blue800, fontWeight: '700', marginBottom: 3 }}>
+                    Walk-in mode
+                  </Text>
+                  <Text style={{ fontSize: 13, color: Colors.blue800, lineHeight: 18 }}>
+                    With no slots selected, patients see this doctor as available along with
+                    your hospital timings and notice, and call you to visit — there is no
+                    online token booking.
                   </Text>
                 </View>
               )}
@@ -1336,7 +1373,7 @@ export default function HospitalDashboard() {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.doctorName}>Dr. {doc.name}</Text>
                         <Text style={styles.doctorSpec}>{doc.specialization}</Text>
-                        <Text style={styles.doctorMeta}>{doc.mobile}  ·  {doc.experience}y exp</Text>
+                        <Text style={styles.doctorMeta}>{doc.mobile || doc.landline || '—'}  ·  {doc.experience}y exp</Text>
                         <Text style={styles.doctorMeta}>₹{doc.fee}  ·  Max {doc.max_per_slot}/slot</Text>
                       </View>
                     </View>
@@ -1371,6 +1408,16 @@ export default function HospitalDashboard() {
                             </View>
                           )}
                         </ScrollView>
+                      </View>
+                    )}
+
+                    {(!doc.slots || doc.slots.length === 0) && (
+                      <View style={styles.slotPreviewRow}>
+                        <View style={[styles.slotPreviewChip, { backgroundColor: Colors.blue50, borderColor: Colors.blue100 }]}>
+                          <Text style={[styles.slotPreviewText, { color: Colors.blue800 }]}>
+                            Walk-in — no online booking
+                          </Text>
+                        </View>
                       </View>
                     )}
 
@@ -1555,6 +1602,7 @@ const styles = StyleSheet.create({
   slotActionBtn:    { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 9, paddingHorizontal: 16, paddingVertical: 8 },
   slotActionText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   slotWarning:      { backgroundColor: Colors.errorBg, borderRadius: 10, padding: 10, marginBottom: 12 },
+  walkInNote:       { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 10, padding: 12, marginBottom: 12 },
   slotSectionLabel: { fontSize: 11, fontWeight: '700', color: Colors.gray500, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
   slotGrid:             { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slotChip:             { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50 },

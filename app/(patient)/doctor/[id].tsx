@@ -32,10 +32,11 @@ interface GalleryPhoto { id: number | string; url: string; }
 
 interface Hospital {
   name?: string; city?: string; image?: string; logo?: string;
-  mobile?: string; location?: string;
+  mobile?: string; landline?: string; location?: string;
   instagram?: string; youtube?: string; facebook?: string;
   open_time?: string; close_time?: string;
-  announcement?: string; description?: string;
+  announcement?: string; announcement_until?: string | null;
+  announcement_active?: boolean; description?: string;
   services?: string[]; gallery?: GalleryPhoto[];
 }
 
@@ -44,7 +45,7 @@ interface Doctor {
   specialization?: string; city?: string; experience?: number;
   available?: boolean; hospital?: number | string;
   hospital_name?: string; hospital_image?: string; image?: string;
-  mobile?: string; fee?: number;
+  mobile?: string; landline?: string; fee?: number;
   slots?: string[]; days?: string[]; max_per_slot?: number;
   // Server-computed patient bill (payments/fees.py). SERVICE_ONLY doctors
   // collect the consultation fee at the clinic, so it isn't part of the
@@ -190,7 +191,8 @@ export default function DoctorDetails() {
       params: {
         doctorId:     doctor.id,
         doctorName:   doctor.name,
-        doctorMobile: doctor.mobile,
+        // Landline-only clinics exist — send whichever number they can be reached on.
+        doctorMobile: doctor.mobile || doctor.landline,
         hospital:     doctor.hospital_name,
         date:         selectedDate,
         slot:         selectedSlot,
@@ -290,6 +292,14 @@ export default function DoctorDetails() {
   const atClinic  = Number(fees.offline_doctor_fee) > 0;
   const isBookable = selectedSlot && doctor.available &&
     !slotAvail[selectedSlot]?.full && !isSlotTooSoon(selectedDate, selectedSlot);
+
+  // Walk-in: the hospital publishes no slot times, so there is nothing to book
+  // online. We still list the doctor — patients get the hours, the days and a
+  // number to call. Landline first: a clinic that has one usually wants calls
+  // on it rather than on a personal mobile.
+  const walkIn     = slots.length === 0;
+  const callNumber = hospitalInfo?.landline || doctor.landline
+                  || hospitalInfo?.mobile   || doctor.mobile || '';
 
   const hasHospitalImage = doctor.hospital_image &&
     !doctor.hospital_image.includes('placehold') &&
@@ -485,7 +495,10 @@ export default function DoctorDetails() {
         </View>
 
         {/* ── HOSPITAL ANNOUNCEMENT ── */}
-        {hospitalInfo?.announcement ? (
+        {/* `announcement_active` is computed server-side (expiry date), so an
+            old notice stops showing without anyone remembering to delete it.
+            Falls back to the raw text if the API predates the flag. */}
+        {hospitalInfo?.announcement && hospitalInfo.announcement_active !== false ? (
           <View style={styles.noticeBox}>
             <Text style={{ fontSize: 16 }}>📢</Text>
             <Text style={styles.noticeText}>{hospitalInfo.announcement}</Text>
@@ -576,7 +589,8 @@ export default function DoctorDetails() {
           );
         })()}
 
-        {/* ── DATE PICKER ── */}
+        {/* ── DATE PICKER ── pointless without slots to pick on that date. */}
+        {!walkIn && (
         <View style={styles.block}>
           <Text style={styles.blockTitle}>📅 Select Date</Text>
           {doctor.days && doctor.days.length > 0 && (
@@ -612,12 +626,13 @@ export default function DoctorDetails() {
             })}
           </ScrollView>
         </View>
+        )}
 
         {/* ── SLOT PICKER ── */}
         <View style={styles.block}>
           {/* Header row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.blockTitle}>🕐 Select Time Slot</Text>
+            <Text style={styles.blockTitle}>{walkIn ? '🕐 Visiting Hours' : '🕐 Select Time Slot'}</Text>
             {availLoading ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <ActivityIndicator size="small" color={Colors.blue400} />
@@ -646,10 +661,40 @@ export default function DoctorDetails() {
             </View>
           )}
 
-          {slots.length === 0 ? (
-            <Text style={{ color: Colors.gray400, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
-              No slots configured. Contact hospital directly.
-            </Text>
+          {walkIn ? (
+            <View>
+              <Text style={styles.walkInLead}>
+                This doctor sees patients on a walk-in basis — there are no fixed
+                appointment times to book online.
+              </Text>
+              {(hospitalInfo?.open_time || hospitalInfo?.close_time) ? (
+                <View style={styles.walkInRow}>
+                  <Text style={styles.walkInKey}>🕐 Hospital hours</Text>
+                  <Text style={styles.walkInVal}>
+                    {hospitalInfo?.open_time || '—'} – {hospitalInfo?.close_time || '—'}
+                  </Text>
+                </View>
+              ) : null}
+              {doctor.days && doctor.days.length > 0 ? (
+                <View style={styles.walkInRow}>
+                  <Text style={styles.walkInKey}>📅 Available days</Text>
+                  <Text style={styles.walkInVal}>{doctor.days.join(', ')}</Text>
+                </View>
+              ) : null}
+              {callNumber ? (
+                <TouchableOpacity
+                  style={styles.walkInCall}
+                  onPress={() => Linking.openURL(`tel:${callNumber}`)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.walkInCallText}>📞 Call {callNumber}</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={{ color: Colors.gray400, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
+                  Contact the hospital directly to visit.
+                </Text>
+              )}
+            </View>
           ) : (
             <View style={{ opacity: availLoading ? 0.5 : 1 }}>
               {am.length > 0 && (
@@ -679,8 +724,13 @@ export default function DoctorDetails() {
           {[
             { label: 'Doctor',   value: `Dr. ${doctor.name}`                                              },
             { label: 'Hospital', value: doctor.hospital_name                                              },
-            { label: 'Date',     value: dateLabel ? `${dateLabel.label}, ${dateLabel.num} ${dateLabel.month}` : '—' },
-            { label: 'Slot',     value: selectedSlot || 'Not selected yet',  dim: !selectedSlot           },
+            walkIn
+              ? { label: 'Hours', value: (hospitalInfo?.open_time || hospitalInfo?.close_time)
+                  ? `${hospitalInfo?.open_time || '—'} – ${hospitalInfo?.close_time || '—'}` : 'Call to confirm' }
+              : { label: 'Date',  value: dateLabel ? `${dateLabel.label}, ${dateLabel.num} ${dateLabel.month}` : '—' },
+            walkIn
+              ? { label: 'Booking', value: 'Walk-in — no token', dim: true }
+              : { label: 'Slot',    value: selectedSlot || 'Not selected yet', dim: !selectedSlot },
           ].map(({ label, value, dim }) => (
             <View key={label} style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{label}</Text>
@@ -714,11 +764,15 @@ export default function DoctorDetails() {
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Payable Now</Text>
-            <Text style={styles.totalAmount}>₹{money(fees.final_amount)}</Text>
+            <Text style={styles.totalLabel}>{walkIn ? 'Payable at Hospital' : 'Payable Now'}</Text>
+            <Text style={styles.totalAmount}>
+              ₹{money(walkIn ? (doctor.fee ?? 0) : fees.final_amount)}
+            </Text>
           </View>
           <Text style={styles.feeNote}>
-            {atClinic
+            {walkIn
+              ? 'No online booking for this doctor — pay at the hospital when you visit'
+              : atClinic
               ? 'Booking charge only — the consultation fee is paid at the clinic'
               : 'Includes platform fee, payment gateway fee & GST'}
           </Text>
@@ -729,25 +783,42 @@ export default function DoctorDetails() {
 
       {/* ── STICKY BOOK BUTTON ── */}
       <View style={styles.stickyBar}>
-        <TouchableOpacity
-          style={[styles.bookBtn, !isBookable && styles.bookBtnDisabled]}
-          onPress={handleBook}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.bookBtnText}>
-            {!doctor.available
-              ? '⛔ Doctor Unavailable'
-              : !selectedSlot
-              ? 'Select a Slot First'
-              : slotAvail[selectedSlot]?.full
-              ? '⛔ Slot is Full'
-              : user
-              ? `💳 Pay ₹${money(fees.final_amount)} & Book Appointment`
-              : '🔐 Login to Book'}
-          </Text>
-        </TouchableOpacity>
+        {/* No token to sell without a slot — the payment path needs one, and
+            pretending otherwise would take money for nothing. */}
+        {walkIn ? (
+          <TouchableOpacity
+            style={[styles.bookBtn, !callNumber && styles.bookBtnDisabled]}
+            onPress={() => callNumber && Linking.openURL(`tel:${callNumber}`)}
+            activeOpacity={0.85}
+            disabled={!callNumber}
+          >
+            <Text style={styles.bookBtnText}>
+              {callNumber ? `📞 Call ${callNumber}` : 'Contact the hospital to visit'}
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.bookBtn, !isBookable && styles.bookBtnDisabled]}
+            onPress={handleBook}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.bookBtnText}>
+              {!doctor.available
+                ? '⛔ Doctor Unavailable'
+                : !selectedSlot
+                ? 'Select a Slot First'
+                : slotAvail[selectedSlot]?.full
+                ? '⛔ Slot is Full'
+                : user
+                ? `💳 Pay ₹${money(fees.final_amount)} & Book Appointment`
+                : '🔐 Login to Book'}
+            </Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.bookNote}>
-          Secured by Razorpay · Refundable if cancelled 2hrs before slot
+          {walkIn
+            ? 'Walk in during the hospital\u2019s opening hours'
+            : 'Secured by Razorpay · Refundable if cancelled 2hrs before slot'}
         </Text>
       </View>
 
@@ -902,6 +973,14 @@ const styles = StyleSheet.create({
 
   // ── Slot grid & buttons ──
   slotPeriod: { fontSize: 10, fontWeight: '700', color: Colors.gray400, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
+
+  // Walk-in (doctor publishes no slots)
+  walkInLead: { fontSize: 14, lineHeight: 21, color: Colors.gray600, marginBottom: 12 },
+  walkInRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  walkInKey:  { fontSize: 14, color: Colors.gray500 },
+  walkInVal:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, textAlign: 'right', flexShrink: 1 },
+  walkInCall: { marginTop: 16, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  walkInCallText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   slotGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
   slotBtn: {

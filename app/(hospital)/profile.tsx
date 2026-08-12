@@ -49,6 +49,7 @@ interface Hospital {
   latitude?: number | null;
   longitude?: number | null;
   mobile?: string;
+  landline?: string;
   status?: string;
   instagram?: string;
   youtube?: string;
@@ -56,6 +57,8 @@ interface Hospital {
   services?: string[];
   description?: string;
   announcement?: string;
+  announcement_until?: string | null;
+  announcement_active?: boolean;
   open_time?: string;
   close_time?: string;
   image?: string;
@@ -77,7 +80,7 @@ export default function HospitalProfile() {
   const [doctorCount, setDoctorCount] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
-  const [form, setForm] = useState({ name: '', city: '', address: '', location: '', mobile: '', instagram: '', youtube: '', facebook: '', description: '', announcement: '', open_time: '', close_time: '' });
+  const [form, setForm] = useState({ name: '', city: '', address: '', location: '', mobile: '', landline: '', instagram: '', youtube: '', facebook: '', description: '', announcement: '', announcement_until: '', open_time: '', close_time: '' });
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const [pickerOpen, setPickerOpen] = useState(false);
   const [services, setServices] = useState<string[]>([]);
@@ -117,9 +120,9 @@ export default function HospitalProfile() {
       setHospital(h);
       setOrigMobile(h.mobile || '');
       setForm({
-        name: h.name || '', city: h.city || '', address: h.address || '', location: h.location || '', mobile: h.mobile || '',
+        name: h.name || '', city: h.city || '', address: h.address || '', location: h.location || '', mobile: h.mobile || '', landline: h.landline || '',
         instagram: h.instagram || '', youtube: h.youtube || '', facebook: h.facebook || '',
-        description: h.description || '', announcement: h.announcement || '', open_time: h.open_time || '', close_time: h.close_time || '',
+        description: h.description || '', announcement: h.announcement || '', announcement_until: h.announcement_until || '', open_time: h.open_time || '', close_time: h.close_time || '',
       });
       setCoords({ lat: h.latitude ?? null, lng: h.longitude ?? null });
       setServices(Array.isArray(h.services) ? h.services : []);
@@ -266,7 +269,9 @@ export default function HospitalProfile() {
         youtube:   form.youtube.trim(),
         facebook:  form.facebook.trim(),
         description:  form.description.trim(),
-        announcement: form.announcement.trim(),
+        announcement:       form.announcement.trim(),
+        announcement_until: form.announcement_until.trim(),
+        landline:           form.landline.trim(),
         open_time:    form.open_time.trim(),
         close_time:   form.close_time.trim(),
         services,
@@ -481,13 +486,22 @@ export default function HospitalProfile() {
                 )}
                 {mobileChanged && otpVerified && <Text style={styles.verifiedText}>✓ New mobile verified</Text>}
 
+                {/* Landline — display only. The mobile above stays the login
+                    identity and the number OTP and booking alerts go to. */}
+                <Text style={styles.label}>Landline (optional)</Text>
+                <TextInput style={styles.input} value={form.landline} onChangeText={v => setForm(p => ({ ...p, landline: v.replace(/[^\d\-\s]/g, '') }))} placeholder="08812-234567" placeholderTextColor={Colors.gray400} keyboardType="phone-pad" maxLength={15} />
+                <Text style={styles.hint}>Shown to patients as a call number.</Text>
+
                 {/* About / description */}
                 <Text style={styles.label}>About the Hospital (shown to patients)</Text>
                 <TextInput style={[styles.input, { height: 90, textAlignVertical: 'top' }]} value={form.description} onChangeText={v => setForm(p => ({ ...p, description: v }))} placeholder="Describe your hospital, specialities and what you provide…" placeholderTextColor={Colors.gray400} multiline />
 
                 {/* Announcement */}
                 <Text style={styles.label}>Announcement / Notice (shown to patients)</Text>
-                <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={form.announcement} onChangeText={v => setForm(p => ({ ...p, announcement: v }))} placeholder="e.g. Dr. Ravi on leave this Friday" placeholderTextColor={Colors.gray400} multiline maxLength={300} />
+                <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={form.announcement} onChangeText={v => setForm(p => ({ ...p, announcement: v }))} placeholder="e.g. Closed for Sankranti 14–16 Jan · Free BP check this week" placeholderTextColor={Colors.gray400} multiline maxLength={300} />
+                <Text style={styles.label}>Show until (optional)</Text>
+                <TextInput style={styles.input} value={form.announcement_until} onChangeText={v => setForm(p => ({ ...p, announcement_until: v.replace(/[^\d-]/g, '').slice(0, 10) }))} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.gray400} keyboardType="numbers-and-punctuation" maxLength={10} />
+                <Text style={styles.hint}>Leave empty to show until you remove it. With a date, the notice disappears by itself the day after.</Text>
 
                 {/* Working hours */}
                 <Text style={styles.label}>Working Hours (24h, e.g. 09:00 – 18:00)</Text>
@@ -537,7 +551,7 @@ export default function HospitalProfile() {
                     style={styles.cancelBtn}
                     onPress={() => {
                       setEditing(false);
-                      setForm({ name: hospital.name || '', city: hospital.city || '', address: hospital.address || '', location: hospital.location || '', mobile: hospital.mobile || '', instagram: hospital.instagram || '', youtube: hospital.youtube || '', facebook: hospital.facebook || '', description: hospital.description || '', announcement: hospital.announcement || '', open_time: hospital.open_time || '', close_time: hospital.close_time || '' });
+                      setForm({ name: hospital.name || '', city: hospital.city || '', address: hospital.address || '', location: hospital.location || '', mobile: hospital.mobile || '', landline: hospital.landline || '', instagram: hospital.instagram || '', youtube: hospital.youtube || '', facebook: hospital.facebook || '', description: hospital.description || '', announcement: hospital.announcement || '', announcement_until: hospital.announcement_until || '', open_time: hospital.open_time || '', close_time: hospital.close_time || '' });
                       setCoords({ lat: hospital.latitude ?? null, lng: hospital.longitude ?? null });
                       setServices(Array.isArray(hospital.services) ? hospital.services : []);
                       setNewService('');
@@ -558,6 +572,7 @@ export default function HospitalProfile() {
                   { label: 'Address',  value: hospital.address  || '—' },
                   { label: 'Location', value: hospital.location || '—' },
                   { label: 'Mobile',   value: hospital.mobile   || '—' },
+                  { label: 'Landline', value: hospital.landline || '—' },
                   { label: 'Doctors',  value: doctorCount == null ? '…' : String(doctorCount) },
                 ].map(({ label, value }) => (
                   <View key={label} style={styles.detailRow}>
@@ -861,6 +876,7 @@ const styles = StyleSheet.create({
 
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
   input: { backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900, marginBottom: 14 },
+  hint: { fontSize: 12, color: Colors.gray400, marginTop: -8, marginBottom: 14, lineHeight: 17 },
   inputError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, marginBottom: 4 },
   fieldError: { fontSize: 11.5, color: Colors.errorText, marginBottom: 12 },
 
