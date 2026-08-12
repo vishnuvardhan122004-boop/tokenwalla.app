@@ -1,0 +1,72 @@
+# .easignore — what EAS Build leaves OUT of the uploaded project.
+#
+# Why this file exists:
+#   `google-services.json` is gitignored (it is a credential-ish file we do not
+#   want in the repo), but app.json points `android.googleServicesFile` at it.
+#   EAS uploads the project using the ignore rules, so with only .gitignore the
+#   file never reaches the builder — the build either fails on the missing path
+#   or, worse, succeeds with Android push silently dead. That failure is called
+#   out in DONE-push-setup.md step 6.
+#
+# IMPORTANT: when .easignore is present, EAS uses it INSTEAD of .gitignore, not
+# in addition to it. So this must stay a full mirror of .gitignore, minus only
+# the Firebase client configs below. If you add a rule to .gitignore, add it
+# here too — otherwise that path starts getting uploaded.
+#
+# Deliberately still excluded: every real secret (service-account keys,
+# keystores, provisioning profiles, .env.local). Those must never leave the
+# machine. Firebase *client* config is different — it ships inside the APK by
+# design, so uploading it to the builder gives nothing away.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+# NOTE: google-services.json and GoogleService-Info.plist are intentionally NOT
+# listed here — they must reach the builder. Everything else stays out.
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Google service-account keys (FCM V1 / Play Store) — never upload
+*-service-account*.json
+tokenwalla-*.json
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# Generated native folders. These MUST stay excluded: they exist locally (ios/
+# carries a full Pods tree) and uploading them would both bloat the archive and
+# push EAS into a bare-workflow build that skips prebuild and the config plugins.
+/ios
+/android
+
+# Claude Code local config
+.claude/
