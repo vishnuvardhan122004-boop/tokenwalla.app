@@ -95,6 +95,12 @@ const LinkLogo = ({ size = 24 }: { size?: number }) => (
   </Svg>
 );
 
+// Doctors whose view we have already counted this app session. The website
+// uses sessionStorage for the same job; React Native has no such thing, and a
+// module-level Set has exactly the lifetime we want — survives navigation,
+// clears on restart.
+const countedViews = new Set<string>();
+
 export default function DoctorDetails() {
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
@@ -114,6 +120,14 @@ export default function DoctorDetails() {
     API.get(`/doctors/${id}/`)
       .then(({ data }) => {
         setDoctor(data);
+        // Count the view once per app session. Without the guard, navigating
+        // back and forth inflates the count and the ranking rewards whoever
+        // taps around most rather than what patients actually choose.
+        // Fire-and-forget — a failed count must never affect the screen.
+        if (!countedViews.has(String(id))) {
+          countedViews.add(String(id));
+          API.post(`/doctors/${id}/view/`).catch(() => {});
+        }
         // Fetch the hospital for contact number, social links & services.
         if (data?.hospital) {
           API.get(`/hospitals/${data.hospital}/`)
