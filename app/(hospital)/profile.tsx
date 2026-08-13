@@ -589,6 +589,32 @@ export default function HospitalProfile() {
                   </View>
                 ) : null}
 
+                {/* Announcement. Mirrors src/hospital/Hprofile.js on the website:
+                    an expired notice disappearing from the patient page while the
+                    text is still saved here is confusing, so say which it is.
+                    `announcement_active` is computed server-side. */}
+                {hospital.announcement ? (
+                  <View style={{ paddingTop: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="megaphone-outline" size={14} color={Colors.gray600} />
+                      <Text style={styles.detailLabel}>Announcement</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: Colors.gray700, lineHeight: 19, marginTop: 4 }}>
+                      {hospital.announcement}
+                    </Text>
+                    {hospital.announcement_until ? (
+                      <Text style={{
+                        fontSize: 12, marginTop: 3,
+                        color: hospital.announcement_active === false ? Colors.errorText : Colors.gray400,
+                      }}>
+                        {hospital.announcement_active === false
+                          ? `Expired on ${hospital.announcement_until} — patients no longer see this.`
+                          : `Shows to patients until ${hospital.announcement_until}.`}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
+
                 {/* Social links */}
                 {(hospital.instagram || hospital.youtube || hospital.facebook) && (
                   <View style={styles.detailRow}>
