@@ -35,6 +35,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { computeFeeBreakdown, money } from '../../utils/fees';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 import {
   EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
   validatePayout, type PayoutForm,
@@ -106,6 +107,7 @@ const COLLECTION_MODES = [
 
 export default function HospitalPayments() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
 
   const [hospitalId, setHospitalId] = useState<number | string | null>(null);
   const [doctors,    setDoctors]    = useState<DoctorRow[]>([]);

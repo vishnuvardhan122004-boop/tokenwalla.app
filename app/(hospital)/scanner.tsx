@@ -29,6 +29,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { normalizeBookingStatus } from '../../utils/booking';
+import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 // ── Extract token from QR data ──────────────────────────────────────────────
 function extractToken(raw: string): string {
@@ -75,6 +77,7 @@ interface ScanResult {
 
 export default function HospitalScanner() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
   const [permission, requestPermission] = useCameraPermissions();
 
   const [scanning,   setScanning]   = useState(false);
@@ -206,7 +209,7 @@ export default function HospitalScanner() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.navbar}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => safeBack(router, '/(hospital)/dashboard')} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backBtnText}>Back</Text>
         </TouchableOpacity>

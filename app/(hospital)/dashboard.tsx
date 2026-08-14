@@ -36,10 +36,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKeywords';
 import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
+import { safeBack } from '../../utils/navigation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -545,7 +547,8 @@ export default function HospitalDashboard() {
     setErrors(p => (p.days ? { ...p, days: '' } : p));
   };
 
-  const specSuggestions = suggestSpecializations(form.specialization);
+  const specSuggestions    = suggestSpecializations(form.specialization);
+  const keywordSuggestions = suggestKeywordsForList(form.keywords, 8);
 
   // ── Submit doctor form ────────────────────────────────────────────────────
   const submitForm = async () => {
@@ -827,6 +830,21 @@ export default function HospitalDashboard() {
                 value={form.keywords}
                 onChangeText={(v: string) => setField('keywords', v)}
               />
+              {/* Completes the term after the last comma and appends it. */}
+              {keywordSuggestions.length > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.suggestRow}>
+                  {keywordSuggestions.map(s => (
+                    <TouchableOpacity
+                      key={s}
+                      style={styles.suggestChip}
+                      onPress={() => setField('keywords', appendKeyword(form.keywords, s))}
+                    >
+                      <Ionicons name="add" size={12} color={Colors.blue700} />
+                      <Text style={styles.suggestChipText}>{s}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
               <Text style={styles.imageHint}>
                 Comma-separated terms patients might search — helps this doctor show up in results.
               </Text>
@@ -1022,7 +1040,7 @@ export default function HospitalDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       <View style={styles.navbar}>
         <View style={styles.navLeft}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/(patient)/home')}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(patient)/home')}>
             <Ionicons name="chevron-back" size={22} color={Colors.blue600} />
           </TouchableOpacity>
           <View style={{ flexShrink: 1 }}>
@@ -1578,7 +1596,7 @@ const styles = StyleSheet.create({
   fieldError:      { fontSize: 11.5, color: Colors.errorText, marginBottom: 12 },
 
   suggestRow:      { gap: 6, paddingBottom: 14, paddingRight: 4 },
-  suggestChip:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
+  suggestChip:     { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
   suggestChipText: { fontSize: 12, fontWeight: '600', color: Colors.blue700 },
   switchRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, padding: 14, marginBottom: 14 },
 

@@ -25,6 +25,7 @@ import {
 } from '../../../utils/booking';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
 import { safeBack } from '../../../utils/navigation';
+import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 
 interface SlotInfo { booked: number; max: number; full: boolean; }
@@ -98,6 +99,7 @@ const LinkLogo = ({ size = 24 }: { size?: number }) => (
 export default function DoctorDetails() {
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/doctors'));
 
   const [doctor,       setDoctor]       = useState<Doctor | null>(null);
   const [hospitalInfo, setHospitalInfo] = useState<Hospital | null>(null);
@@ -121,7 +123,7 @@ export default function DoctorDetails() {
             .catch(() => {});
         }
       })
-      .catch(() => router.back())
+      .catch(() => safeBack(router, '/(patient)/doctors'))
       .finally(() => setLoading(false));
   }, [id]);
 

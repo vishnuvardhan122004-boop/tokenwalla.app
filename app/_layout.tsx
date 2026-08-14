@@ -10,6 +10,7 @@ import {
   ensureNotificationSetup,
 } from '../services/notifications';
 import { initSentry, wrapWithSentry } from '../services/sentry';
+import { checkForUpdate } from '../services/appUpdate';
 
 // Initialise crash reporting as early as possible so launch-time errors are caught.
 initSentry();
@@ -19,6 +20,10 @@ function RootLayout() {
     // Ask for notification permission + create the Android channel once at launch.
     // (No-op in Expo Go — notifications require a dev/production build.)
     ensureNotificationSetup();
+
+    // Ask the backend whether this build is too old. Fails silently when
+    // offline or on a backend without the endpoint, so it can't hold up launch.
+    checkForUpdate();
 
     // Tapping a notification opens the relevant screen.
     const unsubTap = addNotificationResponseListener((data) => {

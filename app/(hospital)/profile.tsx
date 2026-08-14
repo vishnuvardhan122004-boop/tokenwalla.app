@@ -35,6 +35,7 @@ import LocationSearch from '../../components/LocationSearch';
 import LocationPickerModal from '../../components/LocationPickerModal';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 import {
   EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
   validatePayout, type PayoutForm,
@@ -75,6 +76,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; border: string; l
 
 export default function HospitalProfile() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
 
   const [hospital, setHospital] = useState<Hospital | null>(null);
   const [doctorCount, setDoctorCount] = useState<number | null>(null);

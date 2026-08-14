@@ -18,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { isTestHospital } from '../../constants/config';
+import { suggestKeywords } from '../../constants/searchKeywords';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 
@@ -73,6 +74,7 @@ export default function DoctorsScreen() {
   const params = useLocalSearchParams<{ q?: string }>();
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
+  const [searchFocused,   setSearchFocused]   = useState(false);
   const [availOnly,       setAvailOnly]       = useState(false);
   const [loading,         setLoading]         = useState(true);
   const [error,           setError]           = useState(false);
@@ -225,6 +227,25 @@ export default function DoctorsScreen() {
     return chips.slice(0, 20);
   })();
 
+  // ── SEARCH TYPEAHEAD ──────────────────────────────────────────────────────
+  // Google-style completions under the search box. Candidates from the live
+  // data (doctor names, specializations, keywords, hospitals, cities) rank
+  // ahead of the generic term list, so a tapped suggestion always has results.
+  const searchSuggestions = (() => {
+    if (!searchFocused) return [];
+    const fromData: string[] = [];
+    for (const doc of doctors) {
+      fromData.push(
+        doc.name,
+        doc.specialization,
+        doc.hospital_name,
+        doc.city,
+        ...(doc.keywords || '').split(','),
+      );
+    }
+    return suggestKeywords(search, fromData.filter(Boolean), 6);
+  })();
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
 
@@ -244,6 +265,10 @@ export default function DoctorsScreen() {
             placeholderTextColor={Colors.gray400}
             value={search}
             onChangeText={setSearch}
+            onFocus={() => setSearchFocused(true)}
+            autoCorrect={false}
+            returnKeyType="search"
+            onSubmitEditing={() => setSearchFocused(false)}
           />
           {search ? (
             <TouchableOpacity onPress={() => setSearch('')} hitSlop={8}>
@@ -252,8 +277,36 @@ export default function DoctorsScreen() {
           ) : null}
         </View>
 
-        {/* Keyword quick-search chips */}
-        {keywordChips.length > 0 && (
+        {/* Typeahead — top searches when empty, completions once typing */}
+        {searchSuggestions.length > 0 && (
+          <View style={styles.suggestBox}>
+            {!search.trim() && (
+              <Text style={styles.suggestHeading}>{t('top_searches')}</Text>
+            )}
+            {searchSuggestions.map((s, i) => (
+              <View key={s} style={[styles.suggestItem, i > 0 && styles.suggestItemBorder]}>
+                <TouchableOpacity
+                  style={styles.suggestItemMain}
+                  onPress={() => { setSearch(s); setSearchFocused(false); }}
+                >
+                  <Ionicons
+                    name={search.trim() ? 'search-outline' : 'trending-up-outline'}
+                    size={14}
+                    color={Colors.gray400}
+                  />
+                  <Text style={styles.suggestItemText} numberOfLines={1}>{s}</Text>
+                </TouchableOpacity>
+                {/* Google's ↖ — drops the term into the box to keep refining */}
+                <TouchableOpacity onPress={() => setSearch(s)} hitSlop={10}>
+                  <Ionicons name="arrow-up-outline" size={15} color={Colors.gray400} style={styles.suggestFill} />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Keyword quick-search chips — hidden while the typeahead is open */}
+        {searchSuggestions.length === 0 && keywordChips.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -360,6 +413,9 @@ export default function DoctorsScreen() {
           keyExtractor={(item: Doctor) => String(item.id)}
           contentContainerStyle={{ padding: 16, gap: 14 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          // Scrolling the results means the user is done with the typeahead.
+          onScrollBeginDrag={() => setSearchFocused(false)}
           renderItem={({ item: doc, index }: { item: Doctor; index: number }) => {
 
             const isTopRanked = index === 0 && doc.available;
@@ -502,6 +558,15 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   searchInput: { flex: 1, fontSize: 14, color: Colors.gray900 },
+
+  // Search typeahead
+  suggestBox:        { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
+  suggestHeading:    { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray400, textTransform: 'uppercase', paddingHorizontal: 14, paddingTop: 11, paddingBottom: 3 },
+  suggestItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
+  suggestItemBorder: { borderTopWidth: 1, borderTopColor: Colors.blue50 },
+  suggestItemMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 11 },
+  suggestItemText:   { flex: 1, fontSize: 14, color: Colors.gray800 },
+  suggestFill:       { transform: [{ rotate: '-45deg' }] },
 
   keywordScroll:        { flexGrow: 0, marginBottom: 10 },
   keywordScrollContent: { gap: 8, paddingRight: 4 },

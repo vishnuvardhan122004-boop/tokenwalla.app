@@ -14,9 +14,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function ContactScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/home'));
   const { t } = useI18n();
   const [name,    setName]    = useState('');
   const [mobile,  setMobile]  = useState('');

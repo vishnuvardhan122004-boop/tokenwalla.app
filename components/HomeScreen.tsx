@@ -57,9 +57,24 @@ const PRICE_FEATURES = ['price_f1', 'price_f2', 'price_f3', 'price_f4', 'price_f
 // Quick-access specialty chips. `key` is the search term deep-linked to the
 // doctors tab (?q=key); doctors.tsx expands it via SPEC_SYNONYMS so e.g. "skin"
 // also finds doctors stored as "Dermatologist". Labels are translated (spec_*).
-const SPECIALTIES = [
-  'general', 'heart', 'skin', 'dental', 'child', 'bones', 'eye', 'ent',
-  'women', 'neuro', 'mental', 'diabetes', 'kidney', 'stomach', 'lungs', 'physio',
+// Icons mirror the web app's specialty chips (src/componets/AllDoctor.js).
+const SPECIALTIES: { key: string; icon: IconName }[] = [
+  { key: 'general',  icon: 'medkit-outline'          },
+  { key: 'heart',    icon: 'heart-outline'           },
+  { key: 'skin',     icon: 'hand-left-outline'       },
+  { key: 'dental',   icon: 'happy-outline'           },
+  { key: 'child',    icon: 'balloon-outline'         },
+  { key: 'bones',    icon: 'body-outline'            },
+  { key: 'eye',      icon: 'eye-outline'             },
+  { key: 'ent',      icon: 'ear-outline'             },
+  { key: 'women',    icon: 'female-outline'          },
+  { key: 'neuro',    icon: 'git-network-outline'     },
+  { key: 'mental',   icon: 'happy-outline'           },
+  { key: 'diabetes', icon: 'water-outline'           },
+  { key: 'kidney',   icon: 'flask-outline'           },
+  { key: 'stomach',  icon: 'nutrition-outline'       },
+  { key: 'lungs',    icon: 'fitness-outline'         },
+  { key: 'physio',   icon: 'accessibility-outline'   },
 ];
 
 // A doctor image is usable only if it's a real remote URL (not a placeholder).
@@ -199,12 +214,13 @@ export default function HomeScreen() {
           <View style={styles.specRow}>
             {SPECIALTIES.map((s) => (
               <TouchableOpacity
-                key={s}
+                key={s.key}
                 style={styles.specChip}
                 activeOpacity={0.7}
-                onPress={() => router.push({ pathname: '/(patient)/doctors', params: { q: s } })}
+                onPress={() => router.push({ pathname: '/(patient)/doctors', params: { q: s.key } })}
               >
-                <Text style={styles.specChipText}>{t(`spec_${s}`)}</Text>
+                <Ionicons name={s.icon} size={14} color={Colors.blue600} />
+                <Text style={styles.specChipText}>{t(`spec_${s.key}`)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -291,7 +307,7 @@ export default function HomeScreen() {
                       <Ionicons name="location-outline" size={12} color={Colors.gray400} />
                       <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>
                     </View>
-                    {/* The doctor's consultation fee. The ₹15 queue plan is
+                    {/* The doctor's consultation fee. The ₹20 queue plan is
                         retired — checkout prices the bill server-side. */}
                     <Text style={styles.docFee}>₹{doc.fee ?? 0} {t('per_visit')}</Text>
                   </View>
@@ -335,7 +351,7 @@ export default function HomeScreen() {
             <Text style={styles.pricePlan}>{t('queue_view')}</Text>
             <View style={styles.priceAmtRow}>
               <Text style={styles.priceCur}>₹</Text>
-              <Text style={styles.priceAmt}>15</Text>
+              <Text style={styles.priceAmt}>20</Text>
             </View>
             <Text style={styles.priceSub}>{t('per_appointment')}</Text>
             {PRICE_FEATURES.map((f) => (

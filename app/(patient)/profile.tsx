@@ -88,6 +88,10 @@ export default function ProfileScreen() {
           {([
             { icon: 'create-outline',            label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/profile' : '/(patient)/edit-profile') },
             { icon: 'key-outline',               label: t('menu_change_password'), onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hforgotpassword' : '/(auth)/forgot-password') },
+            // Hospital-only: live queue + doctor management lives on the hospital dashboard.
+            ...(user.role === 'hospital'
+              ? [{ icon: 'grid-outline' as IconName, label: t('menu_dashboard'), onPress: () => router.push('/(hospital)/dashboard') }]
+              : []),
             { icon: 'ticket-outline',            label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
             { icon: 'medkit-outline',            label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
             { icon: 'information-circle-outline', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },

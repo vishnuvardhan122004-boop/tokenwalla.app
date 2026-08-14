@@ -12,9 +12,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(auth)/login'));
   const [step,     setStep]     = useState(1);
   const [mobile,   setMobile]   = useState('');
   const [otp,      setOtp]      = useState('');
@@ -67,7 +70,7 @@ export default function ForgotPasswordScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
       <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.back} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backText}>Back to Login</Text>
         </TouchableOpacity>

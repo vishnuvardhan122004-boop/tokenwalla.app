@@ -30,9 +30,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
+import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function EditProfile() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(patient)/profile'));
   const { t } = useI18n();
 
   const [origName,   setOrigName]   = useState('');
@@ -108,7 +111,7 @@ export default function EditProfile() {
       await AsyncStorage.setItem('user', JSON.stringify(user));
 
       Alert.alert(t('ep_saved_title'), t('ep_saved_msg'), [
-        { text: t('ok'), onPress: () => router.back() },
+        { text: t('ok'), onPress: () => safeBack(router, '/(patient)/profile') },
       ]);
     } catch (e: any) {
       const status = e?.response?.status;
@@ -129,7 +132,7 @@ export default function EditProfile() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(patient)/profile')}>
           <Text style={styles.backBtnText}>{t('back')}</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('ep_title')}</Text>

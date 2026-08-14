@@ -26,6 +26,10 @@ const PUBLIC_ROUTES = [
   '/hospitals/login/',
   '/hospitals/register/',
   '/hospitals/reset-password/',
+  // Checked on launch, before anyone logs in. A stale token here would 401 and
+  // drag the launch path into the refresh-retry flow — logging the patient out
+  // over a version check.
+  '/app-version/',
 ];
 
 function isPublicRoute(url = ''): boolean {

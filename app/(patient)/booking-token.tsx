@@ -16,9 +16,14 @@ import { Colors } from '../../constants/colors';
 import { money } from '../../utils/fees';
 import { useI18n } from '../../services/i18n';
 import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
+  // The ticket is the end of the booking flow, so back goes forward to the
+  // bookings list — deliberately NOT safeBack(), which would walk back into
+  // the doctor/payment screens the patient has just finished paying through.
+  useAndroidBack(() => router.replace('/(patient)/my-bookings'));
   const { t } = useI18n();
   const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee } = useLocalSearchParams();
   // Consultation fee still payable at the hospital. 0 when it was collected

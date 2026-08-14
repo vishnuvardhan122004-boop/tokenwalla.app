@@ -101,6 +101,12 @@ function TabIcon({ icon, focused }: TabIconProps) {
 export default function PatientLayout() {
   return (
     <Tabs
+      // Back returns to the screen the patient was actually on, not Home.
+      // The default ('firstRoute') sends every hidden screen — doctor/[id],
+      // payment, my-qr, edit-profile — back to the first tab, which is Home.
+      // 'history' (not 'fullHistory') drops duplicate entries, so browsing
+      // doctors -> a doctor -> back -> another doctor doesn't pile up.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,

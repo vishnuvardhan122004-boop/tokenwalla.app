@@ -19,6 +19,7 @@ import {
 
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
+import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ function calcStrength(pw: string): number {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function HforgotPassword() {
   const router = useRouter();
+  useAndroidBack(() => safeBack(router, '/(hospital)/login'));
   const [step,      setStep]      = useState(1);
   const [mobile,    setMobile]    = useState('');
   const [otp,       setOtp]       = useState('');
