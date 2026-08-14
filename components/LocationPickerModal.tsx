@@ -58,6 +58,11 @@ interface Props {
 // Same AP/Telangana bias as LocationSearch, for a hospital with nothing saved.
 const FALLBACK = { lat: 16.5, lng: 79.5, zoom: 6 };
 
+// How long the map gets to send its first message before we call it failed.
+// Generous on purpose: this runs on hospital wifi in tier-2 towns, and a false
+// "didn't load" on a map that was merely slow is worse than a few seconds' wait.
+export const MAP_READY_TIMEOUT_MS = 12000;
+
 export default function LocationPickerModal({ visible, initial, onClose, onPick }: Props) {
   const webRef  = useRef<WebView>(null);
   const revRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -72,6 +77,16 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
   const [error,    setError]    = useState('');
   const [search,   setSearch]   = useState('');
 
+  // Leaflet comes off a CDN inside the WebView, so the map can fail in a way the
+  // WebView itself never reports: `source={{html}}` always "loads" successfully,
+  // and a subresource that 404s or hangs is invisible to onError. A hard failure
+  // does surface — L is undefined, mapHtml's try/catch posts {type:'error'} — but
+  // a SLOW or hanging CDN posts nothing at all and leaves the spinner up forever.
+  // So readiness is proved by the map's own first message, with a deadline.
+  const [mapState, setMapState] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [attempt,  setAttempt]  = useState(0);   // bumping it remounts the WebView
+  const readyRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const hasInitial = !!initial && isUsableCoord(initial.lat, initial.lng);
   const start = hasInitial
     ? { lat: initial!.lat as number, lng: initial!.lng as number, zoom: 16 }
@@ -82,6 +97,7 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
     if (!visible) return;
     setCenter(null); setZoom(0); setPlace(null);
     setError(''); setSearch(''); setLocating(false);
+    setMapState('loading'); setAttempt(0);
     return () => {
       if (revRef.current) clearTimeout(revRef.current);
       // Bumping the sequence on close is the point: it makes any reverse-geocode
@@ -92,6 +108,25 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
       seqRef.current++;
     };
   }, [visible]);
+
+  // Give the map a deadline. Cleared the moment it speaks; fires only if the CDN
+  // or the tiles left it hanging. Restarted on each retry attempt.
+  useEffect(() => {
+    if (!visible || mapState !== 'loading') return;
+    readyRef.current = setTimeout(() => setMapState('failed'), MAP_READY_TIMEOUT_MS);
+    return () => { if (readyRef.current) clearTimeout(readyRef.current); };
+  }, [visible, mapState, attempt]);
+
+  const markReady = useCallback(() => {
+    if (readyRef.current) clearTimeout(readyRef.current);
+    setMapState('ready');
+  }, []);
+
+  const retryMap = () => {
+    setError('');
+    setMapState('loading');
+    setAttempt(a => a + 1);
+  };
 
   // Reverse-geocode the map centre, debounced — the label under the pin.
   const reverse = useCallback((lat: number, lng: number) => {
@@ -120,11 +155,16 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
     let msg: any;
     try { msg = JSON.parse(e.nativeEvent.data); } catch { return; }
 
-    if (msg.type === 'movestart') { setDragging(true); return; }
-    if (msg.type === 'error') { setError('The map could not load. Check your connection.'); return; }
+    if (msg.type === 'movestart') { markReady(); setDragging(true); return; }
+    if (msg.type === 'error') {
+      if (readyRef.current) clearTimeout(readyRef.current);
+      setMapState('failed');
+      return;
+    }
     if (msg.type !== 'move') return;
     if (!isUsableCoord(msg.lat, msg.lng)) return;
 
+    markReady();
     setDragging(false);
     setCenter({ lat: msg.lat, lng: msg.lng });
     setZoom(typeof msg.zoom === 'number' ? msg.zoom : 0);
@@ -187,9 +227,11 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
 
         <View style={st.mapWrap}>
           <WebView
+            key={attempt}
             ref={webRef}
             source={{ html: mapHtml(start.lat, start.lng, start.zoom) }}
             onMessage={onMessage}
+            onError={() => setMapState('failed')}
             javaScriptEnabled
             domStorageEnabled
             startInLoadingState
@@ -203,27 +245,46 @@ export default function LocationPickerModal({ visible, initial, onClose, onPick 
             )}
           />
 
-          {/* Centre pin — never intercepts drags */}
-          <View style={st.pinWrap} pointerEvents="none">
-            <Ionicons
-              name="location-sharp"
-              size={38}
-              color={Colors.blue600}
-              style={{ marginBottom: dragging ? 10 : 0 }}
-            />
-            <View style={[st.pinShadow, { opacity: dragging ? 0.25 : 0.45 }]} />
-          </View>
+          {mapState === 'failed' && (
+            <View style={st.mapFail}>
+              <Ionicons name="cloud-offline-outline" size={30} color={Colors.gray500} />
+              <Text style={st.mapFailTitle}>The map didn&apos;t load</Text>
+              <Text style={st.mapFailBody}>
+                It needs an internet connection. You can still search for your area
+                above, or try the map again.
+              </Text>
+              <TouchableOpacity style={st.retryBtn} onPress={retryMap}>
+                <Text style={st.retryText}>Try again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-          <TouchableOpacity
-            style={st.locateBtn}
-            onPress={useMyLocation}
-            disabled={locating}
-            accessibilityLabel="Use my current location"
-          >
-            {locating
-              ? <ActivityIndicator size="small" color={Colors.blue600} />
-              : <Ionicons name="locate" size={20} color={Colors.blue600} />}
-          </TouchableOpacity>
+          {/* Pin and locate are meaningless without a map behind them. */}
+          {mapState !== 'failed' && (
+            <>
+              {/* Centre pin — never intercepts drags */}
+              <View style={st.pinWrap} pointerEvents="none">
+                <Ionicons
+                  name="location-sharp"
+                  size={38}
+                  color={Colors.blue600}
+                  style={{ marginBottom: dragging ? 10 : 0 }}
+                />
+                <View style={[st.pinShadow, { opacity: dragging ? 0.25 : 0.45 }]} />
+              </View>
+
+              <TouchableOpacity
+                style={st.locateBtn}
+                onPress={useMyLocation}
+                disabled={locating}
+                accessibilityLabel="Use my current location"
+              >
+                {locating
+                  ? <ActivityIndicator size="small" color={Colors.blue600} />
+                  : <Ionicons name="locate" size={20} color={Colors.blue600} />}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <View style={st.footer}>
@@ -288,6 +349,21 @@ const st = StyleSheet.create({
   },
 
   searchWrap: { paddingHorizontal: 18, paddingBottom: 10, zIndex: 10 },
+
+  mapFail: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.gray50,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 32, gap: 6,
+  },
+  mapFailTitle: { fontSize: 15, fontWeight: '700', color: Colors.gray800, marginTop: 4 },
+  mapFailBody:  { fontSize: 12.5, color: Colors.gray500, textAlign: 'center', lineHeight: 18 },
+  retryBtn: {
+    marginTop: 10, paddingVertical: 9, paddingHorizontal: 20,
+    borderRadius: 10, backgroundColor: Colors.blue50,
+    borderWidth: 1, borderColor: Colors.blue200,
+  },
+  retryText: { fontSize: 13.5, fontWeight: '700', color: Colors.blue700 },
 
   mapWrap: { flex: 1, backgroundColor: Colors.gray200 },
   centreLoader: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
