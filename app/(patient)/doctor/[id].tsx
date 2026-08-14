@@ -16,6 +16,7 @@ import * as Clipboard from 'expo-clipboard';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
+import { isTestHospital } from '../../../constants/config';
 import API from '../../../services/api';
 import {
   directionsUrl,
@@ -115,6 +116,17 @@ export default function DoctorDetails() {
   useEffect(() => {
     API.get(`/doctors/${id}/`)
       .then(({ data }) => {
+        // A test-hospital doctor reached by deep link or a shared link. The
+        // doctors list already hides these, but nothing stopped someone
+        // landing here directly — and the only row in the system with
+        // payment_collection_mode='FULL' lives behind a test hospital, so this
+        // screen would have offered to charge the full consultation fee for an
+        // appointment that does not exist. Treat it exactly like a missing
+        // doctor. Mirrors the web's DoctorsDetails.js guard.
+        if (isTestHospital(data?.hospital_name)) {
+          safeBack(router, '/(patient)/doctors');
+          return;
+        }
         setDoctor(data);
         // Fetch the hospital for contact number, social links & services.
         if (data?.hospital) {
