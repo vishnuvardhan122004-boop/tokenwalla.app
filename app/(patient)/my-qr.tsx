@@ -75,6 +75,9 @@ export default function MyQRScreen() {
   useFocusEffect(useCallback(() => {
     (async () => {
       setLoading(true);
+      // Persistent Tabs.Screen: a share left pending on an earlier visit would
+      // otherwise leave the Download button spinning and disabled here.
+      setDownloading(false);
       try {
         const { data } = await API.get('/bookings/my/');
         const list: Booking[] = Array.isArray(data) ? data : (data?.results || []);
