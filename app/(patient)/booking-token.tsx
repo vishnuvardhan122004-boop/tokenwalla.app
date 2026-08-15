@@ -29,7 +29,7 @@ export default function BookingTokenScreen() {
   // Consultation fee still payable at the hospital. 0 when it was collected
   // online (FULL) — nothing is owed at the desk, so the disclaimer is dropped.
   const dueAtHospital = Number(offlineFee || 0);
-  const notifiedRef = useRef(false);
+  const notifiedRef = useRef<string | null>(null);
   const ticketRef = useRef<View>(null);
   const [downloading, setDownloading] = useState(false);
 
@@ -59,10 +59,20 @@ export default function BookingTokenScreen() {
    useEffect(() => {
    if (!token) { router.replace('/(patient)/doctors'); return; }
 
-   // Fire the "token booked" notification once, then schedule the ~2.1h reminder.
-   if (!notifiedRef.current) {
-     notifiedRef.current = true;
-     const tokenStr = String(token);
+   // This is a Tabs.Screen (`href: null` in the patient _layout), so one
+   // instance serves every booking in the session. A share left pending on a
+   // previous token would otherwise keep the Download button spinning and
+   // disabled on this one.
+   setDownloading(false);
+
+   // Fire the "token booked" notification once per token, then schedule the
+   // ~2.1h reminder. Keyed on the token rather than a plain "already ran" flag:
+   // the flag was set on the first booking and never cleared, and because the
+   // instance persists, a patient's SECOND booking in the same session silently
+   // got neither the confirmation notification nor the scheduled reminder.
+   const tokenStr = String(token);
+   if (notifiedRef.current !== tokenStr) {
+     notifiedRef.current = tokenStr;
      const dateStr = date ? String(date) : undefined;
      const slotStr = slot ? String(slot) : undefined;
      notifyBookingConfirmed({
