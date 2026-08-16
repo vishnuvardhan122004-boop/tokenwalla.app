@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { ComponentProps, ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -102,6 +103,18 @@ const LinkLogo = ({ size = 24 }: { size?: number }) => (
 // module-level Set has exactly the lifetime we want — survives navigation,
 // clears on restart.
 const countedViews = new Set<string>();
+
+// Section heading with a leading icon. Five sections use this shape, so the
+// row markup lives here rather than being repeated (and drifting) at each one.
+const BlockTitle = ({ icon, children }: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  children: ReactNode;
+}) => (
+  <View style={styles.blockTitleRow}>
+    <Ionicons name={icon} size={16} color={Colors.blue600} />
+    <Text style={[styles.blockTitle, { marginBottom: 0 }]}>{children}</Text>
+  </View>
+);
 
 export default function DoctorDetails() {
   const { id }  = useLocalSearchParams<{ id: string }>();
@@ -342,6 +355,15 @@ export default function DoctorDetails() {
   const isBookable = selectedSlot && doctor.available &&
     !slotAvail[selectedSlot]?.full && !isSlotTooSoon(selectedDate, selectedSlot);
 
+  // The sticky CTA's icon + label together, so the two can never disagree about
+  // which state the button is in. `icon: null` means text alone.
+  const cta: { icon: ComponentProps<typeof Ionicons>['name'] | null; label: string } =
+    !doctor.available            ? { icon: 'close-circle-outline', label: 'Doctor Unavailable' }
+    : !selectedSlot              ? { icon: null, label: 'Select a Slot First' }
+    : slotAvail[selectedSlot]?.full ? { icon: 'close-circle-outline', label: 'Slot is Full' }
+    : user                       ? { icon: 'card-outline', label: `Pay ₹${money(fees.final_amount)} & Book Appointment` }
+    :                              { icon: 'lock-closed-outline', label: 'Login to Book' };
+
   // Walk-in: the hospital publishes no slot times, so there is nothing to book
   // online. We still list the doctor — patients get the hours, the days and a
   // number to call. Landline first: a clinic that has one usually wants calls
@@ -445,7 +467,7 @@ export default function DoctorDetails() {
             />
           ) : (
             <View style={styles.bannerPlaceholder}>
-              <Text style={{ fontSize: 64, opacity: 0.25 }}>🏥</Text>
+              <Ionicons name="business-outline" size={58} color={Colors.blue200} />
             </View>
           )}
           <View style={styles.bannerOverlay} />
@@ -459,7 +481,7 @@ export default function DoctorDetails() {
               <Image source={{ uri: doctor.image }} style={styles.doctorAvatarImg} resizeMode="cover" />
             ) : (
               <View style={styles.doctorAvatarBox}>
-                <Text style={{ fontSize: 34 }}>🩺</Text>
+                <Ionicons name="medkit-outline" size={32} color={Colors.blue400} />
               </View>
             )}
 
@@ -468,10 +490,12 @@ export default function DoctorDetails() {
               <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
               <View style={styles.pillRow}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>📍 {doctor.city}</Text>
+                  <Ionicons name="location-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
+                  <Text style={styles.pillText}>{doctor.city}</Text>
                 </View>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>⏳ {doctor.experience} yrs exp</Text>
+                  <Ionicons name="time-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
+                  <Text style={styles.pillText}>{doctor.experience} yrs exp</Text>
                 </View>
                 <View style={[
                   styles.pill,
@@ -490,7 +514,10 @@ export default function DoctorDetails() {
                   </Text>
                 </View>
               </View>
-              <Text style={styles.hospitalName}>🏥 {doctor.hospital_name}</Text>
+              <View style={styles.hospitalNameRow}>
+                <Ionicons name="business-outline" size={13} color={Colors.gray500} />
+                <Text style={styles.hospitalName}>{doctor.hospital_name}</Text>
+              </View>
             </View>
           </View>
 
@@ -511,12 +538,14 @@ export default function DoctorDetails() {
 
         {/* ── DOCTOR INFO ── */}
         <View style={styles.block}>
-          <Text style={styles.blockTitle}>👨‍⚕️ Doctor Info</Text>
+          <BlockTitle icon="person-outline">Doctor Info</BlockTitle>
 
           {/* Fee */}
           {(doctor.fee ?? 0) > 0 && (
             <View style={styles.infoRow}>
-              <View style={styles.infoIconBox}><Text>💰</Text></View>
+              <View style={styles.infoIconBox}>
+                <Ionicons name="cash-outline" size={17} color={Colors.blue600} />
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.infoLabel}>Consultation Fee</Text>
                 <Text style={styles.infoValue}>₹{doctor.fee}</Text>
@@ -526,7 +555,9 @@ export default function DoctorDetails() {
 
           {/* Hospital */}
           <View style={styles.infoRow}>
-            <View style={styles.infoIconBox}><Text>🏥</Text></View>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="business-outline" size={17} color={Colors.blue600} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Hospital</Text>
               <Text style={styles.infoValue}>{doctor.hospital_name}</Text>
@@ -535,7 +566,9 @@ export default function DoctorDetails() {
 
           {/* City */}
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-            <View style={styles.infoIconBox}><Text>📍</Text></View>
+            <View style={styles.infoIconBox}>
+              <Ionicons name="location-outline" size={17} color={Colors.blue600} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>Location</Text>
               <Text style={styles.infoValue}>{doctor.city}</Text>
@@ -549,7 +582,7 @@ export default function DoctorDetails() {
             Falls back to the raw text if the API predates the flag. */}
         {hospitalInfo?.announcement && hospitalInfo.announcement_active !== false ? (
           <View style={styles.noticeBox}>
-            <Text style={{ fontSize: 16 }}>📢</Text>
+            <Ionicons name="megaphone-outline" size={17} color={Colors.warningText} />
             <Text style={styles.noticeText}>{hospitalInfo.announcement}</Text>
           </View>
         ) : null}
@@ -564,19 +597,31 @@ export default function DoctorDetails() {
                 {hospitalInfo.logo?.startsWith('http') ? (
                   <Image source={{ uri: hospitalInfo.logo }} style={styles.hospLogo} resizeMode="cover" />
                 ) : null}
-                <Text style={[styles.blockTitle, { marginBottom: 0 }]}>🏥 About the Hospital</Text>
+                {hospitalInfo.logo?.startsWith('http') ? null : (
+                  <Ionicons name="business-outline" size={16} color={Colors.blue600} />
+                )}
+                <Text style={[styles.blockTitle, { marginBottom: 0 }]}>About the Hospital</Text>
               </View>
               {openNow != null && (
-                <View style={[styles.openPill, { backgroundColor: openNow ? Colors.successBg : Colors.errorBg, borderColor: openNow ? Colors.successBorder : Colors.errorBorder }]}>
+                <View style={[styles.openPill, { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: openNow ? Colors.successBg : Colors.errorBg, borderColor: openNow ? Colors.successBorder : Colors.errorBorder }]}>
+                  {/* A filled dot rather than 🟢/🔴 — the same status-dot shape
+                      already used on the Available/Unavailable pill above. */}
+                  <View style={{
+                    width: 6, height: 6, borderRadius: 3,
+                    backgroundColor: openNow ? Colors.successText : Colors.errorText,
+                  }} />
                   <Text style={{ fontSize: 11, fontWeight: '700', color: openNow ? Colors.successText : Colors.errorText }}>
-                    {openNow ? '🟢 Open now' : '🔴 Closed'}
+                    {openNow ? 'Open now' : 'Closed'}
                   </Text>
                 </View>
               )}
             </View>
 
             {(hospitalInfo.open_time && hospitalInfo.close_time) ? (
-              <Text style={styles.hoursText}>🕐 {hospitalInfo.open_time} – {hospitalInfo.close_time}</Text>
+              <View style={styles.hoursRow}>
+                <Ionicons name="time-outline" size={14} color={Colors.gray600} />
+                <Text style={styles.hoursText}>{hospitalInfo.open_time} – {hospitalInfo.close_time}</Text>
+              </View>
             ) : null}
 
             {/* About / description */}
@@ -586,24 +631,30 @@ export default function DoctorDetails() {
 
             {/* Directions (call is available after booking, in My Bookings) */}
             <TouchableOpacity style={styles.directionsBtn} onPress={() => Linking.openURL(directionsUrl(hospitalInfo))}>
-              <Text style={styles.directionsBtnText}>📍 Get Directions</Text>
+              <Ionicons name="navigate-outline" size={15} color={Colors.blue700} />
+              <Text style={styles.directionsBtnText}>Get Directions</Text>
             </TouchableOpacity>
 
+            {/* Real brand marks, not look-alike emoji — the same SVG logos the
+                share sheet already uses, so the two places stay consistent. */}
             {(hospitalInfo.instagram || hospitalInfo.youtube || hospitalInfo.facebook) && (
               <View style={styles.socialRow}>
                 {hospitalInfo.instagram ? (
                   <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.instagram!)}>
-                    <Text style={styles.socialBtnText}>📸 Instagram</Text>
+                    <InstagramLogo size={16} />
+                    <Text style={styles.socialBtnText}>Instagram</Text>
                   </TouchableOpacity>
                 ) : null}
                 {hospitalInfo.youtube ? (
                   <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.youtube!)}>
-                    <Text style={styles.socialBtnText}>▶️ YouTube</Text>
+                    <Ionicons name="logo-youtube" size={16} color="#FF0000" />
+                    <Text style={styles.socialBtnText}>YouTube</Text>
                   </TouchableOpacity>
                 ) : null}
                 {hospitalInfo.facebook ? (
                   <TouchableOpacity style={styles.socialBtn} onPress={() => Linking.openURL(hospitalInfo.facebook!)}>
-                    <Text style={styles.socialBtnText}>👍 Facebook</Text>
+                    <FacebookLogo size={16} />
+                    <Text style={styles.socialBtnText}>Facebook</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -641,11 +692,12 @@ export default function DoctorDetails() {
         {/* ── DATE PICKER ── pointless without slots to pick on that date. */}
         {!walkIn && (
         <View style={styles.block}>
-          <Text style={styles.blockTitle}>📅 Select Date</Text>
+          <BlockTitle icon="calendar-outline">Select Date</BlockTitle>
           {doctor.days && doctor.days.length > 0 && (
-            <Text style={styles.workingDaysNote}>
-              🩺 Works on: {doctor.days.join(', ')}
-            </Text>
+            <View style={styles.workingDaysRow}>
+              <Ionicons name="medkit-outline" size={13} color={Colors.blue600} />
+              <Text style={styles.workingDaysNote}>Works on: {doctor.days.join(', ')}</Text>
+            </View>
           )}
           <ScrollView
             horizontal
@@ -681,14 +733,17 @@ export default function DoctorDetails() {
         <View style={styles.block}>
           {/* Header row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.blockTitle}>{walkIn ? '🕐 Visiting Hours' : '🕐 Select Time Slot'}</Text>
+            <BlockTitle icon="time-outline">{walkIn ? 'Visiting Hours' : 'Select Time Slot'}</BlockTitle>
             {availLoading ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <ActivityIndicator size="small" color={Colors.blue400} />
                 <Text style={{ fontSize: 11, color: Colors.gray400 }}>Checking…</Text>
               </View>
             ) : selectedSlot ? (
-              <Text style={{ fontSize: 13, color: Colors.blue600, fontWeight: '700' }}>✓ {selectedSlot}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="checkmark-circle" size={15} color={Colors.blue600} />
+                <Text style={{ fontSize: 13, color: Colors.blue600, fontWeight: '700' }}>{selectedSlot}</Text>
+              </View>
             ) : null}
           </View>
 
@@ -718,7 +773,10 @@ export default function DoctorDetails() {
               </Text>
               {(hospitalInfo?.open_time || hospitalInfo?.close_time) ? (
                 <View style={styles.walkInRow}>
-                  <Text style={styles.walkInKey}>🕐 Hospital hours</Text>
+                  <View style={styles.walkInKeyRow}>
+                    <Ionicons name="time-outline" size={14} color={Colors.gray600} />
+                    <Text style={styles.walkInKey}>Hospital hours</Text>
+                  </View>
                   <Text style={styles.walkInVal}>
                     {hospitalInfo?.open_time || '—'} – {hospitalInfo?.close_time || '—'}
                   </Text>
@@ -726,7 +784,10 @@ export default function DoctorDetails() {
               ) : null}
               {doctor.days && doctor.days.length > 0 ? (
                 <View style={styles.walkInRow}>
-                  <Text style={styles.walkInKey}>📅 Available days</Text>
+                  <View style={styles.walkInKeyRow}>
+                    <Ionicons name="calendar-outline" size={14} color={Colors.gray600} />
+                    <Text style={styles.walkInKey}>Available days</Text>
+                  </View>
                   <Text style={styles.walkInVal}>{doctor.days.join(', ')}</Text>
                 </View>
               ) : null}
@@ -736,7 +797,8 @@ export default function DoctorDetails() {
                   onPress={() => Linking.openURL(`tel:${callNumber}`)}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.walkInCallText}>📞 Call {callNumber}</Text>
+                  <Ionicons name="call-outline" size={16} color={Colors.white} />
+                  <Text style={styles.walkInCallText}>Call {callNumber}</Text>
                 </TouchableOpacity>
               ) : (
                 <Text style={{ color: Colors.gray400, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
@@ -748,7 +810,10 @@ export default function DoctorDetails() {
             <View style={{ opacity: availLoading ? 0.5 : 1 }}>
               {am.length > 0 && (
                 <>
-                  <Text style={styles.slotPeriod}>🌅 MORNING</Text>
+                  <View style={styles.slotPeriodRow}>
+                    <Ionicons name="sunny-outline" size={13} color={Colors.gray500} />
+                    <Text style={styles.slotPeriod}>MORNING</Text>
+                  </View>
                   <View style={styles.slotGrid}>
                     {am.map(s => renderSlot(s))}
                   </View>
@@ -756,7 +821,10 @@ export default function DoctorDetails() {
               )}
               {pm.length > 0 && (
                 <>
-                  <Text style={[styles.slotPeriod, am.length > 0 && { marginTop: 18 }]}>🌇 AFTERNOON / EVENING</Text>
+                  <View style={[styles.slotPeriodRow, am.length > 0 && { marginTop: 18 }]}>
+                    <Ionicons name="partly-sunny-outline" size={13} color={Colors.gray500} />
+                    <Text style={styles.slotPeriod}>AFTERNOON / EVENING</Text>
+                  </View>
                   <View style={styles.slotGrid}>
                     {pm.map(s => renderSlot(s))}
                   </View>
@@ -768,7 +836,7 @@ export default function DoctorDetails() {
 
         {/* ── BOOKING SUMMARY ── */}
         <View style={styles.block}>
-          <Text style={styles.blockTitle}>📋 Booking Summary</Text>
+          <BlockTitle icon="receipt-outline">Booking Summary</BlockTitle>
 
           {[
             { label: 'Doctor',   value: `Dr. ${doctor.name}`                                              },
@@ -790,7 +858,10 @@ export default function DoctorDetails() {
           {/* Plan row */}
           <View style={styles.planRow}>
             <View style={styles.planInfo}>
-              <Text style={styles.planName}>📍 {PLAN.name}</Text>
+              <View style={styles.planNameRow}>
+                <Ionicons name="people-outline" size={14} color={Colors.blue700} />
+                <Text style={styles.planName}>{PLAN.name}</Text>
+              </View>
               <Text style={styles.planDesc}>{PLAN.desc}</Text>
             </View>
             <View style={styles.planBadge}>
@@ -841,8 +912,9 @@ export default function DoctorDetails() {
             activeOpacity={0.85}
             disabled={!callNumber}
           >
+            {callNumber ? <Ionicons name="call-outline" size={17} color={Colors.white} /> : null}
             <Text style={styles.bookBtnText}>
-              {callNumber ? `📞 Call ${callNumber}` : 'Contact the hospital to visit'}
+              {callNumber ? `Call ${callNumber}` : 'Contact the hospital to visit'}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -851,17 +923,8 @@ export default function DoctorDetails() {
             onPress={handleBook}
             activeOpacity={0.85}
           >
-            <Text style={styles.bookBtnText}>
-              {!doctor.available
-                ? '⛔ Doctor Unavailable'
-                : !selectedSlot
-                ? 'Select a Slot First'
-                : slotAvail[selectedSlot]?.full
-                ? '⛔ Slot is Full'
-                : user
-                ? `💳 Pay ₹${money(fees.final_amount)} & Book Appointment`
-                : '🔐 Login to Book'}
-            </Text>
+            {cta.icon ? <Ionicons name={cta.icon} size={17} color={Colors.white} /> : null}
+            <Text style={styles.bookBtnText}>{cta.label}</Text>
           </TouchableOpacity>
         )}
         <Text style={styles.bookNote}>
@@ -965,7 +1028,9 @@ const styles = StyleSheet.create({
   doctorName:   { fontSize: 18, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
   pillRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 6 },
   pill:         { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3 },
+  pillIcon:     { marginRight: 3 },
   pillText:     { fontSize: 11, color: Colors.blue700, fontWeight: '500' },
+  hospitalNameRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   hospitalName: { fontSize: 12, color: Colors.gray400 },
 
   statsRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.blue50 },
@@ -975,6 +1040,7 @@ const styles = StyleSheet.create({
 
   // ── Shared block ──
   block:      { backgroundColor: Colors.white, marginTop: 12, paddingHorizontal: 20, paddingVertical: 18, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.blue50 },
+  blockTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 14 },
   blockTitle: { fontSize: 15, fontWeight: '700', color: Colors.gray900, marginBottom: 14 },
 
   // ── Doctor Info rows ──
@@ -987,12 +1053,13 @@ const styles = StyleSheet.create({
   noticeBox:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.warningBg, borderWidth: 1, borderColor: Colors.warningBorder, borderRadius: 12, padding: 14, marginHorizontal: 16, marginTop: 12 },
   noticeText:  { flex: 1, fontSize: 13, color: Colors.warningText, lineHeight: 19, fontWeight: '500' },
   openPill:    { borderWidth: 1, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4 },
-  hoursText:   { fontSize: 13, color: Colors.gray600, marginBottom: 12, fontWeight: '500' },
+  hoursRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  hoursText:   { fontSize: 13, color: Colors.gray600, fontWeight: '500' },
   hospDesc:    { fontSize: 13, color: Colors.gray600, lineHeight: 20, marginBottom: 14 },
-  directionsBtn:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  directionsBtn:     { flexDirection: 'row', justifyContent: 'center', gap: 6, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   directionsBtnText: { fontSize: 14, fontWeight: '700', color: Colors.blue700 },
   socialRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  socialBtn:   { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
+  socialBtn:   { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
   socialBtnText: { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
   servicesLabel: { fontSize: 10, fontWeight: '700', color: Colors.gray400, letterSpacing: 1.5, marginTop: 16, marginBottom: 8 },
   servicesWrap:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
@@ -1002,7 +1069,8 @@ const styles = StyleSheet.create({
   hospLogo:      { width: 28, height: 28, borderRadius: 8, borderWidth: 1, borderColor: Colors.blue200 },
 
   // ── Date chips ──
-  workingDaysNote: { fontSize: 12, color: Colors.gray500, marginBottom: 12, marginTop: -4 },
+  workingDaysRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 12, marginTop: -4 },
+  workingDaysNote: { fontSize: 12, color: Colors.gray500 },
   dateChip:       { alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50, minWidth: 56 },
   dateChipActive: { backgroundColor: Colors.blue50, borderColor: Colors.blue600 },
   dateChipDisabled: { backgroundColor: Colors.gray100, borderColor: Colors.gray200, opacity: 0.6 },
@@ -1021,14 +1089,16 @@ const styles = StyleSheet.create({
   legendText: { fontSize: 11, color: Colors.gray500 },
 
   // ── Slot grid & buttons ──
-  slotPeriod: { fontSize: 10, fontWeight: '700', color: Colors.gray400, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 },
+  slotPeriodRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  slotPeriod: { fontSize: 10, fontWeight: '700', color: Colors.gray400, letterSpacing: 1.5, textTransform: 'uppercase' },
 
   // Walk-in (doctor publishes no slots)
   walkInLead: { fontSize: 14, lineHeight: 21, color: Colors.gray600, marginBottom: 12 },
   walkInRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
+  walkInKeyRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   walkInKey:  { fontSize: 14, color: Colors.gray500 },
   walkInVal:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, textAlign: 'right', flexShrink: 1 },
-  walkInCall: { marginTop: 16, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  walkInCall: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginTop: 16, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
   walkInCallText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   slotGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 
@@ -1072,7 +1142,8 @@ const styles = StyleSheet.create({
 
   planRow:        { flexDirection: 'row', alignItems: 'center', marginTop: 14, padding: 12, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12 },
   planInfo:       { flex: 1 },
-  planName:       { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 2 },
+  planNameRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 2 },
+  planName:       { fontSize: 13, fontWeight: '700', color: Colors.gray900 },
   planDesc:       { fontSize: 11, color: Colors.gray500 },
   planBadge:      { backgroundColor: Colors.blue600, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3 },
   planBadgeText:  { fontSize: 10, fontWeight: '700', color: Colors.white, textTransform: 'uppercase', letterSpacing: 0.5 },
@@ -1099,7 +1170,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
-  bookBtn:         { backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 16, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  bookBtn:         { flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 16, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   bookBtnDisabled: { backgroundColor: Colors.gray200, shadowOpacity: 0 },
   bookBtnText:     { color: Colors.white, fontWeight: '700', fontSize: 15 },
   bookNote:        { fontSize: 11, color: Colors.gray400, textAlign: 'center', marginTop: 10, lineHeight: 17 },
