@@ -13,14 +13,20 @@ import Constants from 'expo-constants';
 import { Alert, Linking, Platform } from 'react-native';
 
 import API from './api';
-import { updateAction } from '../utils/version';
+import { shouldPrompt, updateAction } from '../utils/version';
 
 const STORE_FALLBACK =
   'https://play.google.com/store/apps/details?id=com.vishnu2004.Tokenwalla';
 
-// One prompt per launch. A patient who dismissed the nag shouldn't meet it
-// again every time a screen remounts.
-let promptedThisLaunch = false;
+// When the dismissible nag was last shown. A timestamp rather than a
+// once-per-launch flag because this now also runs when the app returns to the
+// foreground — see shouldPrompt() for why both cases are needed. A blocking
+// prompt ignores this entirely.
+let lastNagAt = 0;
+
+// Guards against two checks overlapping — a resume can land while the launch
+// call is still awaiting the network, and two Alerts would stack.
+let inFlight = false;
 
 /** The version this build reports — the `version` field in app.json. */
 export function runningVersion(): string {
@@ -39,11 +45,20 @@ async function openStore(url: string) {
 /**
  * Ask the backend whether this build should update, and prompt if so.
  *
- * Call once on launch. Safe to call before login: the endpoint is public.
+ * Called on launch AND whenever the app returns to the foreground (see
+ * app/_layout.tsx). Safe to call before login: the endpoint is public.
  */
 export async function checkForUpdate(): Promise<void> {
-  if (promptedThisLaunch) return;
+  if (inFlight) return;
+  inFlight = true;
+  try {
+    await runCheck();
+  } finally {
+    inFlight = false;
+  }
+}
 
+async function runCheck(): Promise<void> {
   const current = runningVersion();
   if (!current) return;
 
@@ -67,7 +82,9 @@ export async function checkForUpdate(): Promise<void> {
     String(data.min_version ?? ''),
     String(data.latest_version ?? ''),
   );
-  if (action === 'none') return;
+  // A block always prompts; a nag waits out its cooldown so returning to the
+  // app doesn't re-ask someone who just chose "Not now".
+  if (!shouldPrompt(action, lastNagAt, Date.now())) return;
 
   const url = String(data.store_url ?? '') || STORE_FALLBACK;
   const storeName = Platform.OS === 'ios' ? 'the App Store' : 'the Play Store';
@@ -76,8 +93,6 @@ export async function checkForUpdate(): Promise<void> {
     (action === 'block'
       ? `This version of TokenWalla is too old to book appointments. Update from ${storeName} to continue.`
       : `A newer version of TokenWalla is available on ${storeName}.`);
-
-  promptedThisLaunch = true;
 
   if (action === 'block') {
     // No dismiss button, and cancelable: false — a build below the minimum
@@ -89,13 +104,17 @@ export async function checkForUpdate(): Promise<void> {
     return;
   }
 
+  // Only the dismissible nag starts the cooldown — a block deliberately
+  // re-prompts on every return to the foreground.
+  lastNagAt = Date.now();
   Alert.alert('Update Available', body, [
     { text: 'Not now', style: 'cancel' },
     { text: 'Update', onPress: () => openStore(url) },
   ]);
 }
 
-/** Test seam — lets a fresh launch prompt again. */
+/** Test seam — clears the nag cooldown so a fresh check prompts again. */
 export function _resetUpdatePromptForTests() {
-  promptedThisLaunch = false;
+  lastNagAt = 0;
+  inFlight = false;
 }

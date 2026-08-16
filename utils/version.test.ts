@@ -1,4 +1,4 @@
-import { compareVersions, updateAction } from './version';
+import { compareVersions, NAG_COOLDOWN_MS, shouldPrompt, updateAction } from './version';
 
 describe('compareVersions', () => {
   it('treats identical versions as equal', () => {
@@ -69,5 +69,41 @@ describe('updateAction', () => {
     // A typo in the Railway variable reaches every install at once. It must
     // degrade to "no prompt", never to "everyone is locked out".
     expect(updateAction('1.2.0', 'not-a-version', '')).toBe('none');
+  });
+});
+
+describe('shouldPrompt', () => {
+  const NOW = 1_700_000_000_000; // fixed: never derive a test clock from Date.now()
+
+  it('never prompts when there is nothing to say', () => {
+    expect(shouldPrompt('none', 0, NOW)).toBe(false);
+    expect(shouldPrompt('none', NOW, NOW)).toBe(false);
+  });
+
+  it('always prompts on block, however recently it prompted', () => {
+    // The blocking alert is non-dismissible, so there is nothing to spam — and
+    // a build below the minimum must not become usable by backgrounding it.
+    expect(shouldPrompt('block', NOW, NOW)).toBe(true);
+    expect(shouldPrompt('block', NOW - 1, NOW)).toBe(true);
+  });
+
+  it('suppresses a nag inside the cooldown', () => {
+    // The resume case: someone chose "Not now", switched apps, came back.
+    expect(shouldPrompt('nag', NOW - 60_000, NOW)).toBe(false);
+    expect(shouldPrompt('nag', NOW - (NAG_COOLDOWN_MS - 1), NOW)).toBe(false);
+  });
+
+  it('nags again once the cooldown has elapsed', () => {
+    expect(shouldPrompt('nag', NOW - NAG_COOLDOWN_MS, NOW)).toBe(true);
+    expect(shouldPrompt('nag', NOW - NAG_COOLDOWN_MS * 2, NOW)).toBe(true);
+  });
+
+  it('nags on a first run, when nothing has been shown yet', () => {
+    expect(shouldPrompt('nag', 0, NOW)).toBe(true);
+  });
+
+  it('honours an explicit cooldown', () => {
+    expect(shouldPrompt('nag', NOW - 5_000, NOW, 10_000)).toBe(false);
+    expect(shouldPrompt('nag', NOW - 15_000, NOW, 10_000)).toBe(true);
   });
 });
