@@ -12,8 +12,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -51,16 +51,30 @@ export default function EditProfile() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
 
-  useEffect(() => {
+  // Reloaded on every focus, not once on mount. This is a Tabs.Screen
+  // (`href: null` in the patient _layout), so the instance is never unmounted
+  // and a `[]` effect would run exactly once per app session — the form would
+  // keep showing the values from the first visit, including after a save.
+  // Mirrors the useFocusEffect in my-qr.tsx.
+  useFocusEffect(useCallback(() => {
     (async () => {
       const u = await getUser();
       if (!u) { router.replace('/(auth)/login'); return; }
       const n = u.name || u.username || '';
       const m = u.mobile || '';
       setOrigName(n); setOrigMobile(m); setName(n); setMobile(m);
+      // Drop the previous visit's OTP progress. Carrying `otpVerified` over
+      // let the client-side gate (`mobileChanged && !otpVerified`) pass for a
+      // number that was never verified — the backend still rejected it, since
+      // it checks a per-number `otp_verified:<mobile>` flag and consumes it,
+      // so the only result was a confusing "verify the new mobile" 400 on a
+      // screen that showed the number as already verified.
+      setOtp(''); setOtpSent(false); setOtpVerified(false);
       setLoaded(true);
     })();
-  }, []);
+  // router is stable; refetching is driven by focus, not by deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []));
 
   const mobileChanged = mobile.trim() !== origMobile;
   const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m.trim());

@@ -114,8 +114,24 @@ export default function DoctorDetails() {
   const [shareOpen,    setShareOpen]    = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
+    // Drop the previous doctor's data before fetching the new one. This screen
+    // is a Tabs.Screen (`href: null` in the patient _layout), so the navigator
+    // keeps ONE instance alive — picking a second doctor changes `id` on the
+    // component that is already mounted rather than remounting it. Without
+    // this reset, `loading` is still false and `doctor` still holds the last
+    // one, so their photo, name and fee stay on screen until the fetch lands.
+    // Same reason and same shape as the fee reset in payment.tsx.
+    setLoading(true);
+    setDoctor(null);
+    setHospitalInfo(null);
+    setSlotAvail({});
+    setSelectedSlot('');
+
     API.get(`/doctors/${id}/`)
       .then(({ data }) => {
+        if (cancelled) return;
         // A test-hospital doctor reached by deep link or a shared link. The
         // doctors list already hides these, but nothing stopped someone
         // landing here directly — and the only row in the system with
@@ -131,12 +147,17 @@ export default function DoctorDetails() {
         // Fetch the hospital for contact number, social links & services.
         if (data?.hospital) {
           API.get(`/hospitals/${data.hospital}/`)
-            .then(({ data: h }) => setHospitalInfo(h))
+            .then(({ data: h }) => { if (!cancelled) setHospitalInfo(h); })
             .catch(() => {});
         }
       })
-      .catch(() => safeBack(router, '/(patient)/doctors'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) safeBack(router, '/(patient)/doctors'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    // Tapping through doctors quickly leaves earlier requests in flight; without
+    // this, a slow response for the doctor you left could land last and overwrite
+    // the one you are actually looking at.
+    return () => { cancelled = true; };
   }, [id]);
 
   // Fetch slot availability whenever doctor or date changes
