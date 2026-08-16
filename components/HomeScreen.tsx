@@ -8,8 +8,8 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { ComponentProps, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -109,12 +109,35 @@ export default function HomeScreen() {
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
   const [langOpen, setLangOpen] = useState(false);
 
-  useEffect(() => {
+  // Which user id this device was last registered for. A ref, not state: it
+  // must not trigger a render, and it must survive re-renders of this screen.
+  const registeredFor = useRef<string | null>(null);
+
+  // Re-registering is keyed on WHO is signed in, and checked on every focus.
+  //
+  // This screen is the patient Home tab, so its instance is never unmounted —
+  // a `[]` effect runs exactly once per app session. That meant a logout
+  // followed by a login as a different account never re-registered the push
+  // token: the DeviceToken row still pointed at the PREVIOUS user, and the new
+  // one silently received no push at all. Confirmed in the Railway log on
+  // 2026-08-17 — "device registered for user 21", then "Booking 21 created for
+  // user 4", then "[push] no registered devices".
+  //
+  // The backend is an idempotent update_or_create on (expo_token, role), so a
+  // repeat call is cheap and self-healing; the ref just avoids a POST on every
+  // single focus.
+  useFocusEffect(useCallback(() => {
     getUser().then((u) => {
       setUser(u);
-      // Register this device for push once we know a patient is signed in.
-      if (u?.role === 'patient' || (u && u.role == null)) registerPushToken('patient');
+      if (!(u?.role === 'patient' || (u && u.role == null))) return;
+      const id = String(u?.id ?? u?.mobile ?? u?.username ?? '');
+      if (!id || registeredFor.current === id) return;
+      registeredFor.current = id;
+      registerPushToken('patient');
     });
+  }, []));
+
+  useEffect(() => {
     API.get('/doctors/')
       .then(({ data }) => {
         // Backend returns a DRF-paginated object { count, results: [...] };
