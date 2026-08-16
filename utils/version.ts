@@ -66,3 +66,33 @@ export function updateAction(
   }
   return 'none';
 }
+
+/** How long to leave a dismissed nag alone before raising it again. */
+export const NAG_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+/**
+ * Whether to raise the prompt now.
+ *
+ * The check runs on launch AND whenever the app returns to the foreground.
+ * Launch-only was not enough: on Android a process can stay resident for days,
+ * so someone who tapped the "please update" push frequently saw nothing at all
+ * — the app was merely resumed, and the launch effect never re-ran.
+ *
+ * Re-checking on resume creates the opposite risk, a prompt on every app
+ * switch. Hence:
+ *   'block' always prompts — such a build cannot talk to this API correctly,
+ *           and its alert is non-dismissible anyway, so there is nothing to
+ *           spam: the patient is either updating or stuck by design.
+ *   'nag'   prompts at most once per `cooldownMs`. Someone who chose "Not now"
+ *           is left alone for the rest of the day, not re-asked in a minute.
+ */
+export function shouldPrompt(
+  action: UpdateAction,
+  lastNagAt: number,
+  now: number,
+  cooldownMs: number = NAG_COOLDOWN_MS,
+): boolean {
+  if (action === 'none') return false;
+  if (action === 'block') return true;
+  return now - lastNagAt >= cooldownMs;
+}
