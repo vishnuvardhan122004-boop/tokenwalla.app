@@ -30,8 +30,15 @@ export default function PaymentScreen() {
   const params = useLocalSearchParams();
   const {
     doctorId, doctorName, doctorMobile,
+    scanId, scanName,
     hospital, date, slot,
   } = params;
+
+  // One screen, either provider. The SERVER prices whichever id it is sent and
+  // is the only authority on the amount — this screen only previews it.
+  const isScan       = !!scanId;
+  const providerId   = isScan ? scanId : doctorId;
+  const providerName = String((isScan ? scanName : doctorName) || '');
 
   // The itemised bill comes from the SERVER (doctor.fee_breakdown, computed by
   // payments/fees.py — the same code that prices the order). We don't recompute
@@ -75,28 +82,28 @@ export default function PaymentScreen() {
     })();
   }, []);
 
-  // ── Server-computed fee breakdown for this doctor ──────────────────────
+  // ── Server-computed fee breakdown for this provider ────────────────────
   useEffect(() => {
-    if (!doctorId) return;
+    if (!providerId) return;
     let cancelled = false;
-    // Drop the previous doctor's figures first — otherwise a slow or failed
-    // load leaves the last doctor's price on screen as if it were this one's.
+    // Drop the previous provider's figures first — otherwise a slow or failed
+    // load leaves the last one's price on screen as if it were this one's.
     setBreakdown(null);
     setFeeError('');
-    API.get(`/doctors/${doctorId}/`)
+    API.get(isScan ? `/scans/${scanId}/` : `/doctors/${doctorId}/`)
       .then(({ data }) => {
         if (cancelled) return;
         // A backend that predates fee_breakdown would leave this screen stuck
         // on "Loading…" forever, so fall back to the local mirror. It's a
         // preview either way — the amount charged is the server's order amount.
         setBreakdown(data.fee_breakdown
-          || computeFeeBreakdown(data.fee, data.payment_collection_mode));
+          || computeFeeBreakdown(isScan ? data.price : data.fee, data.payment_collection_mode));
       })
       .catch(() => {
         if (!cancelled) setFeeError('Could not load the fee details. Check your connection and try again.');
       });
     return () => { cancelled = true; };
-  }, [doctorId, feeReload]);
+  }, [providerId, isScan, scanId, doctorId, feeReload]);
 
   // ── Build HTML only after we have real orderData ───────────────────────
   const buildRazorpayHTML = (orderData: any, currentUser: any) => {
@@ -112,7 +119,7 @@ export default function PaymentScreen() {
     const userMobile = String(currentUser?.mobile || '');
     // Display the server-authoritative amount, not a client guess.
     const feeDisplay = money(rpRupees);
-    const drName     = String(doctorName || '');
+    const drName     = providerName;
     const apptDate   = String(date || '');
     const apptSlot   = String(slot || '');
 
@@ -258,11 +265,11 @@ export default function PaymentScreen() {
       // outcome for the patient, far worse experience — and a real refund on
       // our books every time.
       const { data: orderData } = await API.post('/payment/create-order/', {
-        doctorId,
+        ...(isScan ? { scanId } : { doctorId }),
         date,
         slot,
         currency: 'INR',
-        notes:    { doctorId, doctorName, hospital, date, slot },
+        notes:    { providerId, providerName, hospital, date, slot },
       });
 
       // FIX 1 & 3: build HTML now, with confirmed orderData
@@ -302,8 +309,7 @@ export default function PaymentScreen() {
         const verifyPayload = {
           order_id: msg.orderId,
           booking: {
-            doctorId,
-            doctorName,
+            ...(isScan ? { scanId, scanName } : { doctorId, doctorName }),
             hospital,
             date,
             slot,
@@ -336,8 +342,10 @@ export default function PaymentScreen() {
             pathname: '/(patient)/booking-token',
             params: {
               token:        verifyData.token,
-              doctorName:   String(doctorName),
-              doctorMobile: String(doctorMobile),
+              // booking-token renders this as the provider line; for a scan
+              // it carries the scan's name.
+              doctorName:   providerName,
+              doctorMobile: String(doctorMobile || ''),
               hospital:     String(hospital),
               date:         String(date),
               slot:         String(slot),
@@ -466,7 +474,8 @@ export default function PaymentScreen() {
           </View>
           <View style={styles.cardBody}>
             {[
-              { label: 'Doctor',   value: `Dr. ${doctorName}`         },
+              { label: isScan ? 'Scan' : 'Doctor',
+                value: isScan ? providerName : `Dr. ${providerName}` },
               { label: 'Hospital', value: String(hospital)             },
               { label: 'Date',     value: String(date)                 },
               { label: 'Slot',     value: String(slot)                 },

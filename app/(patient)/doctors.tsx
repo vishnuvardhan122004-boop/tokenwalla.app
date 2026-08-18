@@ -20,6 +20,7 @@ import { Colors } from '../../constants/colors';
 import { isTestHospital } from '../../constants/config';
 import { suggestKeywords } from '../../constants/searchKeywords';
 import API from '../../services/api';
+import { asList, filterScanCenters, SCAN_CENTER } from '../../utils/scanCenters';
 import { useI18n } from '../../services/i18n';
 
 // Last successful doctor list, cached so the screen paints instantly on reopen.
@@ -73,6 +74,13 @@ export default function DoctorsScreen() {
   const { t } = useI18n();
   // A specialty chip on the home screen deep-links here with ?q=<term>.
   const params = useLocalSearchParams<{ q?: string }>();
+  // 'doctors' | 'centres'. The centre path sits BESIDE the doctor path rather
+  // than generalising it: the doctor list is the live, revenue-carrying screen.
+  const [mode,            setMode]            = useState<'doctors' | 'centres'>('doctors');
+  const [centres,         setCentres]         = useState<any[]>([]);
+  const [scans,           setScans]           = useState<any[]>([]);
+  const [centresLoading,  setCentresLoading]  = useState(false);
+
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
   const [searchFocused,   setSearchFocused]   = useState(false);
@@ -90,6 +98,56 @@ export default function DoctorsScreen() {
     setDoctors(list);
     return list;
   }, []);
+
+  // Scanning centres, fetched lazily — a patient who never switches never pays
+  // for these two requests.
+  //
+  // filterScanCenters() is load-bearing, not belt-and-braces: this build can
+  // reach a backend that has not deployed scanning centres, and an older
+  // /api/hospitals/ IGNORES the unknown ?kind= param and returns every
+  // hospital. Without the client-side check those would render here as
+  // scanning centres. See utils/scanCenters.ts.
+  const loadCentres = useCallback(async () => {
+    setCentresLoading(true);
+    try {
+      const [hRes, sRes] = await Promise.all([
+        API.get('/hospitals/', { params: { kind: SCAN_CENTER } }),
+        API.get('/scans/').catch(() => ({ data: [] })),   // 404 on an old backend
+      ]);
+      setCentres(filterScanCenters(asList(hRes.data)));
+      setScans(asList(sRes.data));
+    } catch {
+      setCentres([]);
+      setScans([]);
+    } finally {
+      setCentresLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mode === 'centres' && centres.length === 0) loadCentres();
+  }, [mode, centres.length, loadCentres]);
+
+  const scansByCentre = scans.reduce((acc: Record<string, any[]>, sc: any) => {
+    (acc[sc.center] = acc[sc.center] || []).push(sc);
+    return acc;
+  }, {});
+
+  const filteredCentres = centres
+    .map(c => ({ ...c, scans: scansByCentre[c.id] || [] }))
+    .filter(c => {
+      const hay = [c.name, c.city, c.address,
+                   ...c.scans.map((sc: any) => `${sc.name} ${sc.modality}`)]
+        .filter(Boolean).join(' ').toLowerCase();
+      const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+      const matchSearch = words.every(w => hay.includes(w));
+      const matchCity   = !city || (c.city || '').toLowerCase().includes(city.toLowerCase());
+      return matchSearch && matchCity;
+    })
+    // A centre with nothing listed opens onto an empty menu — ranked last
+    // rather than hidden, so it still appears in a search by name.
+    .sort((a, b) => (b.scans.length > 0 ? 1 : 0) - (a.scans.length > 0 ? 1 : 0)
+                 || b.scans.length - a.scans.length);
 
   const loadDoctors = useCallback(async () => {
     setError(false);
@@ -380,11 +438,35 @@ export default function DoctorsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* ── DOCTORS ⇄ SCAN CENTRES ── */}
+      <View style={styles.modeRow}>
+        {([
+          { key: 'doctors', icon: 'medkit-outline', label: 'Doctors' },
+          { key: 'centres', icon: 'pulse-outline',  label: 'Scan Centres' },
+        ] as const).map(m => {
+          const active = mode === m.key;
+          return (
+            <TouchableOpacity
+              key={m.key}
+              style={[styles.modeBtn, active && styles.modeBtnActive]}
+              onPress={() => setMode(m.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Ionicons name={m.icon} size={15} color={active ? Colors.blue700 : Colors.gray500} />
+              <Text style={[styles.modeText, active && styles.modeTextActive]}>{m.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
       {/* ── RESULTS COUNT + SORT LABEL ── */}
       <View style={styles.countRow}>
         <Text style={styles.countText}>
-          {t('results_count', { count: filtered.length })}
-          {city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`}
+          {mode === 'centres'
+            ? `${filteredCentres.length} centre${filteredCentres.length === 1 ? '' : 's'}`
+            : t('results_count', { count: filtered.length })}
+          {mode === 'doctors' && (city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`)}
         </Text>
         {(search || availOnly || city) && (
           <TouchableOpacity onPress={() => {
@@ -397,8 +479,76 @@ export default function DoctorsScreen() {
         )}
       </View>
 
-      {/* ── DOCTOR LIST ── */}
-      {loading ? (
+      {/* ── SCAN CENTRE LIST ── */}
+      {mode === 'centres' ? (
+        centresLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={Colors.blue600} />
+          </View>
+        ) : filteredCentres.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="pulse-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
+            <Text style={styles.emptyTitle}>No scanning centres yet</Text>
+            <Text style={styles.emptySub}>
+              We&apos;re onboarding diagnostic partners now. Try the Doctors tab.
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredCentres}
+            keyExtractor={(item: any) => String(item.id)}
+            contentContainerStyle={{ padding: 16, gap: 14 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onScrollBeginDrag={() => setSearchFocused(false)}
+            renderItem={({ item: c }: { item: any }) => {
+              const prices = c.scans.map((sc: any) => sc.price || 0);
+              const from   = prices.length ? Math.min(...prices) : null;
+              const mods   = [...new Set(c.scans.map((sc: any) => sc.modality).filter(Boolean))].slice(0, 3);
+              return (
+                <TouchableOpacity
+                  style={styles.centreCard}
+                  activeOpacity={0.85}
+                  onPress={() => router.push(`/(patient)/scan-center/${c.id}` as never)}
+                >
+                  <View style={styles.centreTop}>
+                    <View style={styles.centreIcon}>
+                      <Ionicons name="pulse" size={20} color={Colors.blue600} />
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.centreName} numberOfLines={1}>{c.name}</Text>
+                      <Text style={styles.centreMeta} numberOfLines={1}>
+                        {[c.city, mods.join(' · ')].filter(Boolean).join('  •  ')}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {c.scans.length > 0 && (
+                    <View style={styles.centreChips}>
+                      {c.scans.slice(0, 3).map((sc: any) => (
+                        <Text key={sc.id} style={styles.centreChip} numberOfLines={1}>{sc.name}</Text>
+                      ))}
+                      {c.scans.length > 3 && (
+                        <Text style={styles.centreChipMore}>+{c.scans.length - 3}</Text>
+                      )}
+                    </View>
+                  )}
+
+                  <View style={styles.centreFooter}>
+                    <Text style={styles.centreCount}>
+                      {c.scans.length > 0
+                        ? `${c.scans.length} scan${c.scans.length === 1 ? '' : 's'}`
+                        : 'Contact the centre'}
+                    </Text>
+                    {from != null && <Text style={styles.centreFrom}>from ₹{from}</Text>}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )
+      ) : /* ── DOCTOR LIST ── */
+      loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={Colors.blue600} />
           <Text style={{ marginTop: 12, color: Colors.gray400, fontSize: 14 }}>{t('loading_doctors')}</Text>
@@ -714,6 +864,43 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   slotsCount:      { fontSize: 12, color: Colors.gray400 },
+
+  modeRow: {
+    flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginHorizontal: 16,
+    marginTop: 4, marginBottom: 2, padding: 4, borderRadius: 999,
+    backgroundColor: Colors.gray100,
+  },
+  modeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999,
+  },
+  modeBtnActive: { backgroundColor: Colors.white },
+  modeText:       { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
+  modeTextActive: { color: Colors.blue700 },
+
+  centreCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 14,
+    borderWidth: 1, borderColor: Colors.gray200,
+  },
+  centreTop:  { flexDirection: 'row', alignItems: 'center', gap: 11 },
+  centreIcon: {
+    width: 40, height: 40, borderRadius: 12, backgroundColor: Colors.blue50,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  centreName: { fontSize: 15.5, fontWeight: '700', color: Colors.gray900 },
+  centreMeta: { fontSize: 12.5, color: Colors.gray500, marginTop: 2 },
+  centreChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 11 },
+  centreChip: {
+    fontSize: 11.5, color: Colors.blue700, backgroundColor: Colors.blue50,
+    paddingVertical: 4, paddingHorizontal: 9, borderRadius: 7, maxWidth: 150,
+  },
+  centreChipMore: { fontSize: 11.5, color: Colors.gray400, alignSelf: 'center' },
+  centreFooter: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.gray100,
+  },
+  centreCount: { fontSize: 12.5, color: Colors.gray500 },
+  centreFrom:  { fontSize: 14, fontWeight: '800', color: Colors.gray900 },
   bookBtn:         { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 8 },
   bookBtnDisabled: { backgroundColor: Colors.gray200 },  // fixed: gray300 → gray200
   bookBtnText:     { color: Colors.white, fontWeight: '700', fontSize: 13 },

@@ -25,6 +25,7 @@ import { useAndroidBack } from '../../hooks/useAndroidBack';
 const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
 
 interface FormState {
+  kind: 'HOSPITAL' | 'SCAN_CENTER';
   name: string;
   city: string;
   address: string;
@@ -45,6 +46,7 @@ interface FormErrors {
 }
 
 const EMPTY_FORM: FormState = {
+  kind: 'HOSPITAL',
   name: '',
   city: '',
   address: '',
@@ -62,6 +64,12 @@ export default function HospitalRegisterScreen() {
   useAndroidBack(() => safeBack(router, '/(hospital)/login'));
 
   const [form,    setForm]    = useState<FormState>(EMPTY_FORM);
+
+  // One flag drives every label. A scanning centre registers through the same
+  // form, the same OTP and the same admin approval as a hospital — only the
+  // wording and the bookable unit differ (Doctors vs Scans).
+  const isCentre = form.kind === 'SCAN_CENTER';
+  const noun     = isCentre ? 'Scanning Centre' : 'Hospital';
   const [errors,  setErrors]  = useState<FormErrors>({});
 
   const [otp,         setOtp]         = useState('');
@@ -158,6 +166,7 @@ export default function HospitalRegisterScreen() {
     setGlobalError('');
     try {
       await API.post('/hospitals/register/', {
+        kind:      form.kind,
         name:      form.name.trim(),
         city:      form.city.trim(),
         address:   form.address.trim(),
@@ -207,12 +216,42 @@ export default function HospitalRegisterScreen() {
             <Text style={styles.brandName}><Text style={styles.accent}>Token</Text>walla</Text>
           </View>
 
-          <Text style={styles.panelLabel}>Hospital Registration</Text>
-          <Text style={styles.title}>Register Your{'\n'}Hospital</Text>
+          <Text style={styles.panelLabel}>{noun} Registration</Text>
+          <Text style={styles.title}>Register Your{'\n'}{isCentre ? 'Centre' : 'Hospital'}</Text>
           <Text style={styles.sub}>
-            Create your hospital account to manage doctors, slots, and live
-            patient queues from one dashboard.
+            {isCentre
+              ? 'Create your centre account to list your scans and prices, take bookings and manage the queue from one dashboard.'
+              : 'Create your hospital account to manage doctors, slots, and live patient queues from one dashboard.'}
           </Text>
+
+          {/* What are you registering? Asked first, because it changes what the
+              account can do: a hospital lists doctors and OPD slots, a centre
+              lists scans and their prices. Changing it later needs an admin. */}
+          <View style={styles.kindRow}>
+            {([
+              { value: 'HOSPITAL',    icon: 'business-outline',   label: 'Hospital / Clinic', sub: 'Doctors and OPD slots' },
+              { value: 'SCAN_CENTER', icon: 'pulse-outline',      label: 'Scanning Centre',   sub: 'MRI, CT, X-ray, blood' },
+            ] as const).map(opt => {
+              const active = form.kind === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[styles.kindCard, active && styles.kindCardActive]}
+                  onPress={() => setForm(prev => ({ ...prev, kind: opt.value }))}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Ionicons
+                    name={opt.icon}
+                    size={20}
+                    color={active ? Colors.blue700 : Colors.gray400}
+                  />
+                  <Text style={[styles.kindLabel, active && styles.kindLabelActive]}>{opt.label}</Text>
+                  <Text style={styles.kindSub}>{opt.sub}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           <View style={styles.divider} />
 
@@ -228,13 +267,13 @@ export default function HospitalRegisterScreen() {
             </View>
           )}
 
-          {/* Hospital name */}
-          <Text style={styles.label}>Hospital Name</Text>
+          {/* Provider name */}
+          <Text style={styles.label}>{noun} Name</Text>
           <View style={[styles.inputRow, errors.name && styles.inputRowError]}>
-            <Ionicons name="business-outline" size={17} color={Colors.gray400} />
+            <Ionicons name={isCentre ? 'pulse-outline' : 'business-outline'} size={17} color={Colors.gray400} />
             <TextInput
               style={styles.input}
-              placeholder="e.g. City Care Hospital"
+              placeholder={isCentre ? 'e.g. Vijaya Diagnostics' : 'e.g. City Care Hospital'}
               placeholderTextColor={Colors.gray400}
               value={form.name}
               onChangeText={t => setField('name', t)}
@@ -412,7 +451,7 @@ export default function HospitalRegisterScreen() {
           >
             {submitting
               ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.submitBtnText}>Register Hospital →</Text>
+              : <Text style={styles.submitBtnText}>Register {noun} →</Text>
             }
           </TouchableOpacity>
 
@@ -468,6 +507,16 @@ const styles = StyleSheet.create({
   input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
+
+  kindRow:   { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  kindCard: {
+    flex: 1, gap: 3, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12,
+    backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200,
+  },
+  kindCardActive: { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
+  kindLabel:       { fontSize: 13, fontWeight: '700', color: Colors.gray700 },
+  kindLabelActive: { color: Colors.blue700 },
+  kindSub:         { fontSize: 11, color: Colors.gray400, lineHeight: 15 },
 
   pickBtn:       { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 8 },
   pickBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
