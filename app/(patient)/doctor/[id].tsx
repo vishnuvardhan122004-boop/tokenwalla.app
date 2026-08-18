@@ -861,19 +861,23 @@ export default function DoctorDetails() {
             </View>
           ))}
 
-          {/* Plan row */}
-          <View style={styles.planRow}>
-            <View style={styles.planInfo}>
-              <View style={styles.planNameRow}>
-                <Ionicons name="people-outline" size={14} color={Colors.blue700} />
-                <Text style={styles.planName}>{PLAN.name}</Text>
+          {/* Plan row. Hidden for walk-in: "Token + live queue position tracking"
+              is exactly what a walk-in patient does NOT get, and the row two
+              above already says "Walk-in — no token". */}
+          {!walkIn && (
+            <View style={styles.planRow}>
+              <View style={styles.planInfo}>
+                <View style={styles.planNameRow}>
+                  <Ionicons name="people-outline" size={14} color={Colors.blue700} />
+                  <Text style={styles.planName}>{PLAN.name}</Text>
+                </View>
+                <Text style={styles.planDesc}>{PLAN.desc}</Text>
               </View>
-              <Text style={styles.planDesc}>{PLAN.desc}</Text>
+              <View style={styles.planBadge}>
+                <Text style={styles.planBadgeText}>Popular</Text>
+              </View>
             </View>
-            <View style={styles.planBadge}>
-              <Text style={styles.planBadgeText}>Popular</Text>
-            </View>
-          </View>
+          )}
 
           <View style={styles.summaryRow}>
             <View style={styles.feeLabelRow}>
