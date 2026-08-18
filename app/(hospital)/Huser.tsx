@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import LocationSearch from '../../components/LocationSearch';
+import LocationPickerModal from '../../components/LocationPickerModal';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -67,6 +68,8 @@ export default function HospitalRegisterScreen() {
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+
+  const [pickerOpen,  setPickerOpen]  = useState(false);
 
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -256,10 +259,39 @@ export default function HospitalRegisterScreen() {
               setErrors(prev => ({ ...prev, city: undefined }));
             }}
           />
-          {form.latitude != null && (
-            <Text style={styles.pinnedText}>✓ Location pinned on the map</Text>
+          {form.latitude != null ? (
+            <View style={styles.pinnedRow}>
+              <Ionicons name="checkmark-circle" size={18} color={Colors.successText} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.pinnedTitle}>Pinned on the map</Text>
+                <Text style={styles.pinnedCoords} numberOfLines={1}>
+                  {form.latitude.toFixed(6)}, {form.longitude!.toFixed(6)}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setPickerOpen(true)} style={styles.pinnedChange}>
+                <Text style={styles.pinnedChangeText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.pickBtn} onPress={() => setPickerOpen(true)}>
+              <Ionicons name="map-outline" size={16} color={Colors.blue700} />
+              <Text style={styles.pickBtnText}>Pin exact location on map</Text>
+            </TouchableOpacity>
           )}
+          <Text style={styles.pinnedHint}>
+            An exact pin helps patients find your entrance and get directions.
+          </Text>
           {!!errors.city && <Text style={styles.fieldError}>{errors.city}</Text>}
+
+          <LocationPickerModal
+            visible={pickerOpen}
+            initial={{ lat: form.latitude, lng: form.longitude }}
+            onClose={() => setPickerOpen(false)}
+            onPick={({ city, lat, lng }) => {
+              setForm(prev => ({ ...prev, city: prev.city || city, latitude: lat, longitude: lng }));
+              setErrors(prev => ({ ...prev, city: undefined }));
+            }}
+          />
           <View style={{ height: 14 }} />
 
           {/* Address */}
@@ -437,7 +469,21 @@ const styles = StyleSheet.create({
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
 
-  pinnedText:    { fontSize: 12, color: Colors.successText, fontWeight: '600', marginTop: 6 },
+  pickBtn:       { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 11, alignItems: 'center', marginTop: 8 },
+  pickBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+  pinnedRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+    backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder,
+    borderRadius: 10, paddingVertical: 9, paddingHorizontal: 11,
+  },
+  pinnedTitle:  { fontSize: 13, fontWeight: '700', color: Colors.successText },
+  pinnedCoords: { fontSize: 11, color: Colors.gray500, marginTop: 1 },
+  pinnedChange: {
+    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.successBorder,
+  },
+  pinnedChangeText: { fontSize: 12, fontWeight: '700', color: Colors.successText },
+  pinnedHint: { fontSize: 11.5, color: Colors.gray500, marginTop: 6, marginBottom: 2 },
 
   otpRow:        { flexDirection: 'row', gap: 10, marginBottom: 6, alignItems: 'flex-start' },
   otpBtn:        { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center', minWidth: 80, alignItems: 'center', minHeight: 50 },

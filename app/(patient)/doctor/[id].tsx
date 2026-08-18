@@ -525,8 +525,14 @@ export default function DoctorDetails() {
           <View style={styles.statsRow}>
             {[
               { val: `${doctor.experience}+`, lbl: 'Years Exp'    },
-              { val: slots.length,             lbl: 'Daily Slots'  },
-              { val: doctor.max_per_slot || 10, lbl: 'Per Slot'   },
+              // Slot counts are meaningless for a walk-in doctor — mirrors the
+              // website's DoctorsDetails stats row.
+              walkIn
+                ? { val: 'Walk-in', lbl: 'Visit Type' }
+                : { val: slots.length, lbl: 'Daily Slots' },
+              walkIn
+                ? { val: (doctor.days || []).length || '—', lbl: 'Days Open' }
+                : { val: doctor.max_per_slot || 10, lbl: 'Per Slot' },
             ].map(({ val, lbl }, i) => (
               <View key={lbl} style={[styles.statBox, i < 2 && { borderRightWidth: 1, borderRightColor: Colors.blue50 }]}>
                 <Text style={styles.statVal}>{val}</Text>
