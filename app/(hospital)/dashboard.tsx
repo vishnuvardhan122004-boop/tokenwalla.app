@@ -40,6 +40,7 @@ import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKey
 import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
+import { asList } from '../../utils/scanCenters';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
 import { safeBack } from '../../utils/navigation';
 
@@ -49,6 +50,18 @@ interface Hospital {
   id: number | string;
   name: string;
   city?: string;
+  kind?: string;
+}
+
+interface Scan {
+  id: number | string;
+  name: string;
+  modality?: string;
+  price: number;
+  duration_minutes: number;
+  prep_instructions?: string;
+  available: boolean;
+  slots: string[];
 }
 
 interface Doctor {
@@ -295,6 +308,7 @@ export default function HospitalDashboard() {
   const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
+  const [scans,      setScans]      = useState<Scan[]>([]);
   const [loading,    setLoading]    = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -364,6 +378,25 @@ export default function HospitalDashboard() {
       }
     } catch {}
   }, [hospital]);
+
+  // A scanning centre is a Hospital row with kind=SCAN_CENTER. The queue,
+  // payments and QR scanner all work identically for one — only the bookable
+  // unit differs, so only this tab changes.
+  const isCentre = hospital?.kind === 'SCAN_CENTER';
+
+  const loadScans = useCallback(async () => {
+    if (!hospital?.id) return;
+    try {
+      const { data } = await API.get('/scans/', { params: { center: hospital.id } });
+      setScans(asList<Scan>(data));
+    } catch {
+      setScans([]);          // an older backend has no /scans/ endpoint
+    }
+  }, [hospital?.id]);
+
+  useEffect(() => {
+    if (isCentre && activeTab === 'doctors') loadScans();
+  }, [isCentre, activeTab, loadScans]);
 
   // ── Load Doctors ──────────────────────────────────────────────────────────
   const loadDoctors = useCallback(async () => {
@@ -1116,9 +1149,13 @@ export default function HospitalDashboard() {
             style={[styles.tab, activeTab === 'doctors' && styles.tabActive]}
             onPress={() => setActiveTab('doctors')}
           >
-            <Ionicons name="medkit-outline" size={15} color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500} />
+            <Ionicons
+              name={isCentre ? 'pulse-outline' : 'medkit-outline'}
+              size={15}
+              color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500}
+            />
             <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]} numberOfLines={1}>
-              Doctors {doctors.length}
+              {isCentre ? `Scans ${scans.length}` : `Doctors ${doctors.length}`}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1328,7 +1365,50 @@ export default function HospitalDashboard() {
         {/* ══════════════════════════════════════════════════════════════════
             DOCTORS TAB
         ══════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'doctors' && (
+        {/* ── SCANS (a centre's version of the Doctors tab) ── */}
+        {activeTab === 'doctors' && isCentre && (
+          <View style={{ padding: 16 }}>
+            <Text style={styles.scanLead}>
+              Patients see these, with prices, on your centre page. Add or edit
+              them from the TokenWalla website — this screen is read-only for now.
+            </Text>
+
+            {scans.length === 0 ? (
+              <View style={styles.scanEmpty}>
+                <Ionicons name="pulse-outline" size={38} color={Colors.gray400} />
+                <Text style={styles.scanEmptyTitle}>No scans listed yet</Text>
+                <Text style={styles.scanEmptySub}>
+                  Patients can find your centre but cannot see what you offer
+                  until you add one.
+                </Text>
+              </View>
+            ) : scans.map(sc => (
+              <View key={String(sc.id)} style={styles.scanCard}>
+                <View style={styles.scanTop}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.scanName}>{sc.name}</Text>
+                    <Text style={styles.scanMeta}>
+                      {[sc.modality, `${sc.duration_minutes} min`,
+                        `${sc.slots?.length || 0} slot${sc.slots?.length === 1 ? '' : 's'}`]
+                        .filter(Boolean).join(' · ')}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.scanPrice}>₹{sc.price}</Text>
+                    <Text style={[styles.scanBadge, !sc.available && styles.scanBadgeOff]}>
+                      {sc.available ? 'Listed' : 'Hidden'}
+                    </Text>
+                  </View>
+                </View>
+                {!!sc.prep_instructions && (
+                  <Text style={styles.scanPrep}>⚠ {sc.prep_instructions}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'doctors' && !isCentre && (
           <View style={{ padding: 16 }}>
 
             <TouchableOpacity style={styles.addDoctorBtn} onPress={openAdd}>
@@ -1542,6 +1622,26 @@ const styles = StyleSheet.create({
   doneBtnText:  { color: Colors.successText, fontWeight: '700', fontSize: 13 },
   completedBadge: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   completedText:  { fontSize: 12, fontWeight: '600', color: Colors.successText },
+
+  scanLead:  { fontSize: 12.5, color: Colors.gray500, lineHeight: 18, marginBottom: 14 },
+  scanEmpty: { alignItems: 'center', gap: 6, paddingVertical: 40 },
+  scanEmptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
+  scanEmptySub:   { fontSize: 12.5, color: Colors.gray500, textAlign: 'center', lineHeight: 18, paddingHorizontal: 24 },
+  scanCard: {
+    backgroundColor: Colors.white, borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.gray200,
+  },
+  scanTop:   { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  scanName:  { fontSize: 15, fontWeight: '700', color: Colors.gray900 },
+  scanMeta:  { fontSize: 12.5, color: Colors.gray500, marginTop: 3 },
+  scanPrice: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
+  scanBadge: {
+    fontSize: 10.5, fontWeight: '700', color: Colors.successText,
+    backgroundColor: Colors.successBg, paddingVertical: 2, paddingHorizontal: 8,
+    borderRadius: 6, overflow: 'hidden', marginTop: 4,
+  },
+  scanBadgeOff: { color: Colors.gray500, backgroundColor: Colors.gray100 },
+  scanPrep: { fontSize: 12, color: '#92400E', marginTop: 9, lineHeight: 17 },
 
   addDoctorBtn:      { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 16, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   addDoctorBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 15 },
