@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -32,6 +32,7 @@ interface FormState {
   mobile: string;
   password: string;
   confirmPassword: string;
+  licenseNumber: string;
   latitude: number | null;
   longitude: number | null;
 }
@@ -43,6 +44,7 @@ interface FormErrors {
   mobile?: string;
   password?: string;
   confirmPassword?: string;
+  licenseNumber?: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -53,6 +55,7 @@ const EMPTY_FORM: FormState = {
   mobile: '',
   password: '',
   confirmPassword: '',
+  licenseNumber: '',
   latitude: null,
   longitude: null,
 };
@@ -63,7 +66,14 @@ export default function HospitalRegisterScreen() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(hospital)/login'));
 
-  const [form,    setForm]    = useState<FormState>(EMPTY_FORM);
+  // ?kind=SCAN_CENTER lands a centre on the centre form, so the "Register your
+  // scanning centre" links elsewhere in the app arrive at the right thing.
+  // Whitelisted against the one value we accept rather than trusted — the
+  // toggle below stays the real control either way.
+  const { kind: kindParam } = useLocalSearchParams<{ kind?: string }>();
+  const [form,    setForm]    = useState<FormState>(
+    kindParam === 'SCAN_CENTER' ? { ...EMPTY_FORM, kind: 'SCAN_CENTER' } : EMPTY_FORM,
+  );
 
   // One flag drives every label. A scanning centre registers through the same
   // form, the same OTP and the same admin approval as a hospital — only the
@@ -99,6 +109,11 @@ export default function HospitalRegisterScreen() {
     if (!form.city.trim())            next.city    = 'City is required';
     if (!form.address.trim())         next.address = 'Address is required';
     if (!isValidMobile(form.mobile))  next.mobile  = 'Enter a valid 10-digit mobile number';
+    // Centre-only. The backend blocks approval without it, so catching it here
+    // saves a partner sitting in 'pending' with no idea what is missing.
+    if (isCentre && !form.licenseNumber.trim()) {
+      next.licenseNumber = 'Registration / licence number is required';
+    }
     if (form.password.length < 6)     next.password = 'Minimum 6 characters';
     if (form.password !== form.confirmPassword) {
       next.confirmPassword = 'Passwords do not match';
@@ -174,6 +189,7 @@ export default function HospitalRegisterScreen() {
         longitude: form.longitude,
         mobile:    form.mobile.trim(),
         password:  form.password,
+        license_number: form.licenseNumber.trim(),
       });
 
       setGlobalInfo('');
@@ -280,6 +296,33 @@ export default function HospitalRegisterScreen() {
             />
           </View>
           {!!errors.name && <Text style={styles.fieldError}>{errors.name}</Text>}
+
+          {/* Registration / licence number — scanning centres only. The one
+              field separating a real centre from anybody who can type a name,
+              and a patient walks into the result for an MRI. */}
+          {isCentre && (
+            <>
+              <Text style={styles.label}>Registration / Licence Number</Text>
+              <View style={[styles.inputRow, errors.licenseNumber && styles.inputRowError]}>
+                <Ionicons name="card-outline" size={17} color={Colors.gray400} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. AP/CEA/2026/1188"
+                  placeholderTextColor={Colors.gray400}
+                  autoCapitalize="characters"
+                  value={form.licenseNumber}
+                  onChangeText={t => setField('licenseNumber', t)}
+                />
+              </View>
+              {errors.licenseNumber
+                ? <Text style={styles.fieldError}>{errors.licenseNumber}</Text>
+                : <Text style={styles.fieldHint}>
+                    Your Clinical Establishments Act registration, AERB licence or NABL
+                    id — whichever your centre operates under. We verify it before
+                    approving your account.
+                  </Text>}
+            </>
+          )}
 
           {/* City / location — real place autocomplete (captures coordinates) */}
           <Text style={styles.label}>City / Location</Text>
@@ -507,6 +550,7 @@ const styles = StyleSheet.create({
   input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
+  fieldHint:     { fontSize: 11.5, color: Colors.gray400, lineHeight: 17, marginTop: -8, marginBottom: 12 },
 
   kindRow:   { flexDirection: 'row', gap: 10, marginBottom: 18 },
   kindCard: {

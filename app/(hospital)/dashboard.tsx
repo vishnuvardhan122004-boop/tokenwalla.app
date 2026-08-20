@@ -41,6 +41,8 @@ import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
 import { asList } from '../../utils/scanCenters';
+import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
+import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
 import { safeBack } from '../../utils/navigation';
 
@@ -53,16 +55,10 @@ interface Hospital {
   kind?: string;
 }
 
-interface Scan {
-  id: number | string;
-  name: string;
-  modality?: string;
-  price: number;
-  duration_minutes: number;
-  prep_instructions?: string;
-  available: boolean;
-  slots: string[];
-}
+// The editor owns this shape. A narrower local copy would type-check and then
+// silently PATCH away every field it did not know about — description, keywords,
+// days, collection mode — the first time a centre edited a scan.
+type Scan = ScanRecord;
 
 interface Doctor {
   id: number | string;
@@ -89,6 +85,7 @@ interface Patient {
   slot?: string;
   token?: string | number;
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
+  provider_kind?: string; // 'DOCTOR' | 'SCAN'
 }
 
 interface QueueState {
@@ -125,35 +122,6 @@ interface ImageFile {
 const MOBILE_RE   = /^[6-9][0-9]{9}$/;
 const LANDLINE_RE = /^0[1-9][0-9]{1,3}[- ]?[0-9]{6,8}$/;
 
-const DEFAULT_SLOTS: string[] = [
-  "12:00 AM","12:30 AM","01:00 AM","01:30 AM","02:00 AM","02:30 AM",
-  "03:00 AM","03:30 AM","04:00 AM","04:30 AM","05:00 AM","05:30 AM",
-  "06:00 AM","06:30 AM","07:00 AM","07:30 AM","08:00 AM","08:30 AM",
-  "09:00 AM","09:30 AM","10:00 AM","10:30 AM","11:00 AM","11:30 AM",
-  "12:00 PM","12:30 PM","01:00 PM","01:30 PM","02:00 PM","02:30 PM",
-  "03:00 PM","03:30 PM","04:00 PM","04:30 PM","05:00 PM","05:30 PM",
-  "06:00 PM","06:30 PM","07:00 PM","07:30 PM","08:00 PM","08:30 PM",
-  "09:00 PM","09:30 PM","10:00 PM","10:30 PM","11:00 PM","11:30 PM",
-];
-
-const SLOT_SECTIONS = [
-  { label: "Late Night / Early Morning", slots: DEFAULT_SLOTS.slice(0, 12) },
-  { label: "Morning",                    slots: DEFAULT_SLOTS.slice(12, 24) },
-  { label: "Afternoon",                  slots: DEFAULT_SLOTS.slice(24, 32) },
-  { label: "Evening",                    slots: DEFAULT_SLOTS.slice(32, 40) },
-  { label: "Night",                      slots: DEFAULT_SLOTS.slice(40, 48) },
-];
-
-// Days of the week the doctor is available on (separate from time slots).
-const DAYS_OF_WEEK: { key: string; label: string }[] = [
-  { key: 'Mon', label: 'Monday'    },
-  { key: 'Tue', label: 'Tuesday'   },
-  { key: 'Wed', label: 'Wednesday' },
-  { key: 'Thu', label: 'Thursday'  },
-  { key: 'Fri', label: 'Friday'    },
-  { key: 'Sat', label: 'Saturday'  },
-  { key: 'Sun', label: 'Sunday'    },
-];
 
 const EMPTY_FORM: FormState = {
   name:           '',
@@ -309,6 +277,12 @@ export default function HospitalDashboard() {
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
+  // null + open = adding; a record + open = editing. Two pieces of state rather
+  // than one nullable, so closing the sheet does not blank the row mid-animation.
+  // Which completed booking is mid-upload, so only that card shows a spinner.
+  const [uploadingFor,  setUploadingFor]  = useState<string | null>(null);
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [editScan,      setEditScan]      = useState<ScanRecord | null>(null);
   const [loading,    setLoading]    = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -477,6 +451,44 @@ export default function HospitalDashboard() {
       Alert.alert('Error', 'Failed to update availability');
     }
     setToggling(null);
+  };
+
+  // ── Upload a scan report ──────────────────────────────────────────────────
+  // The stage a consultation does not have: a scan is not over when the patient
+  // walks out, because the report comes back hours or days later. The server
+  // notifies the patient; this screen never sees the file again, because a
+  // report is medical PII served only through the ownership-checked download
+  // endpoint — a storage URL would be a bearer token anyone could forward.
+  const uploadReport = async (p: Patient) => {
+    // Lazy require: expo-document-picker is a native module, and importing it
+    // at module scope would run on every dashboard mount including a hospital's,
+    // which never uploads anything.
+    const DocumentPicker = await import('expo-document-picker');
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ['application/pdf', 'image/*'],
+      copyToCacheDirectory: true,
+    });
+    if (picked.canceled || !picked.assets?.length) return;
+    const file = picked.assets[0];
+
+    setUploadingFor(String(p.id));
+    try {
+      const fd = new FormData();
+      fd.append('file', {
+        uri:  file.uri,
+        name: file.name || 'report.pdf',
+        type: file.mimeType || 'application/pdf',
+      } as unknown as Blob);
+      fd.append('title', `${p.doctor_name || 'Scan'} report`);
+      await API.post(`/bookings/${p.id}/reports/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      Alert.alert('Report uploaded', 'The patient has been notified.');
+    } catch (e: any) {
+      Alert.alert('Error', e?.response?.data?.message || 'Could not upload the report.');
+    } finally {
+      setUploadingFor(null);
+    }
   };
 
   // ── Delete Doctor ─────────────────────────────────────────────────────────
@@ -717,6 +729,19 @@ export default function HospitalDashboard() {
       {/* ══════════════════════════════════════════════════════════════════════
           DOCTOR FORM MODAL
       ══════════════════════════════════════════════════════════════════════ */}
+      {/* A centre's version of the doctor form. Mounted unconditionally: the
+          modal itself is hidden until `visible`, and gating it on `isCentre`
+          would unmount it mid-dismiss when a kind changes under us. */}
+      {!!hospital?.id && (
+        <ScanEditorModal
+          visible={scanModalOpen}
+          scan={editScan}
+          centerId={hospital.id}
+          onClose={() => setScanModalOpen(false)}
+          onSaved={loadScans}
+        />
+      )}
+
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
           <KeyboardAvoidingView
@@ -1352,9 +1377,26 @@ export default function HospitalDashboard() {
                       <Text style={styles.tokenChipText}>{p.token}</Text>
                     </TouchableOpacity>
                   </View>
-                  <View style={styles.completedBadge}>
-                    <Ionicons name="checkmark-circle" size={13} color={Colors.successText} />
-                    <Text style={styles.completedText}>Done</Text>
+                  <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                    <View style={styles.completedBadge}>
+                      <Ionicons name="checkmark-circle" size={13} color={Colors.successText} />
+                      <Text style={styles.completedText}>Done</Text>
+                    </View>
+                    {/* Scan bookings only — a consultation has nothing to upload. */}
+                    {isCentre && p.provider_kind === 'SCAN' && (
+                      <TouchableOpacity
+                        style={styles.uploadBtn}
+                        disabled={uploadingFor === String(p.id)}
+                        onPress={() => uploadReport(p)}
+                      >
+                        {uploadingFor === String(p.id)
+                          ? <ActivityIndicator size="small" color={Colors.blue700} />
+                          : <>
+                              <Ionicons name="cloud-upload-outline" size={14} color={Colors.blue700} />
+                              <Text style={styles.uploadBtnText}>Report</Text>
+                            </>}
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               ))
@@ -1369,9 +1411,16 @@ export default function HospitalDashboard() {
         {activeTab === 'doctors' && isCentre && (
           <View style={{ padding: 16 }}>
             <Text style={styles.scanLead}>
-              Patients see these, with prices, on your centre page. Add or edit
-              them from the TokenWalla website — this screen is read-only for now.
+              Patients see these, with prices, on your centre page. Tap one to edit
+              it, or add a new one.
             </Text>
+
+            <TouchableOpacity
+              style={styles.addDoctorBtn}
+              onPress={() => { setEditScan(null); setScanModalOpen(true); }}
+            >
+              <Text style={styles.addDoctorBtnText}>+ Add New Scan</Text>
+            </TouchableOpacity>
 
             {scans.length === 0 ? (
               <View style={styles.scanEmpty}>
@@ -1403,6 +1452,22 @@ export default function HospitalDashboard() {
                 {!!sc.prep_instructions && (
                   <Text style={styles.scanPrep}>⚠ {sc.prep_instructions}</Text>
                 )}
+                <View style={styles.scanActions}>
+                  <TouchableOpacity
+                    style={styles.scanEditBtn}
+                    onPress={() => { setEditScan(sc); setScanModalOpen(true); }}
+                  >
+                    <Ionicons name="create-outline" size={15} color={Colors.blue700} />
+                    <Text style={styles.scanEditText}>Edit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.scanDeleteBtn}
+                    onPress={() => confirmDeleteScan(sc, loadScans)}
+                  >
+                    <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
+                    <Text style={styles.scanDeleteText}>Delete</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
@@ -1642,6 +1707,13 @@ const styles = StyleSheet.create({
   },
   scanBadgeOff: { color: Colors.gray500, backgroundColor: Colors.gray100 },
   scanPrep: { fontSize: 12, color: '#92400E', marginTop: 9, lineHeight: 17 },
+  uploadBtn:      { flexDirection: 'row', gap: 5, alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 6, minWidth: 82, justifyContent: 'center' },
+  uploadBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
+  scanActions:    { flexDirection: 'row', gap: 10, marginTop: 12 },
+  scanEditBtn:    { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9 },
+  scanEditText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+  scanDeleteBtn:  { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, borderRadius: 10, paddingVertical: 9 },
+  scanDeleteText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
 
   addDoctorBtn:      { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 16, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   addDoctorBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 15 },

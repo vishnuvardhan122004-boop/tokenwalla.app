@@ -270,37 +270,27 @@ export default function ScanCenterScreen() {
                         })}
                       </View>
 
-                      {/* A FULL-collection scan is refused by create-order until
-                          the GST treatment of diagnostic prices is confirmed, so
-                          it routes to a phone call rather than a checkout that
-                          cannot complete. */}
-                      {isFull ? (
-                        callNumber ? (
-                          <TouchableOpacity style={st.bookBtn} onPress={() => Linking.openURL(`tel:${callNumber}`)}>
-                            <Ionicons name="call-outline" size={16} color={Colors.white} />
-                            <Text style={st.bookText}>Call {callNumber} to book</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <Text style={st.note}>Contact the centre directly to book this scan.</Text>
-                        )
-                      ) : (
-                        <>
-                          <TouchableOpacity
-                            style={[st.bookBtn, (!selectedSlot || !scan.available) && st.bookDisabled]}
-                            disabled={!selectedSlot || !scan.available}
-                            onPress={() => book(scan)}
-                          >
-                            <Text style={st.bookText}>
-                              {!scan.available ? 'Currently unavailable'
-                                : !selectedSlot ? 'Select a time slot'
-                                : `Book ${scan.name} →`}
-                            </Text>
-                          </TouchableOpacity>
-                          <Text style={st.note}>
-                            Pay ₹{scan.price} at the centre — only the service fee is paid online
-                          </Text>
-                        </>
-                      )}
+                      {/* Both collection modes check out online now — a centre
+                          picks per scan the way a doctor picks per doctor. Only
+                          the note under the button differs, and it has to be
+                          right: it is what the patient reads before deciding
+                          how much cash to carry. */}
+                      <TouchableOpacity
+                        style={[st.bookBtn, (!selectedSlot || !scan.available) && st.bookDisabled]}
+                        disabled={!selectedSlot || !scan.available}
+                        onPress={() => book(scan)}
+                      >
+                        <Text style={st.bookText}>
+                          {!scan.available ? 'Currently unavailable'
+                            : !selectedSlot ? 'Select a time slot'
+                            : `Book ${scan.name} →`}
+                        </Text>
+                      </TouchableOpacity>
+                      <Text style={st.note}>
+                        {isFull
+                          ? `Scan price + service fee payable now — nothing to pay at the centre`
+                          : `Pay ₹${scan.price} at the centre — only the service fee is paid online`}
+                      </Text>
                     </>
                   ) : (
                     <Text style={st.note}>
