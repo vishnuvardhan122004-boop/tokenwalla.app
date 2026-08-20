@@ -1411,8 +1411,7 @@ export default function HospitalDashboard() {
         {activeTab === 'doctors' && isCentre && (
           <View style={{ padding: 16 }}>
             <Text style={styles.scanLead}>
-              Patients see these, with prices, on your centre page. Tap one to edit
-              it, or add a new one.
+              Patients see these, with prices, on your centre page.
             </Text>
 
             <TouchableOpacity
@@ -1444,6 +1443,9 @@ export default function HospitalDashboard() {
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={styles.scanPrice}>₹{sc.price}</Text>
+                    <Text style={styles.scanPayMode}>
+                      {sc.payment_collection_mode === 'FULL' ? 'Paid online' : 'Paid at centre'}
+                    </Text>
                     <Text style={[styles.scanBadge, !sc.available && styles.scanBadgeOff]}>
                       {sc.available ? 'Listed' : 'Hidden'}
                     </Text>
@@ -1706,6 +1708,7 @@ const styles = StyleSheet.create({
     borderRadius: 6, overflow: 'hidden', marginTop: 4,
   },
   scanBadgeOff: { color: Colors.gray500, backgroundColor: Colors.gray100 },
+  scanPayMode:  { fontSize: 11, color: Colors.gray500, marginTop: 3, fontWeight: '600' },
   scanPrep: { fontSize: 12, color: '#92400E', marginTop: 9, lineHeight: 17 },
   uploadBtn:      { flexDirection: 'row', gap: 5, alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 6, minWidth: 82, justifyContent: 'center' },
   uploadBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.blue700 },

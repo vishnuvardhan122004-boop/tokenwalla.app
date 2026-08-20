@@ -123,18 +123,25 @@ export default function MyBookings() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [ticketBooking]);
 
+  // Keyed on the IDS, not on `bookings`. The list is re-fetched every 15s while
+  // any booking is active, and each poll hands back a new array — so depending
+  // on `bookings` re-ran this on every tick, one request per completed scan
+  // forever, for data that changes about twice in its lifetime.
+  const completedScanIds = bookings
+    .filter((b: Booking) => b.provider_kind === 'SCAN' && b.status === 'COMPLETED')
+    .map((b: Booking) => String(b.id))
+    .join(',');
+
   useEffect(() => {
-    const scanBookings = bookings.filter(
-      (b: Booking) => b.provider_kind === 'SCAN' && b.status === 'COMPLETED');
-    if (scanBookings.length === 0) return;
+    if (!completedScanIds) return;
     let cancelled = false;
-    Promise.all(scanBookings.map((b: Booking) =>
-      API.get(`/bookings/${b.id}/reports/`)
-        .then(({ data }) => [String(b.id), Array.isArray(data) ? data : []])
-        .catch(() => [String(b.id), []]),   // 404 on a backend without reports yet
+    Promise.all(completedScanIds.split(',').map(id =>
+      API.get(`/bookings/${id}/reports/`)
+        .then(({ data }) => [id, Array.isArray(data) ? data : []])
+        .catch(() => [id, []]),   // 404 on a backend without reports yet
     )).then(pairs => { if (!cancelled) setReports(Object.fromEntries(pairs)); });
     return () => { cancelled = true; };
-  }, [bookings]);
+  }, [completedScanIds]);
 
   // A report is never a plain link: the download endpoint re-checks ownership
   // on every request and needs the Authorization header, so opening the URL in

@@ -126,14 +126,11 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
   const save = async () => {
     const name = form.name.trim();
     if (!name) { setError('Scan name is required.'); return; }
+    // Number('') is 0 and 0 is finite, so an untouched price field would have
+    // sailed through and listed the scan to patients at ₹0.
+    if (!form.price.trim()) { setError('Enter the scan price.'); return; }
     const price = Number(form.price);
-    if (!Number.isFinite(price) || price < 0) { setError('Enter a valid price.'); return; }
-    // FULL means the patient pays this online. A ₹0 price would charge the
-    // service fee and hand the centre nothing, which is never what was meant.
-    if (form.payment_collection_mode === 'FULL' && price <= 0) {
-      setError('A scan collected online needs a price above ₹0.');
-      return;
-    }
+    if (!Number.isFinite(price) || price <= 0) { setError('Enter a valid price.'); return; }
 
     setSaving(true);
     setError('');
