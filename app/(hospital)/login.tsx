@@ -77,7 +77,7 @@ export default function HospitalLoginScreen() {
       });
 
       if (check?.exists === false) {
-        setError('This mobile is not registered as a hospital. Please register first.');
+        setError('This mobile is not registered as a hospital or scanning centre. Please register first.');
         setOtpLoading(false);
         return;
       }
@@ -269,10 +269,20 @@ export default function HospitalLoginScreen() {
 
           <View style={styles.divider} />
 
-          {/* Register */}
+          {/* Register. Two links to the SAME form — the param only preselects
+              the toggle. Without a link that says the words "scanning centre",
+              a centre owner has no way to know this page is for them. */}
           <View style={styles.switchRow}>
             <Text style={styles.switchText}>New hospital? </Text>
             <TouchableOpacity onPress={() => router.push('/(hospital)/Huser')}>
+              <Text style={styles.switchLink}>Register here →</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchText}>New scanning centre? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(hospital)/Huser?kind=SCAN_CENTER')}
+            >
               <Text style={styles.switchLink}>Register here →</Text>
             </TouchableOpacity>
           </View>

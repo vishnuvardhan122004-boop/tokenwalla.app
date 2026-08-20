@@ -81,6 +81,14 @@ export default function MyBookings() {
   // booking, snapshot it to a PNG, then open the share sheet. The list cards
   // have no QR of their own, so we capture a dedicated off-screen ticket view.
   const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+
+  // { [bookingId]: report[] }. A scan's journey does not end at the visit — the
+  // report comes back hours or days later, and this is the ONLY thing in the
+  // product that arrives after a booking is COMPLETED. Fetched only for
+  // completed SCAN bookings: a consultation has no report, and asking for one
+  // on every card would be a request per booking for nothing.
+  const [reports,      setReports]      = useState<Record<string, any[]>>({});
+  const [reportBusyId, setReportBusyId] = useState<string | number | null>(null);
   const [ticketBooking, setTicketBooking] = useState<Booking | null>(null);
   const ticketRef = useRef<View>(null);
 
@@ -114,6 +122,59 @@ export default function MyBookings() {
     }, 450);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [ticketBooking]);
+
+  // Keyed on the IDS, not on `bookings`. The list is re-fetched every 15s while
+  // any booking is active, and each poll hands back a new array — so depending
+  // on `bookings` re-ran this on every tick, one request per completed scan
+  // forever, for data that changes about twice in its lifetime.
+  const completedScanIds = bookings
+    .filter((b: Booking) => b.provider_kind === 'SCAN' && b.status === 'COMPLETED')
+    .map((b: Booking) => String(b.id))
+    .join(',');
+
+  useEffect(() => {
+    if (!completedScanIds) return;
+    let cancelled = false;
+    Promise.all(completedScanIds.split(',').map(id =>
+      API.get(`/bookings/${id}/reports/`)
+        .then(({ data }) => [id, Array.isArray(data) ? data : []])
+        .catch(() => [id, []]),   // 404 on a backend without reports yet
+    )).then(pairs => { if (!cancelled) setReports(Object.fromEntries(pairs)); });
+    return () => { cancelled = true; };
+  }, [completedScanIds]);
+
+  // A report is never a plain link: the download endpoint re-checks ownership
+  // on every request and needs the Authorization header, so opening the URL in
+  // a browser would 401. Pull the bytes through the API client, write them to a
+  // private cache file, and hand that to the share sheet.
+  const openReport = async (report: any) => {
+    setReportBusyId(report.id);
+    try {
+      const FileSystem = await import('expo-file-system');
+      const res = await API.get(String(report.download_url).replace(/^\/api/, ''), {
+        responseType: 'arraybuffer',
+      });
+      const bytes = new Uint8Array(res.data as ArrayBuffer);
+      const safeName = String(report.title || 'report').replace(/[^\w.-]+/g, '_');
+      const target = new FileSystem.File(FileSystem.Paths.cache, `${safeName}.pdf`);
+      if (target.exists) target.delete();
+      target.create();
+      target.write(bytes);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(target.uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: report.title || 'Scan report',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Not available', 'Opening files is not available on this device.');
+      }
+    } catch {
+      Alert.alert('Error', 'Could not open the report. Please try again.');
+    } finally {
+      setReportBusyId(null);
+    }
+  };
 
   const fetchBookings = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -398,6 +459,32 @@ export default function MyBookings() {
                   )}
                 </TouchableOpacity>
 
+                {/* Scan reports. Only rendered once the centre has uploaded
+                    one — an empty "Reports" heading on every completed scan
+                    would read as something having gone missing. */}
+                {(reports[String(booking.id)]?.length ?? 0) > 0 && (
+                  <View style={st.reportBox}>
+                    <Text style={st.reportTitle}>Your reports</Text>
+                    {reports[String(booking.id)].map((r: any) => (
+                      <TouchableOpacity
+                        key={String(r.id)}
+                        style={st.reportRow}
+                        onPress={() => openReport(r)}
+                        disabled={reportBusyId === r.id}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="document-text-outline" size={17} color={Colors.blue600} />
+                        <Text style={st.reportName} numberOfLines={1}>
+                          {r.title || 'Scan report'}
+                        </Text>
+                        {reportBusyId === r.id
+                          ? <ActivityIndicator size="small" color={Colors.blue600} />
+                          : <Ionicons name="download-outline" size={17} color={Colors.blue600} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
                 {/* Doctor-unavailable banner: hospital marked the doctor off,
                     so this booking can be rescheduled for free. */}
                 {isWaiting && booking.free_reschedule && (
@@ -588,6 +675,11 @@ const st = StyleSheet.create({
 
   downloadBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, minHeight: 44, backgroundColor: Colors.blue50, borderTopWidth: 1, borderTopColor: Colors.blue100 },
   downloadBtnText: { fontSize: 13, fontWeight: '700', color: Colors.blue700 ?? Colors.blue600 },
+
+  reportBox:   { marginTop: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, borderRadius: 12, padding: 12 },
+  reportTitle: { fontSize: 12, fontWeight: '800', color: Colors.blue800, letterSpacing: 0.4, marginBottom: 8 },
+  reportRow:   { flexDirection: 'row', alignItems: 'center', gap: 9, backgroundColor: Colors.white, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 10, marginBottom: 7 },
+  reportName:  { flex: 1, fontSize: 13.5, fontWeight: '600', color: Colors.gray800 },
 
   // Off-screen ticket used only for image capture (never visible).
   ticketCapture:      { position: 'absolute', left: -9999, top: 0, width: 360, backgroundColor: Colors.white, borderRadius: 20, overflow: 'hidden', paddingBottom: 18 },

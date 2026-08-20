@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -63,7 +63,14 @@ export default function HospitalRegisterScreen() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(hospital)/login'));
 
-  const [form,    setForm]    = useState<FormState>(EMPTY_FORM);
+  // ?kind=SCAN_CENTER lands a centre on the centre form, so the "Register your
+  // scanning centre" links elsewhere in the app arrive at the right thing.
+  // Whitelisted against the one value we accept rather than trusted — the
+  // toggle below stays the real control either way.
+  const { kind: kindParam } = useLocalSearchParams<{ kind?: string }>();
+  const [form,    setForm]    = useState<FormState>(
+    kindParam === 'SCAN_CENTER' ? { ...EMPTY_FORM, kind: 'SCAN_CENTER' } : EMPTY_FORM,
+  );
 
   // One flag drives every label. A scanning centre registers through the same
   // form, the same OTP and the same admin approval as a hospital — only the
