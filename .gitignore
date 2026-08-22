@@ -56,3 +56,6 @@ TASKS.md
 CLAUDE.md
 dashboard.html
 memory/
+
+# Play publisher service account key — never commit
+play-service-account.json

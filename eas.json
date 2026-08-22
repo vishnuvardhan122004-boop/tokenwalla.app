@@ -33,7 +33,8 @@
     "production": {
       "android": {
         "track": "production",
-        "releaseStatus": "completed"
+        "releaseStatus": "completed",
+        "serviceAccountKeyPath": "./play-service-account.json"
       }
     }
   }

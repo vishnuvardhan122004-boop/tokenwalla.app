@@ -70,3 +70,6 @@ app-example
 
 # Claude Code local config
 .claude/
+
+# Play publisher service account key — never ship to build workers
+play-service-account.json
