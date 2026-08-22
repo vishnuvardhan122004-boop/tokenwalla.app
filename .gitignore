@@ -50,3 +50,9 @@ app-example
 
 # Claude Code local config
 .claude/
+
+# Productivity plugin (local only)
+TASKS.md
+CLAUDE.md
+dashboard.html
+memory/
