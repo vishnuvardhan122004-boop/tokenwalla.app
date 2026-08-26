@@ -295,7 +295,7 @@ export default function ScanCenterScreen() {
                       </TouchableOpacity>
                       <Text style={st.note}>
                         {isFull
-                          ? `Scan price + service fee payable now — nothing to pay at the centre`
+                          ? `${noun.Title.slice(0, -1)} price + service fee payable now — nothing to pay at the centre`
                           : `Pay ₹${scan.price} at the centre — only the service fee is paid online`}
                       </Text>
                     </>
