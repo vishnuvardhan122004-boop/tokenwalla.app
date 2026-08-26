@@ -51,6 +51,9 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.outlineBtn} onPress={() => router.push('/(auth)/register')}>
           <Text style={styles.outlineBtnText}>{t('create_account')}</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.altLink} onPress={() => router.push('/(hospital)/login')}>
+          <Text style={styles.altLinkText}>{t('hospital_login')} →</Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -99,6 +102,11 @@ export default function ProfileScreen() {
             { icon: 'document-text-outline',     label: t('menu_terms'),        onPress: () => router.push('/(patient)/terms')       },
             { icon: 'lock-closed-outline',       label: t('menu_privacy'),      onPress: () => router.push('/(patient)/privacy')     },
             { icon: 'cash-outline',              label: t('menu_refund'),       onPress: () => router.push('/(patient)/refund')      },
+            // Profile is the only menu on every page, so it's the one place a
+            // patient can reach the hospital side. Hospitals are already in.
+            ...(user.role === 'hospital'
+              ? []
+              : [{ icon: 'business-outline' as IconName, label: t('hospital_login'), onPress: () => router.push('/(hospital)/login') }]),
           ] as { icon: IconName; label: string; onPress: () => void }[]).map(({ icon, label, onPress }) => (
             <TouchableOpacity key={label} style={styles.menuItem} onPress={onPress}>
               <View style={styles.menuIconBox}>
@@ -146,6 +154,8 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
   outlineBtn:  { borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 13, paddingHorizontal: 32, width: '100%', alignItems: 'center' },
   outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
+  altLink:     { marginTop: 20, paddingVertical: 8 },
+  altLinkText: { color: Colors.blue600, fontWeight: '700', fontSize: 14 },
 
   header:      { padding: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
   headerTitle: { fontSize: 24, fontWeight: '800', color: Colors.gray900 },
