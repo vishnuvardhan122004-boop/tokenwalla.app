@@ -202,22 +202,22 @@ export default function ScanCenterScreen() {
             <View style={st.actionRow}>
               {!!callNumber && (
                 <TouchableOpacity
-                  style={[st.callBtn, st.actionFlex]}
+                  style={st.callBtn}
                   onPress={() => Linking.openURL(`tel:${callNumber}`)}
                 >
                   <Ionicons name="call-outline" size={16} color={Colors.white} />
-                  <Text style={st.callText} numberOfLines={1}>Call {callNumber}</Text>
+                  <Text style={st.callText}>Call {callNumber}</Text>
                 </TouchableOpacity>
               )}
               {hasMap && (
                 <TouchableOpacity
-                  style={[st.mapBtn, st.actionFlex]}
+                  style={st.mapBtn}
                   onPress={() => Linking.openURL(directionsUrl(centre))}
                   accessibilityRole="button"
                   accessibilityLabel={`Open ${centre.name} in maps`}
                 >
                   <Ionicons name="location-outline" size={16} color={Colors.blue700} />
-                  <Text style={st.mapText} numberOfLines={1}>View on Map</Text>
+                  <Text style={st.mapText}>View on Map</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -370,18 +370,32 @@ const st = StyleSheet.create({
   name:    { fontSize: 21, fontWeight: '800', color: Colors.gray900, marginTop: 9 },
   meta:    { fontSize: 13, color: Colors.gray500, marginTop: 4 },
   address: { fontSize: 12.5, color: Colors.gray400, marginTop: 6 },
-  actionRow:  { flexDirection: 'row', gap: 8, marginTop: 13 },
-  actionFlex: { flex: 1, marginTop: 0 },
+  // Wrap, and let whatever lands on a line fill it.
+  //
+  // Two earlier tries were both wrong. flex:1 split the row into fixed halves
+  // and truncated a landline to "Call 08556-234…" — a phone number the patient
+  // cannot read is worse than no number. Pure content sizing (the website's
+  // rule) never truncates, but "Call 08556-234567" + "View on Map" needs ~339pt
+  // in a 311pt card, so it wrapped into two ragged pills of different widths
+  // that read as a mistake.
+  //
+  // flexGrow makes the wrap deliberate: side by side when both fit, otherwise
+  // one full-width button per line. minWidth is the wrap trigger — it is what
+  // decides "these two cannot share a line" before any text gets squeezed.
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 13 },
   callBtn: {
+    flexGrow: 1, minWidth: 150,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    marginTop: 13, paddingVertical: 11, borderRadius: 11, backgroundColor: Colors.blue600,
+    paddingVertical: 11, paddingHorizontal: 16, borderRadius: 11,
+    backgroundColor: Colors.blue600,
   },
   callText: { fontSize: 14, fontWeight: '700', color: Colors.white },
   // Outline beside the solid Call, the same secondary weighting the website
   // gives it and the same treatment the doctor screen's Directions button uses.
   mapBtn: {
+    flexGrow: 1, minWidth: 150,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
-    paddingVertical: 11, borderRadius: 11,
+    paddingVertical: 11, paddingHorizontal: 16, borderRadius: 11,
     backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200,
   },
   mapText: { fontSize: 14, fontWeight: '700', color: Colors.blue700 },
