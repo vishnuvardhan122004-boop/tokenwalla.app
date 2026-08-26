@@ -135,10 +135,30 @@ export interface DirectionsHospital {
   location?: string;
   name?: string;
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
-/** Build a maps link: use the saved location if it's a URL, else search name+city. */
+/**
+ * Build a maps link, best signal first:
+ *
+ *   1. Geocoded coordinates — an exact pin. These come from the location
+ *      autocomplete the provider used at registration, so when they exist they
+ *      are the entrance, not a guess.
+ *   2. A saved location that is already a maps URL — the provider chose it.
+ *   3. A name+city search — a guess, and the reason 1 and 2 come first: two
+ *      clinics in Hindupur with similar names land a patient at the wrong one.
+ *
+ * Coordinates were previously ignored here even when present, so every caller
+ * fell through to the name search. Fixed in the helper rather than at a call
+ * site, since the doctor screen and the centre screen both route through it.
+ */
 export function directionsUrl(hospital?: DirectionsHospital): string {
+  const { latitude: lat, longitude: lng } = hospital ?? {};
+  if (typeof lat === 'number' && typeof lng === 'number'
+      && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
   const loc = (hospital?.location || '').trim();
   if (/^https?:\/\//i.test(loc)) return loc;
   const q = encodeURIComponent([hospital?.name, hospital?.city].filter(Boolean).join(' '));

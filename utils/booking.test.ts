@@ -200,6 +200,28 @@ describe('directionsUrl', () => {
   it('handles a missing hospital by returning an empty search', () => {
     expect(directionsUrl()).toBe('https://www.google.com/maps/search/?api=1&query=');
   });
+
+  it('prefers coordinates over both the saved URL and the name search', () => {
+    // An exact pin beats a provider-pasted link and beats a name guess.
+    expect(directionsUrl({
+      latitude: 13.8283, longitude: 77.4911,
+      location: 'https://maps.app.goo.gl/abc123', name: 'City Care', city: 'Hindupur',
+    })).toBe('https://www.google.com/maps/search/?api=1&query=13.8283,77.4911');
+  });
+
+  it('falls back when coordinates are absent, null or not finite', () => {
+    // null is what the API sends for a provider who never picked a location,
+    // and it must not become the string "null" in a maps query.
+    const named = 'https://www.google.com/maps/search/?api=1&query=City%20Care';
+    expect(directionsUrl({ latitude: null, longitude: null, name: 'City Care' })).toBe(named);
+    expect(directionsUrl({ latitude: 13.8, longitude: null, name: 'City Care' })).toBe(named);
+    expect(directionsUrl({ latitude: NaN, longitude: 77.4, name: 'City Care' })).toBe(named);
+  });
+
+  it('still honours a 0 coordinate rather than treating it as missing', () => {
+    expect(directionsUrl({ latitude: 0, longitude: 0, name: 'Null Island' }))
+      .toBe('https://www.google.com/maps/search/?api=1&query=0,0');
+  });
 });
 
 describe('normalizeBookingStatus', () => {

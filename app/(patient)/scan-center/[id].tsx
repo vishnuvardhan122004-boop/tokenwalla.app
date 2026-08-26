@@ -24,6 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import API from '../../../services/api';
+import { directionsUrl } from '../../../utils/booking';
 import { asList, BLOOD_CENTER } from '../../../utils/scanCenters';
 import { safeBack } from '../../../utils/navigation';
 
@@ -77,6 +78,14 @@ export default function ScanCenterScreen() {
   const noun = centre?.kind === BLOOD_CENTER
     ? { Title: 'Tests', plural: 'tests' }
     : { Title: 'Scans', plural: 'scans' };
+  // Offer the map button only when there is a REAL destination: geocoded
+  // coordinates, or a maps URL the centre saved itself. directionsUrl() would
+  // happily fall back to a name+city search, but a button promising "View on
+  // Map" that lands a patient at a similarly-named clinic across Hindupur is
+  // worse than no button. Same guard the website's centre page applies.
+  const hasMap = (typeof centre?.latitude === 'number' && typeof centre?.longitude === 'number')
+    || /^https?:\/\//i.test((centre?.location || '').trim());
+
   const kind = centre?.kind === BLOOD_CENTER
     ? { label: 'BLOOD CENTRE',    icon: 'water'  as const, one: 'test' }
     : { label: 'SCANNING CENTRE', icon: 'pulse'  as const, one: 'scan' };
@@ -189,11 +198,29 @@ export default function ScanCenterScreen() {
           </Text>
           {!!centre.address && <Text style={st.address}>{centre.address}</Text>}
 
-          {!!callNumber && (
-            <TouchableOpacity style={st.callBtn} onPress={() => Linking.openURL(`tel:${callNumber}`)}>
-              <Ionicons name="call-outline" size={16} color={Colors.white} />
-              <Text style={st.callText}>Call {callNumber}</Text>
-            </TouchableOpacity>
+          {(!!callNumber || hasMap) && (
+            <View style={st.actionRow}>
+              {!!callNumber && (
+                <TouchableOpacity
+                  style={[st.callBtn, st.actionFlex]}
+                  onPress={() => Linking.openURL(`tel:${callNumber}`)}
+                >
+                  <Ionicons name="call-outline" size={16} color={Colors.white} />
+                  <Text style={st.callText} numberOfLines={1}>Call {callNumber}</Text>
+                </TouchableOpacity>
+              )}
+              {hasMap && (
+                <TouchableOpacity
+                  style={[st.mapBtn, st.actionFlex]}
+                  onPress={() => Linking.openURL(directionsUrl(centre))}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${centre.name} in maps`}
+                >
+                  <Ionicons name="location-outline" size={16} color={Colors.blue700} />
+                  <Text style={st.mapText} numberOfLines={1}>View on Map</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
 
@@ -343,11 +370,21 @@ const st = StyleSheet.create({
   name:    { fontSize: 21, fontWeight: '800', color: Colors.gray900, marginTop: 9 },
   meta:    { fontSize: 13, color: Colors.gray500, marginTop: 4 },
   address: { fontSize: 12.5, color: Colors.gray400, marginTop: 6 },
+  actionRow:  { flexDirection: 'row', gap: 8, marginTop: 13 },
+  actionFlex: { flex: 1, marginTop: 0 },
   callBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     marginTop: 13, paddingVertical: 11, borderRadius: 11, backgroundColor: Colors.blue600,
   },
   callText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  // Outline beside the solid Call, the same secondary weighting the website
+  // gives it and the same treatment the doctor screen's Directions button uses.
+  mapBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 11, borderRadius: 11,
+    backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200,
+  },
+  mapText: { fontSize: 14, fontWeight: '700', color: Colors.blue700 },
 
   sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900, marginTop: 22, marginBottom: 10 },
 

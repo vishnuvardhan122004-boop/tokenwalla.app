@@ -36,6 +36,10 @@ interface GalleryPhoto { id: number | string; url: string; }
 interface Hospital {
   name?: string; city?: string; image?: string; logo?: string;
   mobile?: string; landline?: string; location?: string;
+  // /api/hospitals/ has always sent these; they were just never declared here,
+  // so directionsUrl() fell through to a name+city search even for a hospital
+  // that had an exact pin on file. Declared now because the helper reads them.
+  latitude?: number | null; longitude?: number | null;
   instagram?: string; youtube?: string; facebook?: string;
   open_time?: string; close_time?: string;
   announcement?: string; announcement_until?: string | null;
