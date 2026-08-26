@@ -329,9 +329,17 @@ export default function DoctorsScreen() {
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('find_doctors')}</Text>
+        <Text style={styles.title}>
+          {mode === BLOOD_CENTER ? 'Blood Tests'
+           : mode === SCAN_CENTER ? 'Scans & Diagnostics'
+           : t('find_doctors')}
+        </Text>
         <Text style={styles.sub}>
-          {loading ? t('loading_ellipsis') : t('doctors_available', { count: doctors.length })}
+          {isCentreMode
+            ? (centresLoading
+                ? t('loading_ellipsis')
+                : `${centres.length} centre${centres.length === 1 ? '' : 's'} near you`)
+            : loading ? t('loading_ellipsis') : t('doctors_available', { count: doctors.length })}
         </Text>
 
         {/* Search */}
@@ -339,7 +347,9 @@ export default function DoctorsScreen() {
           <Ionicons name="search" size={17} color={Colors.gray400} />
           <TextInput
             style={styles.searchInput}
-            placeholder={t('search_placeholder')}
+            placeholder={isCentreMode
+              ? `Search ${mode === BLOOD_CENTER ? 'tests' : 'scans'}, centre, city...`
+              : t('search_placeholder')}
             placeholderTextColor={Colors.gray400}
             value={search}
             onChangeText={setSearch}
@@ -384,7 +394,7 @@ export default function DoctorsScreen() {
         )}
 
         {/* Keyword quick-search chips — hidden while the typeahead is open */}
-        {searchSuggestions.length === 0 && keywordChips.length > 0 && (
+        {!isCentreMode && searchSuggestions.length === 0 && keywordChips.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -435,23 +445,31 @@ export default function DoctorsScreen() {
           ) : null}
         </TouchableOpacity>
 
-        {/* Available Only Toggle */}
-        <TouchableOpacity
-          style={[styles.availToggle, availOnly && styles.availToggleActive]}
-          onPress={() => setAvailOnly(p => !p)}
-        >
-          <View style={[styles.toggleDot, { backgroundColor: availOnly ? Colors.successText : Colors.gray400 }]} />
-          <Text style={[styles.availToggleText, availOnly && { color: Colors.successText }]}>
-            {t('available_only')}
-          </Text>
-        </TouchableOpacity>
+        {/* Available Only Toggle — doctors only. A centre's machines are not
+            on leave, and filteredCentres never reads availOnly, so leaving this
+            on a centre tab is a control that silently does nothing. */}
+        {!isCentreMode && (
+          <TouchableOpacity
+            style={[styles.availToggle, availOnly && styles.availToggleActive]}
+            onPress={() => setAvailOnly(p => !p)}
+          >
+            <View style={[styles.toggleDot, { backgroundColor: availOnly ? Colors.successText : Colors.gray400 }]} />
+            <Text style={[styles.availToggleText, availOnly && { color: Colors.successText }]}>
+              {t('available_only')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── DOCTORS ⇄ SCAN CENTRES ⇄ BLOOD CENTRES ── */}
       <View style={styles.modeRow}>
         {([
           { key: 'doctors',      icon: 'medkit-outline', label: 'Doctors' },
-          { key: SCAN_CENTER,    icon: 'pulse-outline',  label: 'Scan Centres' },
+          // "Scans", not "Scan Centres" — at three tabs the longer label no
+          // longer fits 375pt and truncated to "Scan Centr…". Both of these
+          // name what the patient WANTS, which is also how the rest of the
+          // app words it ("3 scans", "Add scan").
+          { key: SCAN_CENTER,    icon: 'pulse-outline',  label: 'Scans' },
           { key: BLOOD_CENTER,   icon: 'water-outline',  label: 'Blood Tests' },
         ] as const).map(m => {
           const active = mode === m.key;
@@ -463,8 +481,10 @@ export default function DoctorsScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Ionicons name={m.icon} size={15} color={active ? Colors.blue700 : Colors.gray500} />
-              <Text style={[styles.modeText, active && styles.modeTextActive]}>{m.label}</Text>
+              <Ionicons name={m.icon} size={14} color={active ? Colors.blue700 : Colors.gray500} />
+              <Text numberOfLines={1} style={[styles.modeText, active && styles.modeTextActive]}>
+                {m.label}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -881,17 +901,22 @@ const styles = StyleSheet.create({
   },
   slotsCount:      { fontSize: 12, color: Colors.gray400 },
 
+  // alignSelf: 'stretch', NOT 'flex-start'. Sizing the row to its content fit
+  // while there were two tabs and silently overflowed the screen at three —
+  // on a 375pt phone "Blood Tests" ended 28pt past the row and 12pt past the
+  // viewport, so it was clipped and only half-tappable. The tabs share the row
+  // instead, which stays correct whatever the third label says.
   modeRow: {
-    flexDirection: 'row', gap: 6, alignSelf: 'flex-start', marginHorizontal: 16,
+    flexDirection: 'row', gap: 4, alignSelf: 'stretch', marginHorizontal: 16,
     marginTop: 4, marginBottom: 2, padding: 4, borderRadius: 999,
     backgroundColor: Colors.gray100,
   },
   modeBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 7, paddingHorizontal: 14, borderRadius: 999,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 7, paddingHorizontal: 6, borderRadius: 999,
   },
   modeBtnActive: { backgroundColor: Colors.white },
-  modeText:       { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
+  modeText:       { fontSize: 12, fontWeight: '600', color: Colors.gray500 },
   modeTextActive: { color: Colors.blue700 },
 
   centreCard: {

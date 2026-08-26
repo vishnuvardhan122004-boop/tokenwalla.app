@@ -77,6 +77,9 @@ export default function ScanCenterScreen() {
   const noun = centre?.kind === BLOOD_CENTER
     ? { Title: 'Tests', plural: 'tests' }
     : { Title: 'Scans', plural: 'scans' };
+  const kind = centre?.kind === BLOOD_CENTER
+    ? { label: 'BLOOD CENTRE',    icon: 'water'  as const, one: 'test' }
+    : { label: 'SCANNING CENTRE', icon: 'pulse'  as const, one: 'scan' };
 
   // Reset on centre change. This screen is a single Tabs.Screen instance, so
   // without this the previous centre's scans flash before the new ones land.
@@ -174,14 +177,14 @@ export default function ScanCenterScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
         <View style={st.card}>
           <View style={st.kindPill}>
-            <Ionicons name="pulse" size={12} color={Colors.blue700} />
-            <Text style={st.kindText}>SCANNING CENTRE</Text>
+            <Ionicons name={kind.icon} size={12} color={Colors.blue700} />
+            <Text style={st.kindText}>{kind.label}</Text>
           </View>
           <Text style={st.name}>{centre.name}</Text>
           <Text style={st.meta}>
             {[centre.city,
               (centre.open_time || centre.close_time) ? `${centre.open_time || '—'} – ${centre.close_time || '—'}` : null,
-              `${scans.length} scan${scans.length === 1 ? '' : 's'}`,
+              `${scans.length} ${kind.one}${scans.length === 1 ? '' : 's'}`,
             ].filter(Boolean).join('  •  ')}
           </Text>
           {!!centre.address && <Text style={st.address}>{centre.address}</Text>}
