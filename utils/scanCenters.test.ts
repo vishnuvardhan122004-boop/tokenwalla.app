@@ -1,4 +1,4 @@
-import { asList, filterScanCenters } from './scanCenters';
+import { asList, BLOOD_CENTER, filterByKind, filterScanCenters, SCAN_CENTER } from './scanCenters';
 
 describe('filterScanCenters', () => {
   it('keeps only explicit scanning centres', () => {
@@ -35,5 +35,25 @@ describe('asList', () => {
     expect(asList({ results: [3] })).toEqual([3]);
     expect(asList(null)).toEqual([]);
     expect(asList({ detail: 'nope' })).toEqual([]);
+  });
+});
+
+describe('blood centres', () => {
+  const rows = [
+    { id: 1, kind: 'SCAN_CENTER',  name: 'Vijaya Diagnostics' },
+    { id: 2, kind: 'BLOOD_CENTER', name: 'Lotus Pathology Lab' },
+    { id: 3, kind: 'HOSPITAL',     name: 'Sri Sarwodhaya' },
+    { id: 4,                       name: 'Old backend, no kind' },
+  ];
+
+  it('keeps the two centre lists separate', () => {
+    expect(filterByKind(rows, BLOOD_CENTER).map(r => r.id)).toEqual([2]);
+    expect(filterByKind(rows, SCAN_CENTER).map(r => r.id)).toEqual([1]);
+  });
+
+  it('drops hospitals and kind-less rows from an older backend', () => {
+    // The whole reason this file exists — an old /hospitals/ ignores ?kind=.
+    expect(filterByKind(rows, BLOOD_CENTER).map(r => r.name))
+      .not.toContain('Old backend, no kind');
   });
 });

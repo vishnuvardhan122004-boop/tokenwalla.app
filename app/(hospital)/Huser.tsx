@@ -25,7 +25,7 @@ import { useAndroidBack } from '../../hooks/useAndroidBack';
 const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
 
 interface FormState {
-  kind: 'HOSPITAL' | 'SCAN_CENTER';
+  kind: 'HOSPITAL' | 'SCAN_CENTER' | 'BLOOD_CENTER';
   name: string;
   city: string;
   address: string;
@@ -63,20 +63,25 @@ export default function HospitalRegisterScreen() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(hospital)/login'));
 
-  // ?kind=SCAN_CENTER lands a centre on the centre form, so the "Register your
-  // scanning centre" links elsewhere in the app arrive at the right thing.
-  // Whitelisted against the one value we accept rather than trusted — the
-  // toggle below stays the real control either way.
+  // ?kind=… lands a centre on the centre form, so the "Register your scanning
+  // centre" / "Register your blood centre" links elsewhere in the app arrive at
+  // the right thing. Whitelisted against the values we accept rather than
+  // trusted — the toggle below stays the real control either way.
   const { kind: kindParam } = useLocalSearchParams<{ kind?: string }>();
   const [form,    setForm]    = useState<FormState>(
-    kindParam === 'SCAN_CENTER' ? { ...EMPTY_FORM, kind: 'SCAN_CENTER' } : EMPTY_FORM,
+    kindParam === 'SCAN_CENTER' || kindParam === 'BLOOD_CENTER'
+      ? { ...EMPTY_FORM, kind: kindParam }
+      : EMPTY_FORM,
   );
 
-  // One flag drives every label. A scanning centre registers through the same
-  // form, the same OTP and the same admin approval as a hospital — only the
-  // wording and the bookable unit differ (Doctors vs Scans).
-  const isCentre = form.kind === 'SCAN_CENTER';
-  const noun     = isCentre ? 'Scanning Centre' : 'Hospital';
+  // One flag drives every label. A centre registers through the same form, the
+  // same OTP and the same admin approval as a hospital — only the wording and
+  // the bookable unit differ (Doctors vs Scans). Both centre kinds take the
+  // identical path; `noun` is the only thing that tells them apart here.
+  const isCentre = form.kind !== 'HOSPITAL';
+  const noun     = form.kind === 'BLOOD_CENTER' ? 'Blood Centre'
+                 : form.kind === 'SCAN_CENTER'  ? 'Scanning Centre'
+                 : 'Hospital';
   const [errors,  setErrors]  = useState<FormErrors>({});
 
   const [otp,         setOtp]         = useState('');
@@ -227,7 +232,7 @@ export default function HospitalRegisterScreen() {
           <Text style={styles.title}>Register Your{'\n'}{isCentre ? 'Centre' : 'Hospital'}</Text>
           <Text style={styles.sub}>
             {isCentre
-              ? 'Create your centre account to list your scans and prices, take bookings and manage the queue from one dashboard.'
+              ? `Create your centre account to list your ${form.kind === 'BLOOD_CENTER' ? 'tests' : 'scans'} and prices, take bookings and manage the queue from one dashboard.`
               : 'Create your hospital account to manage doctors, slots, and live patient queues from one dashboard.'}
           </Text>
 
@@ -236,8 +241,9 @@ export default function HospitalRegisterScreen() {
               lists scans and their prices. Changing it later needs an admin. */}
           <View style={styles.kindRow}>
             {([
-              { value: 'HOSPITAL',    icon: 'business-outline',   label: 'Hospital / Clinic', sub: 'Doctors and OPD slots' },
-              { value: 'SCAN_CENTER', icon: 'pulse-outline',      label: 'Scanning Centre',   sub: 'MRI, CT, X-ray, blood' },
+              { value: 'HOSPITAL',     icon: 'business-outline', label: 'Hospital / Clinic', sub: 'Doctors and OPD slots' },
+              { value: 'SCAN_CENTER',  icon: 'pulse-outline',    label: 'Scanning Centre',   sub: 'MRI, CT, X-ray, ultrasound' },
+              { value: 'BLOOD_CENTER', icon: 'water-outline',    label: 'Blood Centre',      sub: 'Blood tests, full body checkup' },
             ] as const).map(opt => {
               const active = form.kind === opt.value;
               return (

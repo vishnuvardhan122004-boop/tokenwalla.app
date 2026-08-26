@@ -24,7 +24,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import API from '../../../services/api';
-import { asList } from '../../../utils/scanCenters';
+import { asList, BLOOD_CENTER } from '../../../utils/scanCenters';
 import { safeBack } from '../../../utils/navigation';
 
 interface Scan {
@@ -70,6 +70,13 @@ export default function ScanCenterScreen() {
   const [availLoading, setAvailLoading] = useState(false);
 
   const dates = next7Days();
+
+  // This one screen serves both centre kinds — the flow is identical (pick the
+  // service, then the slot), only the noun differs. Derived from the fetched
+  // centre, so a blood centre reached by any route says "Tests", never "Scans".
+  const noun = centre?.kind === BLOOD_CENTER
+    ? { Title: 'Tests', plural: 'tests' }
+    : { Title: 'Scans', plural: 'scans' };
 
   // Reset on centre change. This screen is a single Tabs.Screen instance, so
   // without this the previous centre's scans flash before the new ones land.
@@ -187,11 +194,11 @@ export default function ScanCenterScreen() {
           )}
         </View>
 
-        <Text style={st.sectionTitle}>Scans &amp; Prices</Text>
+        <Text style={st.sectionTitle}>{noun.Title} &amp; Prices</Text>
 
         {scans.length === 0 && (
           <Text style={st.emptySub}>
-            This centre hasn&apos;t listed its scans yet.
+            This centre hasn&apos;t listed its {noun.plural} yet.
             {callNumber ? ` Call ${callNumber} to ask what they offer.` : ''}
           </Text>
         )}

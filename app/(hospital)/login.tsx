@@ -286,6 +286,14 @@ export default function HospitalLoginScreen() {
               <Text style={styles.switchLink}>Register here →</Text>
             </TouchableOpacity>
           </View>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchText}>New blood centre? </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/(hospital)/Huser?kind=BLOOD_CENTER')}
+            >
+              <Text style={styles.switchLink}>Register here →</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Patient login */}
           <TouchableOpacity

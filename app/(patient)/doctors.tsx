@@ -20,7 +20,7 @@ import { Colors } from '../../constants/colors';
 import { isTestHospital } from '../../constants/config';
 import { suggestKeywords } from '../../constants/searchKeywords';
 import API from '../../services/api';
-import { asList, filterScanCenters, SCAN_CENTER } from '../../utils/scanCenters';
+import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from '../../utils/scanCenters';
 import { useI18n } from '../../services/i18n';
 
 // Last successful doctor list, cached so the screen paints instantly on reopen.
@@ -74,12 +74,20 @@ export default function DoctorsScreen() {
   const { t } = useI18n();
   // A specialty chip on the home screen deep-links here with ?q=<term>.
   const params = useLocalSearchParams<{ q?: string }>();
-  // 'doctors' | 'centres'. The centre path sits BESIDE the doctor path rather
-  // than generalising it: the doctor list is the live, revenue-carrying screen.
-  const [mode,            setMode]            = useState<'doctors' | 'centres'>('doctors');
-  const [centres,         setCentres]         = useState<any[]>([]);
-  const [scans,           setScans]           = useState<any[]>([]);
-  const [centresLoading,  setCentresLoading]  = useState(false);
+  // 'doctors' | a centre kind. The centre path sits BESIDE the doctor path
+  // rather than generalising it: the doctor list is the live, revenue-carrying
+  // screen. Scanning and blood centres DO share the path — same request, same
+  // card, same detail screen — because the only difference is the label and
+  // which kind the backend filters on.
+  const [mode, setMode] = useState<'doctors' | typeof SCAN_CENTER | typeof BLOOD_CENTER>('doctors');
+  // Cached per kind, so switching tabs twice does not refetch, and so the two
+  // lists can never be shown under each other's heading.
+  const [centresByKind, setCentresByKind] = useState<Record<string, any[]>>({});
+  const [scans,           setScans]         = useState<any[]>([]);
+  const [centresLoading,  setCentresLoading] = useState(false);
+
+  const isCentreMode = mode !== 'doctors';
+  const centres      = centresByKind[mode] || [];
 
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
@@ -99,25 +107,26 @@ export default function DoctorsScreen() {
     return list;
   }, []);
 
-  // Scanning centres, fetched lazily — a patient who never switches never pays
-  // for these two requests.
+  // Centres, fetched lazily — a patient who never switches never pays for
+  // these two requests.
   //
-  // filterScanCenters() is load-bearing, not belt-and-braces: this build can
-  // reach a backend that has not deployed scanning centres, and an older
-  // /api/hospitals/ IGNORES the unknown ?kind= param and returns every
-  // hospital. Without the client-side check those would render here as
-  // scanning centres. See utils/scanCenters.ts.
-  const loadCentres = useCallback(async () => {
+  // filterByKind() is load-bearing, not belt-and-braces: this build can reach a
+  // backend that has not deployed centres, and an older /api/hospitals/ IGNORES
+  // the unknown ?kind= param and returns every hospital. Without the
+  // client-side check those would render here as centres. It also keeps a
+  // backend that knows SCAN_CENTER but not BLOOD_CENTER from showing scanning
+  // centres under the Blood tab. See utils/scanCenters.ts.
+  const loadCentres = useCallback(async (kind: string) => {
     setCentresLoading(true);
     try {
       const [hRes, sRes] = await Promise.all([
-        API.get('/hospitals/', { params: { kind: SCAN_CENTER } }),
+        API.get('/hospitals/', { params: { kind } }),
         API.get('/scans/').catch(() => ({ data: [] })),   // 404 on an old backend
       ]);
-      setCentres(filterScanCenters(asList(hRes.data)));
+      setCentresByKind(prev => ({ ...prev, [kind]: filterByKind(asList(hRes.data), kind) }));
       setScans(asList(sRes.data));
     } catch {
-      setCentres([]);
+      setCentresByKind(prev => ({ ...prev, [kind]: [] }));
       setScans([]);
     } finally {
       setCentresLoading(false);
@@ -125,8 +134,8 @@ export default function DoctorsScreen() {
   }, []);
 
   useEffect(() => {
-    if (mode === 'centres' && centres.length === 0) loadCentres();
-  }, [mode, centres.length, loadCentres]);
+    if (isCentreMode && !centresByKind[mode]) loadCentres(mode);
+  }, [mode, isCentreMode, centresByKind, loadCentres]);
 
   const scansByCentre = scans.reduce((acc: Record<string, any[]>, sc: any) => {
     (acc[sc.center] = acc[sc.center] || []).push(sc);
@@ -438,11 +447,12 @@ export default function DoctorsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── DOCTORS ⇄ SCAN CENTRES ── */}
+      {/* ── DOCTORS ⇄ SCAN CENTRES ⇄ BLOOD CENTRES ── */}
       <View style={styles.modeRow}>
         {([
-          { key: 'doctors', icon: 'medkit-outline', label: 'Doctors' },
-          { key: 'centres', icon: 'pulse-outline',  label: 'Scan Centres' },
+          { key: 'doctors',      icon: 'medkit-outline', label: 'Doctors' },
+          { key: SCAN_CENTER,    icon: 'pulse-outline',  label: 'Scan Centres' },
+          { key: BLOOD_CENTER,   icon: 'water-outline',  label: 'Blood Tests' },
         ] as const).map(m => {
           const active = mode === m.key;
           return (
@@ -463,7 +473,7 @@ export default function DoctorsScreen() {
       {/* ── RESULTS COUNT + SORT LABEL ── */}
       <View style={styles.countRow}>
         <Text style={styles.countText}>
-          {mode === 'centres'
+          {isCentreMode
             ? `${filteredCentres.length} centre${filteredCentres.length === 1 ? '' : 's'}`
             : t('results_count', { count: filtered.length })}
           {mode === 'doctors' && (city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`)}
@@ -480,15 +490,19 @@ export default function DoctorsScreen() {
       </View>
 
       {/* ── SCAN CENTRE LIST ── */}
-      {mode === 'centres' ? (
+      {isCentreMode ? (
         centresLoading ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <ActivityIndicator size="large" color={Colors.blue600} />
           </View>
         ) : filteredCentres.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="pulse-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyTitle}>No scanning centres yet</Text>
+            <Ionicons
+              name={mode === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
+              size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
+            <Text style={styles.emptyTitle}>
+              {mode === BLOOD_CENTER ? 'No blood centres yet' : 'No scanning centres yet'}
+            </Text>
             <Text style={styles.emptySub}>
               We&apos;re onboarding diagnostic partners now. Try the Doctors tab.
             </Text>
@@ -513,7 +527,9 @@ export default function DoctorsScreen() {
                 >
                   <View style={styles.centreTop}>
                     <View style={styles.centreIcon}>
-                      <Ionicons name="pulse" size={20} color={Colors.blue600} />
+                      <Ionicons
+                        name={mode === BLOOD_CENTER ? 'water' : 'pulse'}
+                        size={20} color={Colors.blue600} />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={styles.centreName} numberOfLines={1}>{c.name}</Text>
@@ -537,7 +553,7 @@ export default function DoctorsScreen() {
                   <View style={styles.centreFooter}>
                     <Text style={styles.centreCount}>
                       {c.scans.length > 0
-                        ? `${c.scans.length} scan${c.scans.length === 1 ? '' : 's'}`
+                        ? `${c.scans.length} ${mode === BLOOD_CENTER ? 'test' : 'scan'}${c.scans.length === 1 ? '' : 's'}`
                         : 'Contact the centre'}
                     </Text>
                     {from != null && <Text style={styles.centreFrom}>from ₹{from}</Text>}

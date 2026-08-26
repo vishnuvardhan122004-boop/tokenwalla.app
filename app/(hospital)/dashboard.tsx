@@ -40,7 +40,7 @@ import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKey
 import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
-import { asList } from '../../utils/scanCenters';
+import { asList, BLOOD_CENTER, CENTER_KINDS } from '../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
@@ -353,10 +353,16 @@ export default function HospitalDashboard() {
     } catch {}
   }, [hospital]);
 
-  // A scanning centre is a Hospital row with kind=SCAN_CENTER. The queue,
-  // payments and QR scanner all work identically for one — only the bookable
-  // unit differs, so only this tab changes.
-  const isCentre = hospital?.kind === 'SCAN_CENTER';
+  // A centre is a Hospital row with kind=SCAN_CENTER or BLOOD_CENTER. The
+  // queue, payments and QR scanner all work identically for one — only the
+  // bookable unit differs, so only this tab changes. Branch on the SET, never
+  // on SCAN_CENTER alone, or a blood centre gets the hospital dashboard and
+  // cannot reach its own test list.
+  const isCentre = CENTER_KINDS.includes(hospital?.kind as any);
+  // The only thing that separates the two centre kinds in here: the word.
+  const unit     = hospital?.kind === BLOOD_CENTER
+    ? { one: 'Test', many: 'Tests' }
+    : { one: 'Scan', many: 'Scans' };
 
   const loadScans = useCallback(async () => {
     if (!hospital?.id) return;
@@ -479,7 +485,7 @@ export default function HospitalDashboard() {
         name: file.name || 'report.pdf',
         type: file.mimeType || 'application/pdf',
       } as unknown as Blob);
-      fd.append('title', `${p.doctor_name || 'Scan'} report`);
+      fd.append('title', `${p.doctor_name || unit.one} report`);
       await API.post(`/bookings/${p.id}/reports/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -736,6 +742,7 @@ export default function HospitalDashboard() {
         <ScanEditorModal
           visible={scanModalOpen}
           scan={editScan}
+          unit={hospital?.kind === BLOOD_CENTER ? 'test' : 'scan'}
           centerId={hospital.id}
           onClose={() => setScanModalOpen(false)}
           onSaved={loadScans}
@@ -1180,7 +1187,7 @@ export default function HospitalDashboard() {
               color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500}
             />
             <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]} numberOfLines={1}>
-              {isCentre ? `Scans ${scans.length}` : `Doctors ${doctors.length}`}
+              {isCentre ? `${unit.many} ${scans.length}` : `Doctors ${doctors.length}`}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1418,13 +1425,15 @@ export default function HospitalDashboard() {
               style={styles.addDoctorBtn}
               onPress={() => { setEditScan(null); setScanModalOpen(true); }}
             >
-              <Text style={styles.addDoctorBtnText}>+ Add New Scan</Text>
+              <Text style={styles.addDoctorBtnText}>+ Add New {unit.one}</Text>
             </TouchableOpacity>
 
             {scans.length === 0 ? (
               <View style={styles.scanEmpty}>
-                <Ionicons name="pulse-outline" size={38} color={Colors.gray400} />
-                <Text style={styles.scanEmptyTitle}>No scans listed yet</Text>
+                <Ionicons
+                  name={hospital?.kind === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
+                  size={38} color={Colors.gray400} />
+                <Text style={styles.scanEmptyTitle}>No {unit.many.toLowerCase()} listed yet</Text>
                 <Text style={styles.scanEmptySub}>
                   Patients can find your centre but cannot see what you offer
                   until you add one.
@@ -1464,7 +1473,7 @@ export default function HospitalDashboard() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.scanDeleteBtn}
-                    onPress={() => confirmDeleteScan(sc, loadScans)}
+                    onPress={() => confirmDeleteScan(sc, loadScans, unit.one.toLowerCase() as 'scan' | 'test')}
                   >
                     <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
                     <Text style={styles.scanDeleteText}>Delete</Text>

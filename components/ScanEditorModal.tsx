@@ -64,16 +64,16 @@ const EMPTY: FormState = {
   payment_collection_mode: 'SERVICE_ONLY',
 };
 
-const COLLECTION_MODES = [
+const collectionModes = (unit: string) => [
   {
     value: 'SERVICE_ONLY' as const,
     label: 'Service Fee Only',
-    hint: 'The patient pays only the TokenWalla service fee online and settles the scan price at your centre. Nothing is owed to you by us.',
+    hint: `The patient pays only the TokenWalla service fee online and settles the ${unit} price at your centre. Nothing is owed to you by us.`,
   },
   {
     value: 'FULL' as const,
-    label: 'Scan Price + Service Fee',
-    hint: 'The patient pays everything online. We hold the scan price and settle it to your payout account — add one on your Profile if you have not.',
+    label: `${unit[0].toUpperCase()}${unit.slice(1)} Price + Service Fee`,
+    hint: `The patient pays everything online. We hold the ${unit} price and settle it to your payout account — add one on your Profile if you have not.`,
   },
 ];
 
@@ -97,11 +97,15 @@ interface Props {
   /** null = adding a new scan. */
   scan: ScanRecord | null;
   centerId: number | string;
+  /** What a blood centre calls a scan. Defaults to 'scan' so a scanning centre
+   *  — and any caller that predates blood centres — is unchanged. */
+  unit?: 'scan' | 'test';
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function ScanEditorModal({ visible, scan, centerId, onClose, onSaved }: Props) {
+export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan', onClose, onSaved }: Props) {
+  const Unit = `${unit[0].toUpperCase()}${unit.slice(1)}`;
   const [form, setForm]     = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState('');
@@ -125,10 +129,10 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
 
   const save = async () => {
     const name = form.name.trim();
-    if (!name) { setError('Scan name is required.'); return; }
+    if (!name) { setError(`${Unit} name is required.`); return; }
     // Number('') is 0 and 0 is finite, so an untouched price field would have
     // sailed through and listed the scan to patients at ₹0.
-    if (!form.price.trim()) { setError('Enter the scan price.'); return; }
+    if (!form.price.trim()) { setError(`Enter the ${unit} price.`); return; }
     const price = Number(form.price);
     if (!Number.isFinite(price) || price <= 0) { setError('Enter a valid price.'); return; }
 
@@ -159,7 +163,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
       setError(
         errs && typeof errs === 'object'
           ? Object.values(errs).flat().join(' ')
-          : e?.response?.data?.message || 'Could not save the scan. Please try again.',
+          : e?.response?.data?.message || `Could not save the ${unit}. Please try again.`,
       );
     } finally {
       setSaving(false);
@@ -175,7 +179,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
               <Ionicons name="close" size={15} color={Colors.errorText} />
               <Text style={s.cancelText}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={s.title} numberOfLines={1}>{scan ? `Edit ${scan.name}` : 'Add New Scan'}</Text>
+            <Text style={s.title} numberOfLines={1}>{scan ? `Edit ${scan.name}` : `Add New ${Unit}`}</Text>
             <TouchableOpacity style={[s.save, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
               {saving ? <ActivityIndicator color={Colors.white} size="small" />
                       : <Text style={s.saveText}>Save</Text>}
@@ -192,7 +196,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
 
             <Text style={s.section}>THE SCAN</Text>
 
-            <Text style={s.label}>Scan Name</Text>
+            <Text style={s.label}>{Unit} Name</Text>
             <TextInput style={s.input} placeholder="e.g. MRI Brain" placeholderTextColor={Colors.gray400}
               value={form.name} onChangeText={t => setField('name', t)} />
 
@@ -209,7 +213,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
             <Text style={s.hint}>What a patient might type instead of the exact name.</Text>
 
             <Text style={s.label}>Description</Text>
-            <TextInput style={[s.input, s.multiline]} multiline placeholder="What this scan is for"
+            <TextInput style={[s.input, s.multiline]} multiline placeholder={`What this ${unit} is for`}
               placeholderTextColor={Colors.gray400}
               value={form.description} onChangeText={t => setField('description', t)} />
 
@@ -229,7 +233,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
 
             <Text style={s.section}>PRICE & CAPACITY</Text>
 
-            <Text style={s.label}>Scan Price (₹)</Text>
+            <Text style={s.label}>{Unit} Price (₹)</Text>
             <TextInput style={s.input} keyboardType="number-pad" placeholder="e.g. 4500"
               placeholderTextColor={Colors.gray400}
               value={form.price} onChangeText={t => setField('price', t.replace(/\D/g, ''))} />
@@ -256,7 +260,7 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
             </Text>
 
             <Text style={s.section}>HOW THE PATIENT PAYS</Text>
-            {COLLECTION_MODES.map(opt => {
+            {collectionModes(unit).map(opt => {
               const on = form.payment_collection_mode === opt.value;
               return (
                 <TouchableOpacity
@@ -351,9 +355,11 @@ export default function ScanEditorModal({ visible, scan, centerId, onClose, onSa
 }
 
 /** Confirm-and-delete, exported so the dashboard's card menu stays a one-liner. */
-export function confirmDeleteScan(scan: ScanRecord, onDone: () => void) {
+export function confirmDeleteScan(
+  scan: ScanRecord, onDone: () => void, unit: 'scan' | 'test' = 'scan',
+) {
   Alert.alert(
-    'Delete Scan',
+    `Delete ${unit[0].toUpperCase()}${unit.slice(1)}`,
     `Delete "${scan.name}"?\nThis cannot be undone.`,
     [
       { text: 'Cancel', style: 'cancel' },
@@ -364,7 +370,7 @@ export function confirmDeleteScan(scan: ScanRecord, onDone: () => void) {
             await API.delete(`/scans/${scan.id}/`);
             onDone();
           } catch {
-            Alert.alert('Error', 'Could not delete. The scan may have active bookings.');
+            Alert.alert('Error', `Could not delete. The ${unit} may have active bookings.`);
           }
         },
       },
