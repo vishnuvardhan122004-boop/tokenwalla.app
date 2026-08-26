@@ -13,7 +13,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -41,8 +42,21 @@ import {
   validatePayout, type PayoutForm,
 } from '../../utils/payout';
 
+/** What a provider can sell, and the state of each. */
+const SERVICE_OPTIONS: {
+  seg: string; label: string; icon: ComponentProps<typeof Ionicons>['name'];
+}[] = [
+  { seg: 'CONSULT', label: 'Doctor consultations',    icon: 'medkit-outline' },
+  { seg: 'SCAN',    label: 'Scans (MRI, CT, X-ray)',  icon: 'pulse-outline'  },
+  { seg: 'BLOOD',   label: 'Blood tests',             icon: 'water-outline'  },
+];
+
 interface Hospital {
   id: number | string;
+  /** Live segments, e.g. ['CONSULT','SCAN']. */
+  segments?: string[];
+  /** Every segment WITH its state, so PENDING can be shown as pending. */
+  capabilities?: Record<string, string>;
   name?: string;
   city?: string;
   address?: string;
@@ -79,6 +93,34 @@ export default function HospitalProfile() {
   useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
 
   const [hospital, setHospital] = useState<Hospital | null>(null);
+  const [svcSaving, setSvcSaving] = useState<string | null>(null);
+
+  /** Ask for a service, or drop one. See the section comment for why they differ. */
+  const toggleService = useCallback(async (seg: string, currentlyOnOrPending: boolean) => {
+    if (!hospital?.id) return;
+    setSvcSaving(seg);
+    try {
+      const { data } = await API.post(`/hospitals/${hospital.id}/capabilities/`,
+        currentlyOnOrPending ? { segment: seg, action: 'disable' } : { segment: seg });
+      setHospital(prev => prev && ({
+        ...prev,
+        segments: data.segments,
+        capabilities: { ...(prev.capabilities || {}), [seg]: data.state },
+      }));
+      Alert.alert(
+        data.state === 'PENDING' ? 'Request sent' : 'Updated',
+        data.state === 'PENDING'
+          ? 'We\'ll review it shortly. Patients will see it once it is approved.'
+          : data.state === 'ACTIVE'
+            ? 'This service is live.'
+            : 'Removed. Anything you listed under it is kept, not deleted.');
+    } catch (e: any) {
+      Alert.alert('Could not update',
+        e?.response?.data?.message || 'Please try again.');
+    } finally {
+      setSvcSaving(null);
+    }
+  }, [hospital?.id]);
   const [doctorCount, setDoctorCount] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
   const [saving,  setSaving]  = useState(false);
@@ -364,6 +406,48 @@ export default function HospitalProfile() {
             <View style={[styles.statusPill, { backgroundColor: st.bg, borderColor: st.border }]}>
               <Text style={[styles.statusText, { color: st.text }]}>{st.label}</Text>
             </View>
+          </View>
+
+          {/* ── Services you offer ───────────────────────────────────────────
+              One account, many services. Turning something ON is a REQUEST —
+              it needs admin approval before patients see it, so a clinic
+              cannot start advertising blood tests unreviewed. Turning it OFF
+              is immediate and needs nobody's permission; the price list behind
+              it is kept, so a provider pausing for a month loses nothing. */}
+          <View style={styles.section}>
+            <View style={styles.sectionHead}>
+              <Text style={styles.sectionTitle}>Services you offer</Text>
+            </View>
+            <Text style={styles.svcHint}>
+              Patients find you under each one you offer. Adding a service needs
+              our approval; removing one takes effect straight away.
+            </Text>
+            {SERVICE_OPTIONS.map(opt => {
+              const state = hospital?.capabilities?.[opt.seg] || 'OFF';
+              const on      = state === 'ACTIVE';
+              const pending = state === 'PENDING';
+              return (
+                <View key={opt.seg} style={styles.svcRow}>
+                  <Ionicons
+                    name={opt.icon}
+                    size={18}
+                    color={on ? Colors.blue600 : Colors.gray400} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.svcLabel}>{opt.label}</Text>
+                    {pending && (
+                      <Text style={styles.svcPending}>Waiting for approval</Text>
+                    )}
+                  </View>
+                  <Switch
+                    value={on || pending}
+                    disabled={svcSaving === opt.seg}
+                    onValueChange={() => toggleService(opt.seg, on || pending)}
+                    trackColor={{ true: Colors.blue200, false: Colors.gray200 }}
+                    thumbColor={on ? Colors.blue600 : pending ? Colors.warningText : Colors.gray400}
+                  />
+                </View>
+              );
+            })}
           </View>
 
           {/* Details / edit */}
@@ -894,6 +978,13 @@ const styles = StyleSheet.create({
   section:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, padding: 16, marginBottom: 16 },
   sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   sectionTitle:{ fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 12 },
+  svcHint:    { fontSize: 12, color: Colors.gray500, lineHeight: 17, marginBottom: 4 },
+  svcRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 11,
+    paddingVertical: 11, borderTopWidth: 1, borderTopColor: Colors.gray100,
+  },
+  svcLabel:   { fontSize: 13.5, fontWeight: '600', color: Colors.gray800 },
+  svcPending: { fontSize: 11.5, color: Colors.warningText, marginTop: 2, fontWeight: '600' },
   editLinkRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   editLink:    { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
   socialRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },

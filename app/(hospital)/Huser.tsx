@@ -21,11 +21,19 @@ import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
+// A registration card is an IDENTITY; this is the segment it already implies,
+// so "We also offer" never lists the thing they just picked.
+const PRIMARY_SEGMENT: Record<string, string> = {
+  HOSPITAL: 'CONSULT', SCAN_CENTER: 'SCAN', BLOOD_CENTER: 'BLOOD',
+};
+
 // Matches the route used everywhere else for the hospital login screen.
 const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
 
 interface FormState {
   kind: 'HOSPITAL' | 'SCAN_CENTER' | 'BLOOD_CENTER';
+  /** Extra segments beyond the one the card implies. See `alsoOffers` below. */
+  also_offers: string[];
   name: string;
   city: string;
   address: string;
@@ -47,6 +55,7 @@ interface FormErrors {
 
 const EMPTY_FORM: FormState = {
   kind: 'HOSPITAL',
+  also_offers: [],
   name: '',
   city: '',
   address: '',
@@ -179,6 +188,7 @@ export default function HospitalRegisterScreen() {
     try {
       await API.post('/hospitals/register/', {
         kind:      form.kind,
+        also_offers: form.also_offers,
         name:      form.name.trim(),
         city:      form.city.trim(),
         address:   form.address.trim(),
@@ -236,9 +246,10 @@ export default function HospitalRegisterScreen() {
               : 'Create your hospital account to manage doctors, slots, and live patient queues from one dashboard.'}
           </Text>
 
-          {/* What are you registering? Asked first, because it changes what the
-              account can do: a hospital lists doctors and OPD slots, a centre
-              lists scans and their prices. Changing it later needs an admin. */}
+          {/* What are you? Identity, not capability — it sets the badge
+              patients see and the words on this form. What you SELL is the
+              tick-boxes below, because a real business is often more than one
+              thing and used to need three separate registrations to say so. */}
           <View style={styles.kindRow}>
             {([
               { value: 'HOSPITAL',     icon: 'business-outline', label: 'Hospital / Clinic', sub: 'Doctors and OPD slots' },
@@ -264,6 +275,52 @@ export default function HospitalRegisterScreen() {
                 </TouchableOpacity>
               );
             })}
+          </View>
+
+          {/* ── We also offer ────────────────────────────────────────────────
+              One account, many services. Ticked here they go live with the
+              account; added later from Profile they need admin approval. Only
+              the segments the card does not already cover are shown, so the
+              primary choice can never be un-ticked into an account that sells
+              nothing. */}
+          <Text style={styles.alsoTitle}>We also offer</Text>
+          <Text style={styles.alsoHint}>
+            Optional. Tick anything else you do — you&apos;ll manage it all from one
+            dashboard, with one login.
+          </Text>
+          <View style={styles.alsoRow}>
+            {([
+              { seg: 'CONSULT', icon: 'medkit-outline', label: 'Doctor consultations' },
+              { seg: 'SCAN',    icon: 'pulse-outline',  label: 'Scans (MRI, CT, X-ray)' },
+              { seg: 'BLOOD',   icon: 'water-outline',  label: 'Blood tests' },
+            ] as const)
+              .filter(o => o.seg !== PRIMARY_SEGMENT[form.kind])
+              .map(o => {
+                const on = form.also_offers.includes(o.seg);
+                return (
+                  <TouchableOpacity
+                    key={o.seg}
+                    style={[styles.alsoChip, on && styles.alsoChipOn]}
+                    onPress={() => setForm(prev => ({
+                      ...prev,
+                      also_offers: on
+                        ? prev.also_offers.filter(x => x !== o.seg)
+                        : [...prev.also_offers, o.seg],
+                    }))}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: on }}
+                  >
+                    <Ionicons
+                      name={on ? 'checkbox' : 'square-outline'}
+                      size={17} color={on ? Colors.blue600 : Colors.gray400} />
+                    <Ionicons name={o.icon} size={15}
+                      color={on ? Colors.blue700 : Colors.gray400} />
+                    <Text style={[styles.alsoLabel, on && styles.alsoLabelOn]}>
+                      {o.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
           </View>
 
           <View style={styles.divider} />
@@ -522,6 +579,17 @@ const styles = StyleSheet.create({
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
 
   kindRow:   { flexDirection: 'row', gap: 10, marginBottom: 18 },
+  alsoTitle: { fontSize: 13, fontWeight: '700', color: Colors.gray700 },
+  alsoHint:  { fontSize: 11.5, color: Colors.gray400, lineHeight: 16, marginTop: 3, marginBottom: 9 },
+  alsoRow:   { gap: 8, marginBottom: 4 },
+  alsoChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: Colors.gray200, borderRadius: 11,
+    paddingVertical: 10, paddingHorizontal: 12,
+  },
+  alsoChipOn:   { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
+  alsoLabel:    { fontSize: 12.5, fontWeight: '600', color: Colors.gray700 },
+  alsoLabelOn:  { color: Colors.blue700 },
   kindCard: {
     flex: 1, gap: 3, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12,
     backgroundColor: Colors.white, borderWidth: 1.5, borderColor: Colors.gray200,

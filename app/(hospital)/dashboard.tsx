@@ -40,7 +40,9 @@ import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKey
 import { suggestSpecializations } from '../../constants/specializations';
 import NotificationBell from '../../components/NotificationBell';
 import API, { logoutUser } from '../../services/api';
-import { asList, BLOOD_CENTER, CENTER_KINDS } from '../../utils/scanCenters';
+import {
+  asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
+} from '../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
@@ -52,7 +54,10 @@ interface Hospital {
   id: number | string;
   name: string;
   city?: string;
+  /** Identity — the badge and the labels. Says nothing about what is sold. */
   kind?: string;
+  /** What is actually sold, e.g. ['CONSULT','SCAN']. Absent on old backends. */
+  segments?: string[];
 }
 
 // The editor owns this shape. A narrower local copy would type-check and then
@@ -353,14 +358,51 @@ export default function HospitalDashboard() {
     } catch {}
   }, [hospital]);
 
-  // A centre is a Hospital row with kind=SCAN_CENTER or BLOOD_CENTER. The
-  // queue, payments and QR scanner all work identically for one — only the
-  // bookable unit differs, so only this tab changes. Branch on the SET, never
-  // on SCAN_CENTER alone, or a blood centre gets the hospital dashboard and
-  // cannot reach its own test list.
-  const isCentre = CENTER_KINDS.includes(hospital?.kind as any);
-  // The only thing that separates the two centre kinds in here: the word.
-  const unit     = hospital?.kind === BLOOD_CENTER
+  // What this account SELLS, from the login payload. Falls back to the segment
+  // its `kind` implies, so a session opened against an older backend — which
+  // sends no `segments` — behaves exactly as it did before capabilities.
+  const segments: string[] = Array.isArray(hospital?.segments) && hospital.segments.length
+    ? hospital.segments
+    : [KIND_TO_SEGMENT[hospital?.kind as string] ?? SEG_CONSULT];
+
+  const sellsConsults = segments.includes(SEG_CONSULT);
+  const sellsScans    = segments.includes(SEG_SCAN);
+  const sellsBlood    = segments.includes(SEG_BLOOD);
+
+  // SCAN and BLOOD collapse into ONE switcher entry, because they are one list:
+  // a Scan row carries no segment of its own, so both would render the same
+  // rows and a provider selling both would face two identical tabs. The
+  // patient-facing lists still tell them apart — that is a capability question,
+  // answered on the server — and this is only about editing the price list.
+  //
+  // Splitting them here is what Scan.segment would buy, and it is deliberately
+  // out of scope for this change.
+  const scanLabel = sellsScans && sellsBlood ? 'Scans & Tests'
+                  : sellsBlood               ? 'Tests'
+                  : 'Scans';
+  const providerTabs = [
+    ...(sellsConsults
+      ? [{ key: SEG_CONSULT, label: 'Doctors',
+           icon: 'medkit-outline' as ComponentProps<typeof Ionicons>['name'] }]
+      : []),
+    ...(sellsScans || sellsBlood
+      ? [{ key: 'SERVICES', label: scanLabel,
+           icon: (sellsBlood && !sellsScans
+             ? 'water-outline' : 'pulse-outline') as ComponentProps<typeof Ionicons>['name'] }]
+      : []),
+  ];
+
+  const [segTab, setSegTab] = useState<string>(providerTabs[0]?.key ?? SEG_CONSULT);
+  // Never leave the tab pointing at something no longer sold — a capability can
+  // be switched off in another session while this one is open.
+  const seg = providerTabs.some(t => t.key === segTab)
+    ? segTab
+    : providerTabs[0]?.key ?? SEG_CONSULT;
+
+  const isCentre = seg !== SEG_CONSULT;      // this tab manages Scans, not Doctors
+  const isHybrid = providerTabs.length > 1;
+  // Blood-only accounts say "Test"; anyone selling scans at all says "Scan".
+  const unit = sellsBlood && !sellsScans
     ? { one: 'Test', many: 'Tests' }
     : { one: 'Scan', many: 'Scans' };
 
@@ -375,8 +417,12 @@ export default function HospitalDashboard() {
   }, [hospital?.id]);
 
   useEffect(() => {
-    if (isCentre && activeTab === 'doctors') loadScans();
-  }, [isCentre, activeTab, loadScans]);
+    // Gate on what the account SELLS, not on which sub-tab is open. The
+    // switcher shows a count per segment, so a hybrid sitting on Doctors still
+    // needs its scan count — gating on isCentre left it reading "Scans 0"
+    // until you clicked through, which looks like an empty price list.
+    if ((sellsScans || sellsBlood) && activeTab === 'doctors') loadScans();
+  }, [sellsScans, sellsBlood, activeTab, loadScans]);
 
   // ── Load Doctors ──────────────────────────────────────────────────────────
   const loadDoctors = useCallback(async () => {
@@ -742,7 +788,7 @@ export default function HospitalDashboard() {
         <ScanEditorModal
           visible={scanModalOpen}
           scan={editScan}
-          unit={hospital?.kind === BLOOD_CENTER ? 'test' : 'scan'}
+          unit={unit.one.toLowerCase() as 'scan' | 'test'}
           centerId={hospital.id}
           onClose={() => setScanModalOpen(false)}
           onSaved={loadScans}
@@ -1182,12 +1228,14 @@ export default function HospitalDashboard() {
             onPress={() => setActiveTab('doctors')}
           >
             <Ionicons
-              name={isCentre ? 'pulse-outline' : 'medkit-outline'}
+              name={isHybrid ? 'grid-outline' : (providerTabs[0]?.icon ?? 'medkit-outline')}
               size={15}
               color={activeTab === 'doctors' ? Colors.blue600 : Colors.gray500}
             />
             <Text style={[styles.tabText, activeTab === 'doctors' && styles.tabTextActive]} numberOfLines={1}>
-              {isCentre ? `${unit.many} ${scans.length}` : `Doctors ${doctors.length}`}
+              {isHybrid
+                ? 'Services'
+                : isCentre ? `${unit.many} ${scans.length}` : `Doctors ${doctors.length}`}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1415,6 +1463,33 @@ export default function HospitalDashboard() {
             DOCTORS TAB
         ══════════════════════════════════════════════════════════════════ */}
         {/* ── SCANS (a centre's version of the Doctors tab) ── */}
+        {/* ── Segment switcher — only when this account sells more than one
+            thing. One provider tab with a switcher rather than a tab each:
+            three provider tabs would take the bar to six and clip off a
+            375pt screen, which is exactly the bug the patient tabs just had. */}
+        {activeTab === 'doctors' && isHybrid && (
+          <View style={styles.segRow}>
+            {providerTabs.map(t => {
+              const on = t.key === seg;
+              return (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[styles.segBtn, on && styles.segBtnOn]}
+                  onPress={() => setSegTab(t.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Ionicons name={t.icon} size={14}
+                    color={on ? Colors.blue700 : Colors.gray500} />
+                  <Text numberOfLines={1} style={[styles.segText, on && styles.segTextOn]}>
+                    {t.label} {t.key === SEG_CONSULT ? doctors.length : scans.length}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
         {activeTab === 'doctors' && isCentre && (
           <View style={{ padding: 16 }}>
             <Text style={styles.scanLead}>
@@ -1431,7 +1506,7 @@ export default function HospitalDashboard() {
             {scans.length === 0 ? (
               <View style={styles.scanEmpty}>
                 <Ionicons
-                  name={hospital?.kind === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
+                  name={sellsBlood && !sellsScans ? 'water-outline' : 'pulse-outline'}
                   size={38} color={Colors.gray400} />
                 <Text style={styles.scanEmptyTitle}>No {unit.many.toLowerCase()} listed yet</Text>
                 <Text style={styles.scanEmptySub}>
@@ -1688,6 +1763,16 @@ const styles = StyleSheet.create({
   callBtn:      { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center' },
   callBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 13 },
   btnHint:      { fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'center' as const },
+  segRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingTop: 14 },
+  segBtn: {
+    flexGrow: 1, minWidth: 96,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+    borderWidth: 1, borderColor: Colors.gray200, borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 10, backgroundColor: Colors.white,
+  },
+  segBtnOn:   { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
+  segText:    { fontSize: 12, fontWeight: '700', color: Colors.gray500 },
+  segTextOn:  { color: Colors.blue700 },
   scanShortcutBtn:  { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },
   scanShortcutText: { color: Colors.blue700, fontWeight: '700', fontSize: 12 },
   holdBtn:      { flexDirection: 'row', gap: 6, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 7, alignItems: 'center', justifyContent: 'center' },

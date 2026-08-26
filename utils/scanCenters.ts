@@ -27,23 +27,50 @@ export const BLOOD_CENTER = 'BLOOD_CENTER';
 export const CENTER_KINDS = [SCAN_CENTER, BLOOD_CENTER] as const;
 export type CenterKind = typeof CENTER_KINDS[number];
 
+/** Segment keys the API reports in `segments`. */
+export const SEG_CONSULT = 'CONSULT';
+export const SEG_SCAN    = 'SCAN';
+export const SEG_BLOOD   = 'BLOOD';
+
+/** The `?kind=` value each tab sends, mapped to the segment it means. */
+export const KIND_TO_SEGMENT: Record<string, string> = {
+  HOSPITAL:     SEG_CONSULT,
+  SCAN_CENTER:  SEG_SCAN,
+  BLOOD_CENTER: SEG_BLOOD,
+};
+
 export interface KindedRow {
   kind?: string;
+  /** What the provider SELLS, e.g. ['CONSULT','SCAN']. Absent on old backends. */
+  segments?: string[];
   [k: string]: any;
 }
 
 /**
- * Rows that are explicitly of `kind`. Anything else is dropped.
+ * Rows that actually SELL what `kind` asks for. Anything else is dropped.
  *
- * The kind is REQUIRED, not defaulted: the two centre lists are separate tabs,
- * so a caller that forgets to say which one it wants must not silently get the
- * scanning centres.
+ * Prefers `segments`, because `kind` cannot answer the question any more: a
+ * hospital with a scanning wing is kind=HOSPITAL and belongs in the Scans tab.
+ * Matching on kind alone would drop exactly the providers this exists to show.
+ *
+ * Falls back to `kind` when `segments` is absent — that is an older backend,
+ * which is the deploy-order hazard this whole module was written for. On such a
+ * backend hybrids do not exist yet, so the fallback is not merely safe, it is
+ * exactly right.
+ *
+ * The kind is REQUIRED, not defaulted: the centre lists are separate tabs, so a
+ * caller that forgets to say which one it wants must not silently get another.
  */
 export function filterByKind<T extends KindedRow>(
   rows: T[] | null | undefined, kind: string,
 ): T[] {
   if (!Array.isArray(rows)) return [];
-  return rows.filter(r => r && r.kind === kind);
+  const segment = KIND_TO_SEGMENT[kind];
+  return rows.filter(r => {
+    if (!r) return false;
+    if (Array.isArray(r.segments)) return !!segment && r.segments.includes(segment);
+    return r.kind === kind;
+  });
 }
 
 /** Back-compat alias for the scanning-centre callers. */

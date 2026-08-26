@@ -57,3 +57,37 @@ describe('blood centres', () => {
       .not.toContain('Old backend, no kind');
   });
 });
+
+describe('hybrid providers', () => {
+  const hybrid = { id: 1, kind: 'HOSPITAL',     segments: ['CONSULT', 'SCAN'], name: 'Sri Sarwodhaya' };
+  const centre = { id: 2, kind: 'SCAN_CENTER',  segments: ['SCAN'],            name: 'Vijaya' };
+  const lab    = { id: 3, kind: 'BLOOD_CENTER', segments: ['BLOOD'],           name: 'Lotus' };
+  const plain  = { id: 4, kind: 'HOSPITAL',     segments: ['CONSULT'],         name: 'City Care' };
+  const rows = [hybrid, centre, lab, plain];
+
+  it('keeps a hospital that also sells scans in the scans tab', () => {
+    // The whole point: matching on `kind` would drop it, since kind=HOSPITAL.
+    expect(filterByKind(rows, SCAN_CENTER).map(r => r.id)).toEqual([1, 2]);
+  });
+
+  it('does not put it in a tab it does not sell', () => {
+    expect(filterByKind(rows, BLOOD_CENTER).map(r => r.id)).toEqual([3]);
+  });
+
+  it('falls back to kind when the backend predates segments', () => {
+    // Older backend: no `segments` key at all. Hybrids cannot exist there, so
+    // kind is the correct and only answer.
+    const legacy = [{ id: 1, kind: 'SCAN_CENTER' }, { id: 2, kind: 'HOSPITAL' }];
+    expect(filterByKind(legacy, SCAN_CENTER).map(r => r.id)).toEqual([1]);
+  });
+
+  it('still drops everything when an old backend ignores ?kind=', () => {
+    const legacy = [{ id: 1, name: 'City Care' }, { id: 2, name: 'Rival' }];
+    expect(filterByKind(legacy, BLOOD_CENTER)).toEqual([]);
+  });
+
+  it('an empty segments array means it sells nothing', () => {
+    expect(filterByKind([{ id: 9, kind: 'HOSPITAL', segments: [] }], SCAN_CENTER))
+      .toEqual([]);
+  });
+});
