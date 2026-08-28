@@ -26,7 +26,7 @@ import { Platform } from 'react-native';
 import type * as NotificationsModule from 'expo-notifications';
 import { recordNotification, setBadgeSync, type NotificationAudience } from './notificationStore';
 import API from './api';
-import { normalizeBookingStatus } from '../utils/booking';
+import { normalizeBookingStatus, providerLabel } from '../utils/booking';
 
 /**
  * Format a doctor's display name for a message body. Handles a missing name
@@ -34,9 +34,7 @@ import { normalizeBookingStatus } from '../utils/booking';
  * (no "Dr. Dr." doubling).
  */
 function doctorLabel(name?: string): string {
-  const n = (name ?? '').trim();
-  if (!n) return 'your doctor';
-  return /^dr\.?\s/i.test(n) ? n : `Dr. ${n}`;
+  return providerLabel(name) || 'your doctor';
 }
 
 // How long before the appointment to remind the patient — 2.1 hours.

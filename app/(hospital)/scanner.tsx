@@ -28,7 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
-import { normalizeBookingStatus } from '../../utils/booking';
+import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -60,6 +60,7 @@ interface Booking {
   patient_name?: string;
   patient_mobile?: string;
   doctor_name?: string;
+  provider_kind?: string;
   specialization?: string;
   date?: string;
   slot?: string;
@@ -330,7 +331,8 @@ export default function HospitalScanner() {
               { label: 'Hospital',       value: String(booking.hospital_name ?? '') },
               { label: 'Patient',        value: String(booking.patient_name ?? '') },
               { label: 'Mobile',         value: String(booking.patient_mobile ?? ''), mono: true },
-              { label: 'Doctor',         value: `Dr. ${booking.doctor_name ?? ''}` },
+              { label: booking.provider_kind === 'SCAN' ? 'Scan' : 'Doctor',
+                value: providerLabel(booking.doctor_name, booking.provider_kind) },
               { label: 'Specialization', value: booking.specialization ?? '' },
               { label: 'Date',           value: String(booking.date ?? '') },
               { label: 'Slot',           value: String(booking.slot ?? '') },

@@ -21,6 +21,7 @@ import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
+import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -345,6 +346,7 @@ export default function PaymentScreen() {
               // booking-token renders this as the provider line; for a scan
               // it carries the scan's name.
               doctorName:   providerName,
+              providerKind: isScan ? 'SCAN' : 'DOCTOR',
               doctorMobile: String(doctorMobile || ''),
               hospital:     String(hospital),
               date:         String(date),
@@ -475,7 +477,7 @@ export default function PaymentScreen() {
           <View style={styles.cardBody}>
             {[
               { label: isScan ? 'Scan' : 'Doctor',
-                value: isScan ? providerName : `Dr. ${providerName}` },
+                value: providerLabel(providerName, isScan ? 'SCAN' : 'DOCTOR') },
               { label: 'Hospital', value: String(hospital)             },
               { label: 'Date',     value: String(date)                 },
               { label: 'Slot',     value: String(slot)                 },

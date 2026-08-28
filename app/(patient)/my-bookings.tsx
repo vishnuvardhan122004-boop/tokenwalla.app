@@ -30,7 +30,7 @@ import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { syncAppointmentReminders } from '../../services/notifications';
-import { normalizeBookingStatus } from '../../utils/booking';
+import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -227,7 +227,7 @@ export default function MyBookings() {
   const handleCancel = (booking: Booking) => {
     Alert.alert(
       'Cancel Appointment',
-      `Cancel with Dr. ${booking.doctor_name}?\n\nRefunds are processed within 5–7 business days.`,
+      `Cancel with ${providerLabel(booking.doctor_name, booking.provider_kind)}?\n\nRefunds are processed within 5–7 business days.`,
       [
         { text: 'Keep Booking', style: 'cancel' },
         {
@@ -377,7 +377,7 @@ export default function MyBookings() {
                       {isActive && <View style={[st.statusDot, { backgroundColor: s.text }]} />}
                       <Text style={[st.statusText, { color: s.text }]}>{t(STATUS_LABEL_KEY[cs] ?? 'status_cancelled')}</Text>
                     </View>
-                    <Text style={st.doctorName}>Dr. {booking.doctor_name}</Text>
+                    <Text style={st.doctorName}>{providerLabel(booking.doctor_name, booking.provider_kind)}</Text>
                     <View style={st.iconTextRow}>
                       <Ionicons name="business-outline" size={13} color={Colors.gray500} />
                       <Text style={st.hospitalName} numberOfLines={1}>{booking.hospital_name}</Text>
@@ -491,7 +491,7 @@ export default function MyBookings() {
                   <View style={st.unavailBanner}>
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      Dr. {booking.doctor_name} is unavailable. Reschedule below at no charge.
+                      {providerLabel(booking.doctor_name, booking.provider_kind)} is unavailable. Reschedule below at no charge.
                     </Text>
                   </View>
                 )}
@@ -584,7 +584,8 @@ export default function MyBookings() {
           <View style={st.ticketDetails}>
             {[
               { label: 'Patient',  value: ticketBooking.patient_name || user?.name || user?.username },
-              { label: 'Doctor',   value: `Dr. ${ticketBooking.doctor_name}` },
+              { label: ticketBooking.provider_kind === 'SCAN' ? 'Scan' : 'Doctor',
+                value: providerLabel(ticketBooking.doctor_name, ticketBooking.provider_kind) },
               { label: 'Hospital', value: ticketBooking.hospital_name },
               { label: 'Date',     value: ticketBooking.date },
               { label: 'Slot',     value: ticketBooking.slot },
