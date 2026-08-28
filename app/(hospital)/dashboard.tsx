@@ -47,6 +47,7 @@ import {
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
+import { providerLabel } from '../../utils/booking';
 import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 
@@ -583,7 +584,7 @@ export default function HospitalDashboard() {
   const deleteDoctor = (doc: Doctor) => {
     Alert.alert(
       'Delete Doctor',
-      `Are you sure you want to delete Dr. ${doc.name}?\nThis cannot be undone.`,
+      `Are you sure you want to delete ${providerLabel(doc.name)}?\nThis cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -725,12 +726,12 @@ export default function HospitalDashboard() {
         await API.patch(`/doctors/${editDoc.id}/`, payload, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        Alert.alert('Updated', `Dr. ${form.name} updated successfully!`);
+        Alert.alert('Updated', `${providerLabel(form.name)} updated successfully!`);
       } else {
         await API.post('/doctors/', payload, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-        Alert.alert('Added', `Dr. ${form.name} added successfully!`);
+        Alert.alert('Added', `${providerLabel(form.name)} added successfully!`);
       }
 
       setShowModal(false);
@@ -875,7 +876,7 @@ export default function HospitalDashboard() {
               </TouchableOpacity>
 
               <Text style={styles.modalTitle} numberOfLines={1}>
-                {editDoc ? `Edit Dr. ${editDoc.name}` : 'Add New Doctor'}
+                {editDoc ? `Edit ${providerLabel(editDoc.name)}` : 'Add New Doctor'}
               </Text>
 
               <TouchableOpacity
@@ -1716,7 +1717,7 @@ export default function HospitalDashboard() {
                         </View>
                       )}
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.doctorName}>Dr. {doc.name}</Text>
+                        <Text style={styles.doctorName}>{providerLabel(doc.name)}</Text>
                         <Text style={styles.doctorSpec}>{doc.specialization}</Text>
                         <Text style={styles.doctorMeta}>{doc.mobile || doc.landline || '—'}  ·  {doc.experience}y exp</Text>
                         <Text style={styles.doctorMeta}>₹{doc.fee}  ·  Max {doc.max_per_slot}/slot</Text>

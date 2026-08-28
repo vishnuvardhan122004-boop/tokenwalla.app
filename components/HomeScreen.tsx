@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { isTestHospital } from '../constants/config';
+import { providerLabel } from '../utils/booking';
 import API, { getUser } from '../services/api';
 import { useI18n } from '../services/i18n';
 import { registerPushToken } from '../services/notifications';
@@ -325,7 +326,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.docInfo}>
                     <Text style={styles.docSpec} numberOfLines={1}>{doc.specialization}</Text>
-                    <Text style={styles.docName} numberOfLines={1}>Dr. {doc.name}</Text>
+                    <Text style={styles.docName} numberOfLines={1}>{providerLabel(doc.name)}</Text>
                     <View style={styles.docMetaRow}>
                       <Ionicons name="location-outline" size={12} color={Colors.gray400} />
                       <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>

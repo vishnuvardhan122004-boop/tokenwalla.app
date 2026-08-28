@@ -22,11 +22,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
+import { providerLabel } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import API from '../../services/api';
 
-interface Patient { doctor_name?: string; slot?: string; }
+interface Patient { doctor_name?: string; slot?: string; provider_kind?: string; }
 
 export default function HospitalAnalytics() {
   const router = useRouter();
@@ -73,7 +74,7 @@ export default function HospitalAnalytics() {
   // Per-doctor patient counts (today)
   const byDoctor = Object.entries(
     allToday.reduce<Record<string, number>>((acc, p) => {
-      const k = p.doctor_name || 'Unknown';
+      const k = providerLabel(p.doctor_name, p.provider_kind) || 'Unknown';
       acc[k] = (acc[k] || 0) + 1;
       return acc;
     }, {}),
@@ -149,7 +150,7 @@ export default function HospitalAnalytics() {
             const pct = total > 0 ? (count / total) : 0;
             return (
               <View key={name} style={styles.barRow}>
-                <Text style={styles.barLabel} numberOfLines={1}>Dr. {name}</Text>
+                <Text style={styles.barLabel} numberOfLines={1}>{name}</Text>
                 <View style={styles.barTrack}>
                   <View style={[styles.barFill, { width: `${Math.max(6, pct * 100)}%` }]} />
                 </View>

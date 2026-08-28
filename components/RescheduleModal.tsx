@@ -36,6 +36,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
+import { providerLabel } from '../utils/booking';
 import { money } from '../utils/fees';
 import { parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
@@ -242,7 +243,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       const rpKeyId    = String(data.key || data.key_id || RAZORPAY_KEY_ID);
       const userName   = String(user?.name || user?.username || '');
       const userMobile = String(user?.mobile || '');
-      const drName     = String(booking.doctor_name || '');
+      const drName     = providerLabel(String(booking.doctor_name || ''));
       const feeDisplay = money(rpRupees);
 
       const html = `<!DOCTYPE html>
@@ -281,7 +282,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   <div class="card">
     <div class="icon">📅</div>
     <h2>TokenWalla Payment</h2>
-    <p class="sub">Reschedule · Dr. ${htmlEscape(drName)} · ${htmlEscape(slot)}</p>
+    <p class="sub">Reschedule · ${htmlEscape(drName)} · ${htmlEscape(slot)}</p>
     <div class="amount"><span class="cur">₹</span>${htmlEscape(feeDisplay)}</div>
     <div class="info">🔐 Secured by Razorpay &bull; UPI &bull; Cards &bull; Wallets</div>
     <button class="btn" id="payBtn" onclick="startPayment()">
@@ -421,7 +422,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
             <Text style={st.headerTitle}>Reschedule Appointment</Text>
-            <Text style={st.headerSub}>Dr. {booking.doctor_name}</Text>
+            <Text style={st.headerSub}>{providerLabel(booking.doctor_name)}</Text>
           </View>
           <View style={{ width: 36 }} />
         </View>

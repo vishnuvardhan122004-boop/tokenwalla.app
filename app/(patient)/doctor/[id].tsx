@@ -25,6 +25,7 @@ import {
   isOpenNow,
   isSlotTooSoon,
 } from '../../../utils/booking';
+import { providerLabel } from '../../../utils/booking';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
@@ -274,7 +275,7 @@ export default function DoctorDetails() {
   const buildShare = () => {
     const url  = `https://www.tokenwalla.com/doctor/${doctor!.id}`;
     const text = [
-      `👨‍⚕️ Dr. ${doctor!.name}`,
+      `👨‍⚕️ ${providerLabel(doctor!.name)}`,
       doctor!.specialization ? `🩺 ${doctor!.specialization}` : null,
       doctor!.hospital_name  ? `🏥 ${doctor!.hospital_name}`  : null,
       doctor!.city           ? `📍 ${doctor!.city}`           : null,
@@ -491,7 +492,7 @@ export default function DoctorDetails() {
 
             <View style={{ flex: 1 }}>
               <Text style={styles.specLabel}>{doctor.specialization}</Text>
-              <Text style={styles.doctorName}>Dr. {doctor.name}</Text>
+              <Text style={styles.doctorName}>{providerLabel(doctor.name)}</Text>
               <View style={styles.pillRow}>
                 <View style={styles.pill}>
                   <Ionicons name="location-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
@@ -849,7 +850,7 @@ export default function DoctorDetails() {
           <BlockTitle icon="receipt-outline">Booking Summary</BlockTitle>
 
           {[
-            { label: 'Doctor',   value: `Dr. ${doctor.name}`                                              },
+            { label: 'Doctor',   value: providerLabel(doctor.name)                                              },
             { label: 'Hospital', value: doctor.hospital_name                                              },
             walkIn
               ? { label: 'Hours', value: (hospitalInfo?.open_time || hospitalInfo?.close_time)

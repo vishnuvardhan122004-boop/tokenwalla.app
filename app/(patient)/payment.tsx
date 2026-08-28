@@ -120,7 +120,7 @@ export default function PaymentScreen() {
     const userMobile = String(currentUser?.mobile || '');
     // Display the server-authoritative amount, not a client guess.
     const feeDisplay = money(rpRupees);
-    const drName     = providerName;
+    const provider   = providerLabel(providerName, isScan ? 'SCAN' : 'DOCTOR');
     const apptDate   = String(date || '');
     const apptSlot   = String(slot || '');
 
@@ -166,7 +166,7 @@ export default function PaymentScreen() {
   <div class="card">
     <div class="icon">💳</div>
     <h2>TokenWalla Payment</h2>
-    <p class="sub">Dr. ${htmlEscape(drName)} &bull; ${htmlEscape(apptDate)} &bull; ${htmlEscape(apptSlot)}</p>
+    <p class="sub">${htmlEscape(provider)} &bull; ${htmlEscape(apptDate)} &bull; ${htmlEscape(apptSlot)}</p>
     <div class="amount"><span class="cur">₹</span>${htmlEscape(feeDisplay)}</div>
     <div class="info">🔐 Secured by Razorpay &bull; UPI &bull; Cards &bull; Wallets</div>
     <button class="btn" id="payBtn" onclick="startPayment()">
@@ -188,7 +188,7 @@ export default function PaymentScreen() {
         amount:      ${rpAmount},
         currency:    'INR',
         name:        'TokenWalla',
-        description: ${jsStr('Appointment – Dr. ' + drName)},
+        description: ${jsStr('Appointment – ' + provider)},
         // FIX 3: real order_id from backend
         order_id:    ${jsStr(rpOrderId)},
         prefill: {
