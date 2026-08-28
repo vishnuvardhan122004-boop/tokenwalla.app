@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ComponentProps } from 'react';
+import { ComponentProps, useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { logoutUser } from '../../services/api';
+import API, { logoutUser } from '../../services/api';
+import { runningVersion } from '../../services/appUpdate';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 
@@ -30,6 +32,31 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { t } = useI18n();
   const { user, setUser } = useCurrentUser<UserProfile>({ refetchOnFocus: true });
+
+  // Read the opt-in from the server, not the cached user: the same account can
+  // flip this on the website, and a switch that shows the wrong state is worse
+  // than no switch at all.
+  const [waOptIn, setWaOptIn] = useState(true);
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    API.get('/auth/me/')
+      .then(({ data }) => { if (alive) setWaOptIn(data.whatsapp_opt_in ?? true); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user]);
+
+  // Optimistic so the switch moves under the finger; rolled back if the PATCH
+  // fails, otherwise the UI claims a preference the server never stored.
+  const toggleWaOptIn = async (next: boolean) => {
+    setWaOptIn(next);
+    try {
+      await API.patch('/auth/me/whatsapp-opt-in/', { whatsapp_opt_in: next });
+    } catch {
+      setWaOptIn(!next);
+      Alert.alert(t('wa_updates'), t('wa_update_failed'));
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(t('logout'), t('logout_confirm'), [
@@ -86,6 +113,18 @@ export default function ProfileScreen() {
 
        
       
+        {/* Notification preferences. The only place an app-only user can stop
+            WhatsApp messages — previously this existed on the website alone. */}
+        <View style={styles.menuSection}>
+          <View style={styles.menuItem}>
+            <View style={styles.menuIconBox}>
+              <Ionicons name="logo-whatsapp" size={18} color={Colors.blue600} />
+            </View>
+            <Text style={styles.menuLabel}>{t('wa_updates')}</Text>
+            <Switch value={waOptIn} onValueChange={toggleWaOptIn} />
+          </View>
+        </View>
+
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {([
@@ -121,7 +160,9 @@ export default function ProfileScreen() {
         {/* App info */}
         <View style={styles.infoSection}>
           {[
-            { label: t('app_version'), value: 'v1.1.2'                },
+            // Read from app.json via expo-constants — a hardcoded string here
+            // said v1.1.2 for three releases.
+            { label: t('app_version'), value: `v${runningVersion()}` },
             { label: t('platform'),    value: 'TokenWalla'            },
             { label: t('support'),     value: 'support@tokenwalla.com' },
           ].map(({ label, value }) => (
