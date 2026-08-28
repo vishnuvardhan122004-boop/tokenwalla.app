@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Linking, ScrollView, StyleSheet, Text,
+  ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -76,9 +76,21 @@ export default function ScanCenterScreen() {
   // This one screen serves both centre kinds — the flow is identical (pick the
   // service, then the slot), only the noun differs. Derived from the fetched
   // centre, so a blood centre reached by any route says "Tests", never "Scans".
+  // Walk-in: no slot times published for this service, so there is nothing to
+  // book online. Same rule the doctor screen uses — a doctor is one service, a
+  // centre is a menu, so it applies per service.
+  const isWalkIn = (scan: any) => !(scan.slots?.length > 0);
+
+  // Scan.image has existed on the model since centres shipped and was never
+  // rendered anywhere. Decorative — the name beside it carries the meaning.
+  const scanImg = (scan: any): string | null => {
+    const u = scan.image || scan.image_url;
+    return u && String(u).startsWith('http') && !String(u).includes('placehold') ? u : null;
+  };
+
   const noun = centre?.kind === BLOOD_CENTER
-    ? { Title: 'Tests', plural: 'tests', label: 'Blood Centre',    icon: 'water-outline' as const }
-    : { Title: 'Scans', plural: 'scans', label: 'Scanning Centre', icon: 'pulse-outline' as const };
+    ? { Title: 'Tests', plural: 'tests', one: 'test', label: 'Blood Centre',    icon: 'water-outline' as const }
+    : { Title: 'Scans', plural: 'scans', one: 'scan', label: 'Scanning Centre', icon: 'pulse-outline' as const };
   // Offer the map button only when there is a REAL destination: geocoded
   // coordinates, or a maps URL the centre saved itself. directionsUrl() would
   // happily fall back to a name+city search, but a button promising "View on
@@ -184,7 +196,20 @@ export default function ScanCenterScreen() {
         <Text style={st.headerTitle} numberOfLines={1}>{centre.name}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+        {/* Banner. Mirrors the doctor screen: a centre is chosen largely on
+            whether it looks like somewhere you would walk into, and
+            Hospital.image was already being uploaded and never displayed. */}
+        <View style={st.banner}>
+          {centre.image?.startsWith('http') && !centre.image.includes('placehold') ? (
+            <Image source={{ uri: centre.image }} style={st.bannerImage} resizeMode="cover" />
+          ) : (
+            <Ionicons name={kind.icon} size={54} color={Colors.blue200} />
+          )}
+          <View style={st.bannerOverlay} />
+        </View>
+
+        <View style={{ padding: 16 }}>
         <View style={st.card}>
           <View style={st.kindPill}>
             <Ionicons name={kind.icon} size={12} color={Colors.blue700} />
@@ -250,16 +275,22 @@ export default function ScanCenterScreen() {
           return (
             <View key={String(scan.id)} style={[st.item, open && st.itemOpen]}>
               <TouchableOpacity style={st.itemRow} onPress={() => pickScan(scan)} activeOpacity={0.8}>
+                {scanImg(scan) && (
+                  <Image source={{ uri: scanImg(scan)! }} style={st.itemImg} resizeMode="cover" />
+                )}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={st.itemName}>{scan.name}</Text>
                   <View style={st.itemTags}>
                     {!!scan.modality && <Text style={st.tag}>{scan.modality}</Text>}
+                    {isWalkIn(scan) && <Text style={[st.tag, st.tagWalkIn]}>Walk-in</Text>}
                     <Text style={st.dur}>{scan.duration_minutes} min</Text>
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={st.price}>₹{scan.price}</Text>
-                  <Text style={st.select}>{open ? 'Close' : 'Select'}</Text>
+                  <Text style={st.select}>
+                    {open ? 'Close' : isWalkIn(scan) ? 'Details' : 'Select'}
+                  </Text>
                 </View>
               </TouchableOpacity>
 
@@ -341,16 +372,47 @@ export default function ScanCenterScreen() {
                       </Text>
                     </>
                   ) : (
-                    <Text style={st.note}>
-                      No online slots for this scan.
-                      {callNumber ? ` Call ${callNumber} to arrange a visit.` : ''}
-                    </Text>
+                    <View style={st.walkIn}>
+                      <Text style={st.walkInLead}>
+                        This {noun.one} is walk-in — the centre takes patients as they arrive
+                        rather than at fixed times, so there is nothing to book online.
+                      </Text>
+                      {(!!centre.open_time || !!centre.close_time) && (
+                        <View style={st.walkInRow}>
+                          <Text style={st.walkInKey}>Centre hours</Text>
+                          <Text style={st.walkInVal}>
+                            {centre.open_time || '—'} – {centre.close_time || '—'}
+                          </Text>
+                        </View>
+                      )}
+                      {scan.days?.length > 0 && (
+                        <View style={st.walkInRow}>
+                          <Text style={st.walkInKey}>Available days</Text>
+                          <Text style={st.walkInVal}>{scan.days.join(', ')}</Text>
+                        </View>
+                      )}
+                      {callNumber ? (
+                        <TouchableOpacity
+                          style={st.walkInCall}
+                          onPress={() => Linking.openURL(`tel:${callNumber}`)}
+                        >
+                          <Ionicons name="call-outline" size={15} color={Colors.white} />
+                          <Text style={st.walkInCallText}>Call {callNumber}</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={st.walkInLead}>Contact the centre directly to visit.</Text>
+                      )}
+                      <Text style={st.walkInNote}>
+                        Pay at the centre. No online booking for this {noun.one}.
+                      </Text>
+                    </View>
                   )}
                 </View>
               )}
             </View>
           );
         })}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -411,6 +473,19 @@ const st = StyleSheet.create({
   },
   mapText: { fontSize: 14, fontWeight: '700', color: Colors.blue700 },
 
+  itemImg:       { width: 44, height: 44, borderRadius: 10, marginRight: 12, borderWidth: 1, borderColor: Colors.blue100 },
+  banner:        { height: 170, position: 'relative', overflow: 'hidden', backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
+  bannerImage:   { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+  bannerOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(4,44,83,0.2)' },
+  tagWalkIn:   { backgroundColor: Colors.warningBg, color: Colors.warningText, borderColor: Colors.warningBorder },
+  walkIn:      { marginTop: 14 },
+  walkInLead:  { fontSize: 13, color: Colors.gray700, lineHeight: 19, marginBottom: 10 },
+  walkInRow:   { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 7, borderTopWidth: 1, borderTopColor: Colors.blue50 },
+  walkInKey:   { fontSize: 12.5, color: Colors.gray500 },
+  walkInVal:   { fontSize: 12.5, color: Colors.gray900, fontWeight: '700', flexShrink: 1, textAlign: 'right' },
+  walkInCall:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 11 },
+  walkInCallText: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  walkInNote:  { fontSize: 11.5, color: Colors.gray400, marginTop: 10, textAlign: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900, marginTop: 22, marginBottom: 10 },
 
   item:     { backgroundColor: Colors.white, borderRadius: 14, borderWidth: 1, borderColor: Colors.gray200, marginBottom: 10, overflow: 'hidden' },

@@ -14,12 +14,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
+import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
 import API from '../services/api';
@@ -112,6 +113,14 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
   const Unit = `${unit[0].toUpperCase()}${unit.slice(1)}`;
   const [form, setForm]     = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [picked, setPicked] = useState<PickedImage | null>(null);
+  const existingImage = (scan as any)?.image && String((scan as any).image).startsWith('http')
+    ? String((scan as any).image) : null;
+
+  const pickPhoto = async () => {
+    const img = await pickImageFile([4, 3]);
+    if (img) setPicked(img);
+  };
   const [error, setError]   = useState('');
 
   // Reset on every open. The modal instance outlives one edit, so without this
@@ -163,8 +172,27 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
         days:             form.days,
         payment_collection_mode: form.payment_collection_mode,
       };
-      if (scan) await API.patch(`/scans/${scan.id}/`, payload);
-      else      await API.post('/scans/', payload);
+      // JSON unless a new photo was picked. Only then does it become
+      // multipart: a JSON body cannot carry a file, and sending every save as
+      // multipart would turn `slots`/`days` arrays into strings the serializer
+      // then has to guess at.
+      let body: any = payload;
+      let headers: any = undefined;
+      if (picked) {
+        const fd = new FormData();
+        Object.entries(payload).forEach(([k, v]) => {
+          if (v === null || v === undefined) { fd.append(k, ''); return; }
+          // Arrays go one entry per key — DRF's ListField reads them back as a
+          // list, where a JSON.stringify would arrive as one quoted string.
+          if (Array.isArray(v)) { v.forEach(item => fd.append(k, String(item))); return; }
+          fd.append(k, String(v));
+        });
+        fd.append('image', picked as unknown as Blob, picked.name);
+        body = fd;
+        headers = { 'Content-Type': 'multipart/form-data' };
+      }
+      if (scan) await API.patch(`/scans/${scan.id}/`, body, { headers });
+      else      await API.post('/scans/', body, { headers });
       onSaved();
       onClose();
     } catch (e: any) {
@@ -267,6 +295,20 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
               Capacity is counted per SCAN, not per centre — a full MRI never closes the
               blood draw running at the same time.
             </Text>
+
+            <Text style={s.label}>Photo (optional)</Text>
+            <TouchableOpacity style={s.photoRow} onPress={pickPhoto}>
+              {picked?.uri || existingImage ? (
+                <Image source={{ uri: picked?.uri || existingImage! }} style={s.photoThumb} resizeMode="cover" />
+              ) : (
+                <View style={[s.photoThumb, s.photoEmpty]}>
+                  <Ionicons name="image-outline" size={20} color={Colors.blue600} />
+                </View>
+              )}
+              <Text style={s.photoText}>
+                {picked ? `Selected: ${picked.name}` : existingImage ? 'Change photo' : 'Add a photo'}
+              </Text>
+            </TouchableOpacity>
 
             <BookingNoticePicker
               value={form.booking_cutoff_hours}
@@ -395,6 +437,11 @@ export function confirmDeleteScan(
 }
 
 const s = StyleSheet.create({
+  photoRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, padding: 10, marginBottom: 4 },
+  photoThumb: { width: 46, height: 46, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100 },
+  photoEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.blue50 },
+  photoText:  { fontSize: 13, color: Colors.blue700, fontWeight: '600', flex: 1 },
+
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
