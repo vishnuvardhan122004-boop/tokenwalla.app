@@ -53,7 +53,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow TokenWalla to use the camera to scan patient QR codes."
+          "cameraPermission": "Allow TokenWalla to use the camera to scan patient QR codes and photograph reports to share with patients."
         }
       ],
       [

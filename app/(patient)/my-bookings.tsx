@@ -27,6 +27,7 @@ import * as Sharing from 'expo-sharing';
 import RescheduleModal from '../../components/RescheduleModal';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
+import { openSharedDocument } from '../../services/reportFile';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { syncAppointmentReminders } from '../../services/notifications';
@@ -127,8 +128,10 @@ export default function MyBookings() {
   // any booking is active, and each poll hands back a new array — so depending
   // on `bookings` re-ran this on every tick, one request per completed scan
   // forever, for data that changes about twice in its lifetime.
+  // Any provider may share a document now — a hospital's discharge summary,
+  // not just a centre's scan PDF.
   const completedScanIds = bookings
-    .filter((b: Booking) => b.provider_kind === 'SCAN' && b.status === 'COMPLETED')
+    .filter((b: Booking) => b.status === 'COMPLETED')
     .map((b: Booking) => String(b.id))
     .join(',');
 
@@ -143,34 +146,12 @@ export default function MyBookings() {
     return () => { cancelled = true; };
   }, [completedScanIds]);
 
-  // A report is never a plain link: the download endpoint re-checks ownership
-  // on every request and needs the Authorization header, so opening the URL in
-  // a browser would 401. Pull the bytes through the API client, write them to a
-  // private cache file, and hand that to the share sheet.
   const openReport = async (report: any) => {
     setReportBusyId(report.id);
     try {
-      const FileSystem = await import('expo-file-system');
-      const res = await API.get(String(report.download_url).replace(/^\/api/, ''), {
-        responseType: 'arraybuffer',
-      });
-      const bytes = new Uint8Array(res.data as ArrayBuffer);
-      const safeName = String(report.title || 'report').replace(/[^\w.-]+/g, '_');
-      const target = new FileSystem.File(FileSystem.Paths.cache, `${safeName}.pdf`);
-      if (target.exists) target.delete();
-      target.create();
-      target.write(bytes);
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(target.uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: report.title || 'Scan report',
-          UTI: 'com.adobe.pdf',
-        });
-      } else {
-        Alert.alert('Not available', 'Opening files is not available on this device.');
-      }
+      await openSharedDocument(report);
     } catch {
-      Alert.alert('Error', 'Could not open the report. Please try again.');
+      Alert.alert('Error', 'Could not open the file. Please try again.');
     } finally {
       setReportBusyId(null);
     }
@@ -464,7 +445,7 @@ export default function MyBookings() {
                     would read as something having gone missing. */}
                 {(reports[String(booking.id)]?.length ?? 0) > 0 && (
                   <View style={st.reportBox}>
-                    <Text style={st.reportTitle}>Your reports</Text>
+                    <Text style={st.reportTitle}>Your documents</Text>
                     {reports[String(booking.id)].map((r: any) => (
                       <TouchableOpacity
                         key={String(r.id)}

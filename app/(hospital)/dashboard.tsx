@@ -23,6 +23,7 @@ import {
   Alert,
   Image,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   RefreshControl,
@@ -46,6 +47,7 @@ import {
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
+import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -505,39 +507,73 @@ export default function HospitalDashboard() {
     setToggling(null);
   };
 
-  // ── Upload a scan report ──────────────────────────────────────────────────
-  // The stage a consultation does not have: a scan is not over when the patient
-  // walks out, because the report comes back hours or days later. The server
-  // notifies the patient; this screen never sees the file again, because a
-  // report is medical PII served only through the ownership-checked download
-  // endpoint — a storage URL would be a bearer token anyone could forward.
-  const uploadReport = async (p: Patient) => {
-    // Lazy require: expo-document-picker is a native module, and importing it
-    // at module scope would run on every dashboard mount including a hospital's,
-    // which never uploads anything.
-    const DocumentPicker = await import('expo-document-picker');
-    const picked = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
-      copyToCacheDirectory: true,
-    });
-    if (picked.canceled || !picked.assets?.length) return;
-    const file = picked.assets[0];
+  // ── Share a document with the patient ─────────────────────────────────────
+  // The stage a visit does not end at: the scan report, the lab result, the
+  // discharge summary all come back hours or days later. The server notifies
+  // the patient; this screen never sees the file again, because it is medical
+  // PII served only through the ownership-checked download endpoint — a storage
+  // URL would be a bearer token anyone could forward.
+  //
+  // Three sources, because a phone IS the scanner in a small clinic: most
+  // reports here are a printed sheet someone photographs at the desk, not a PDF
+  // that already exists in Files.
+  // A real modal, not Alert.alert with three buttons: React Native Web renders
+  // a multi-button Alert as NOTHING AT ALL, so on the web build the Share button
+  // silently did nothing. One <Modal> works on every platform, and a sheet is
+  // the right shape for a source picker anyway.
+  const [shareFor, setShareFor] = useState<Patient | null>(null);
+
+  const chooseSource = (source: 'camera' | 'library' | 'file') => {
+    const p = shareFor;
+    setShareFor(null);
+    if (p) sendDocument(p, source);
+  };
+
+  const sendDocument = async (p: Patient, source: 'camera' | 'library' | 'file') => {
+    let picked: { uri: string; name: string; type: string; file?: File } | null = null;
+
+    if (source === 'file') {
+      // Lazy require: expo-document-picker is a native module, and importing it
+      // at module scope would run on every dashboard mount.
+      const DocumentPicker = await import('expo-document-picker');
+      const res = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'image/*'],
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets?.length) return;
+      const a = res.assets[0];
+      picked = {
+        uri:  a.uri,
+        name: a.name || 'document.pdf',
+        type: a.mimeType || 'application/pdf',
+        file: (a as { file?: File }).file,
+      };
+    } else {
+      picked = await pickDocumentPhoto(source);
+    }
+    if (!picked) return;
 
     setUploadingFor(String(p.id));
     try {
       const fd = new FormData();
-      fd.append('file', {
-        uri:  file.uri,
-        name: file.name || 'report.pdf',
-        type: file.mimeType || 'application/pdf',
-      } as unknown as Blob);
-      fd.append('title', `${p.doctor_name || unit.one} report`);
+      // The real File on web, the { uri, name, type } shape on native. Sending
+      // the native shape on web posts a `blob:` URL as text and the server sees
+      // no file at all.
+      //
+      // The third argument is load-bearing: a File carries its OWN name, which
+      // overrides anything computed here — and a camera capture produces an
+      // extension-less name like "photo", which the server's allow-list then
+      // rejects as not-an-image. Naming the part explicitly is what makes a
+      // photographed report upload at all.
+      if (picked.file) fd.append('file', picked.file, picked.name);
+      else fd.append('file', picked as unknown as Blob);
+      fd.append('title', `${p.doctor_name || unit.one} — ${picked.name}`);
       await API.post(`/bookings/${p.id}/reports/`, fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      Alert.alert('Report uploaded', 'The patient has been notified.');
+      Alert.alert('Document shared', 'The patient has been notified.');
     } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || 'Could not upload the report.');
+      Alert.alert('Error', e?.response?.data?.message || 'Could not share the document.');
     } finally {
       setUploadingFor(null);
     }
@@ -794,6 +830,36 @@ export default function HospitalDashboard() {
           onSaved={loadScans}
         />
       )}
+
+      {/* ── Share-a-document source picker ── */}
+      <Modal visible={!!shareFor} transparent animationType="fade" onRequestClose={() => setShareFor(null)}>
+        <TouchableOpacity style={styles.sheetBackdrop} activeOpacity={1} onPress={() => setShareFor(null)}>
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Share a document</Text>
+            <Text style={styles.sheetSub}>
+              Send a report, prescription or discharge summary to{' '}
+              {shareFor?.user_name || 'this patient'}.
+            </Text>
+            {([
+              { icon: 'camera-outline',  label: 'Take a photo',   source: 'camera'  },
+              { icon: 'images-outline',  label: 'Choose a photo', source: 'library' },
+              { icon: 'document-outline', label: 'Choose a file',  source: 'file'    },
+            ] as const).map(o => (
+              <TouchableOpacity
+                key={o.source}
+                style={styles.sheetRow}
+                onPress={() => chooseSource(o.source)}
+              >
+                <Ionicons name={o.icon} size={19} color={Colors.blue700} />
+                <Text style={styles.sheetRowText}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.sheetCancel} onPress={() => setShareFor(null)}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
@@ -1295,7 +1361,14 @@ export default function HospitalDashboard() {
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.warningText }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
-                    <Text style={styles.patientMeta}>{p.user_mobile || 'N/A'}</Text>
+                    <TouchableOpacity
+                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
+                      disabled={!p.user_mobile}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                    >
+                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                    </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
@@ -1348,6 +1421,14 @@ export default function HospitalDashboard() {
                   <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.gray400 }]}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                      <TouchableOpacity
+                        onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
+                        disabled={!p.user_mobile}
+                        accessibilityRole="link"
+                        accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                      >
+                        <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                      </TouchableOpacity>
                       <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                       <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                       <TouchableOpacity
@@ -1383,6 +1464,14 @@ export default function HospitalDashboard() {
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                    <TouchableOpacity
+                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
+                      disabled={!p.user_mobile}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                    >
+                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                    </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
@@ -1420,6 +1509,14 @@ export default function HospitalDashboard() {
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.successText, opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                    <TouchableOpacity
+                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
+                      disabled={!p.user_mobile}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                    >
+                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                    </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     <TouchableOpacity
@@ -1437,21 +1534,20 @@ export default function HospitalDashboard() {
                       <Ionicons name="checkmark-circle" size={13} color={Colors.successText} />
                       <Text style={styles.completedText}>Done</Text>
                     </View>
-                    {/* Scan bookings only — a consultation has nothing to upload. */}
-                    {isCentre && p.provider_kind === 'SCAN' && (
-                      <TouchableOpacity
-                        style={styles.uploadBtn}
-                        disabled={uploadingFor === String(p.id)}
-                        onPress={() => uploadReport(p)}
-                      >
-                        {uploadingFor === String(p.id)
-                          ? <ActivityIndicator size="small" color={Colors.blue700} />
-                          : <>
-                              <Ionicons name="cloud-upload-outline" size={14} color={Colors.blue700} />
-                              <Text style={styles.uploadBtnText}>Report</Text>
-                            </>}
-                      </TouchableOpacity>
-                    )}
+                    {/* Every provider, not just centres: a hospital's discharge
+                        summary is the same object as a centre's scan PDF. */}
+                    <TouchableOpacity
+                      style={styles.uploadBtn}
+                      disabled={uploadingFor === String(p.id)}
+                      onPress={() => setShareFor(p)}
+                    >
+                      {uploadingFor === String(p.id)
+                        ? <ActivityIndicator size="small" color={Colors.blue700} />
+                        : <>
+                            <Ionicons name="cloud-upload-outline" size={14} color={Colors.blue700} />
+                            <Text style={styles.uploadBtnText}>Share</Text>
+                          </>}
+                    </TouchableOpacity>
                   </View>
                 </View>
               ))
@@ -1757,6 +1853,16 @@ const styles = StyleSheet.create({
   patientCard:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, borderLeftWidth: 4, padding: 14, marginBottom: 10, gap: 12 },
   patientName:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
   patientMeta:  { fontSize: 12, color: Colors.gray500, marginBottom: 2 },
+  patientPhone: { fontSize: 12, color: Colors.blue700, fontWeight: '600', marginBottom: 2 },
+
+  sheetBackdrop:  { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet:          { backgroundColor: Colors.white, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 18, paddingBottom: 28, gap: 4 },
+  sheetTitle:     { fontSize: 16, fontWeight: '700', color: Colors.gray900 },
+  sheetSub:       { fontSize: 12.5, color: Colors.gray500, marginBottom: 10 },
+  sheetRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13, borderTopWidth: 1, borderTopColor: Colors.blue50 },
+  sheetRowText:   { fontSize: 14.5, color: Colors.gray900, fontWeight: '600' },
+  sheetCancel:    { marginTop: 12, alignItems: 'center', paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.gray50 },
+  sheetCancelText:{ fontSize: 14, fontWeight: '700', color: Colors.gray700 },
   tokenChip:    { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginTop: 6 },
   tokenChipText:{ fontSize: 12, fontWeight: '800', color: Colors.blue700, letterSpacing: 0.3 },
   patientActions:   { gap: 6, alignItems: 'stretch' },

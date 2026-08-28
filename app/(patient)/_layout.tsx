@@ -169,6 +169,7 @@ export default function PatientLayout() {
       <Tabs.Screen name="scan-center/[id]" options={{ href: null }} />
       <Tabs.Screen name="notifications"  options={{ href: null }} />
       <Tabs.Screen name="my-qr"          options={{ href: null }} />
+      <Tabs.Screen name="my-documents"   options={{ href: null }} />
       <Tabs.Screen name="edit-profile"   options={{ href: null }} />
       <Tabs.Screen name="payment"        options={{ href: null }} />
       <Tabs.Screen name="booking-token"  options={{ href: null }} />

@@ -135,6 +135,7 @@ export default function ProfileScreen() {
               ? [{ icon: 'grid-outline' as IconName, label: t('menu_dashboard'), onPress: () => router.push('/(hospital)/dashboard') }]
               : []),
             { icon: 'ticket-outline',            label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
+            { icon: 'document-text-outline',     label: t('menu_my_documents'), onPress: () => router.push('/(patient)/my-documents') },
             { icon: 'medkit-outline',            label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
             { icon: 'information-circle-outline', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },
             { icon: 'call-outline',              label: t('menu_contact'),      onPress: () => router.push('/(patient)/contact')     },
