@@ -14,6 +14,7 @@ import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { money } from '../../utils/fees';
+import { providerLabel } from '../../utils/booking';
 import { useI18n } from '../../services/i18n';
 import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -25,7 +26,7 @@ export default function BookingTokenScreen() {
   // the doctor/payment screens the patient has just finished paying through.
   useAndroidBack(() => router.replace('/(patient)/my-bookings'));
   const { t } = useI18n();
-  const { token, doctorName, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee } = useLocalSearchParams();
+  const { token, doctorName, providerKind, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee } = useLocalSearchParams();
   // Consultation fee still payable at the hospital. 0 when it was collected
   // online (FULL) — nothing is owed at the desk, so the disclaimer is dropped.
   const dueAtHospital = Number(offlineFee || 0);
@@ -133,7 +134,8 @@ export default function BookingTokenScreen() {
           {/* Info Grid */}
           <View style={styles.infoGrid}>
             {[
-              { label: t('bt_doctor'),   value: `Dr. ${doctorName}` },
+              { label: t(providerKind === 'SCAN' ? 'bt_scan' : 'bt_doctor'),
+                value: providerLabel(String(doctorName || ''), String(providerKind || '')) },
               { label: t('bt_patient'),  value: String(userName || '—') },
               { label: t('bt_date'),     value: String(date || '—') },
               { label: t('bt_slot'),     value: String(slot || '—') },

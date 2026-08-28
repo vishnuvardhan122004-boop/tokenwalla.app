@@ -164,3 +164,17 @@ export function directionsUrl(hospital?: DirectionsHospital): string {
   const q = encodeURIComponent([hospital?.name, hospital?.city].filter(Boolean).join(' '));
   return `https://www.google.com/maps/search/?api=1&query=${q}`;
 }
+
+/**
+ * Display name for a booking's provider.
+ *
+ * A booking's provider is a doctor OR a scan (`provider_kind`), and both arrive
+ * in the same `provider_name`/`doctor_name` field. Prefixing blindly produced
+ * "Dr. Complete Blood Count (CBC)" for scans, and "Dr. Dr. Test Sharma" for a
+ * doctor whose stored name already carries the title.
+ */
+export function providerLabel(name?: string, kind?: string): string {
+  const n = (name ?? '').trim();
+  if (!n || kind === 'SCAN' || /^dr\.?\s/i.test(n)) return n;
+  return `Dr. ${n}`;
+}

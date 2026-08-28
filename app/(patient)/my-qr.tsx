@@ -18,7 +18,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
-import { normalizeBookingStatus } from '../../utils/booking';
+import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -27,6 +27,7 @@ interface Booking {
   token?: string;
   status?: string;
   doctor_name?: string;
+  provider_kind?: string;
   hospital_name?: string;
   date?: string;
   slot?: string;
@@ -219,7 +220,9 @@ export default function MyQRScreen() {
                 {/* Booking Details */}
                 <View style={styles.qrDetails}>
                   {([
-                    { icon: 'medkit-outline',   label: 'Doctor',   value: `Dr. ${booking.doctor_name}` },
+                    { icon: 'medkit-outline',
+                      label: booking.provider_kind === 'SCAN' ? 'Scan' : 'Doctor',
+                      value: providerLabel(booking.doctor_name, booking.provider_kind) },
                     { icon: 'business-outline', label: 'Hospital', value: booking.hospital_name         },
                     { icon: 'calendar-outline', label: 'Date',     value: booking.date                  },
                     { icon: 'time-outline',     label: 'Slot',     value: booking.slot                  },
