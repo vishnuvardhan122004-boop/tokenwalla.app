@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '../../../constants/colors';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
+import ProviderAboutPanel from '../../../components/ProviderAboutPanel';
 import API from '../../../services/api';
 import { directionsUrl } from '../../../utils/booking';
 import { asList, BLOOD_CENTER } from '../../../utils/scanCenters';
@@ -76,8 +77,8 @@ export default function ScanCenterScreen() {
   // service, then the slot), only the noun differs. Derived from the fetched
   // centre, so a blood centre reached by any route says "Tests", never "Scans".
   const noun = centre?.kind === BLOOD_CENTER
-    ? { Title: 'Tests', plural: 'tests' }
-    : { Title: 'Scans', plural: 'scans' };
+    ? { Title: 'Tests', plural: 'tests', label: 'Blood Centre',    icon: 'water-outline' as const }
+    : { Title: 'Scans', plural: 'scans', label: 'Scanning Centre', icon: 'pulse-outline' as const };
   // Offer the map button only when there is a REAL destination: geocoded
   // coordinates, or a maps URL the centre saved itself. directionsUrl() would
   // happily fall back to a name+city search, but a button promising "View on
@@ -223,6 +224,16 @@ export default function ScanCenterScreen() {
             </View>
           )}
         </View>
+
+        {/* Photos, hours, blurb and socials — the same panel the doctor screen
+            shows, from the same data: a centre IS a Hospital row and this
+            screen already fetches /hospitals/<id>/. It was all being returned
+            and thrown away. */}
+        <ProviderAboutPanel
+          info={centre}
+          title={`About the ${noun.label}`}
+          fallbackIcon={noun.icon}
+        />
 
         <Text style={st.sectionTitle}>{noun.Title} &amp; Prices</Text>
 
