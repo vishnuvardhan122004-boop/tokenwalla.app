@@ -47,6 +47,7 @@ import {
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
+import BookingNoticePicker from '../../components/BookingNoticePicker';
 import { providerLabel } from '../../utils/booking';
 import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
@@ -78,6 +79,7 @@ interface Doctor {
   experience: number | string;
   fee: number | string;
   max_per_slot: number | string;
+  booking_cutoff_hours?: number | null;
   available: boolean;
   slots: string[];
   days?: string[];
@@ -112,6 +114,7 @@ interface FormState {
   experience: string;
   fee: string;
   max_per_slot: string;
+  booking_cutoff_hours: string;   // '' = use the platform default
   available: boolean;
   slots: string[];
   days: string[];
@@ -140,6 +143,7 @@ const EMPTY_FORM: FormState = {
   experience:     '',
   fee:            '',
   max_per_slot:   '10',
+  booking_cutoff_hours: '',
   available:      true,
   slots:          [],
   days:           [],
@@ -626,6 +630,7 @@ export default function HospitalDashboard() {
       experience:     String(doc.experience   || ''),
       fee:            String(doc.fee          || ''),
       max_per_slot:   String(doc.max_per_slot || 10),
+      booking_cutoff_hours: doc.booking_cutoff_hours == null ? '' : String(doc.booking_cutoff_hours),
       available:      doc.available       ?? true,
       slots:          doc.slots           || [],
       days:           doc.days            || [],
@@ -706,6 +711,10 @@ export default function HospitalDashboard() {
       payload.append('experience',     form.experience   || '0');
       payload.append('fee',            form.fee          || '0');
       payload.append('max_per_slot',   form.max_per_slot || '10');
+      // Empty means "use the platform default": send an empty value so DRF
+      // writes NULL. Sending nothing at all would leave a previously-set
+      // override in place, so clearing the box would silently do nothing.
+      payload.append('booking_cutoff_hours', form.booking_cutoff_hours.trim());
       payload.append('available',      String(form.available));
       payload.append('slots',          JSON.stringify(form.slots));
       payload.append('days',           JSON.stringify(form.days));
@@ -1091,6 +1100,11 @@ export default function HospitalDashboard() {
                 onChangeText={(v: string) => setField('max_per_slot', v)}
               />
               <FieldError msg={errors.max_per_slot} />
+
+              <BookingNoticePicker
+                value={form.booking_cutoff_hours}
+                onChange={(v: string) => setField('booking_cutoff_hours', v)}
+              />
 
               <View style={styles.switchRow}>
                 <View>

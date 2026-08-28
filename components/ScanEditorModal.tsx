@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import BookingNoticePicker from './BookingNoticePicker';
 import { Colors } from '../constants/colors';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
 import API from '../services/api';
@@ -33,6 +34,7 @@ export interface ScanRecord {
   price: number;
   duration_minutes: number;
   max_per_slot?: number;
+  booking_cutoff_hours?: number | null;
   available: boolean;
   slots: string[];
   days?: string[];
@@ -48,6 +50,7 @@ interface FormState {
   price: string;
   duration_minutes: string;
   max_per_slot: string;
+  booking_cutoff_hours: string;   // '' = use the platform default
   available: boolean;
   slots: string[];
   days: string[];
@@ -59,7 +62,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   name: '', modality: '', keywords: '', description: '', prep_instructions: '',
-  price: '', duration_minutes: '15', max_per_slot: '1',
+  price: '', duration_minutes: '15', max_per_slot: '1', booking_cutoff_hours: '',
   available: true, slots: [], days: [],
   payment_collection_mode: 'SERVICE_ONLY',
 };
@@ -86,6 +89,7 @@ const fromRecord = (scan: ScanRecord): FormState => ({
   price:             String(scan.price ?? ''),
   duration_minutes:  String(scan.duration_minutes ?? 15),
   max_per_slot:      String(scan.max_per_slot ?? 1),
+  booking_cutoff_hours: scan.booking_cutoff_hours == null ? '' : String(scan.booking_cutoff_hours),
   available:         scan.available !== false,
   slots:             scan.slots || [],
   days:              scan.days || [],
@@ -149,6 +153,11 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
         price,
         duration_minutes: Number(form.duration_minutes) || 15,
         max_per_slot:     Number(form.max_per_slot) || 1,
+        // null, not omitted: clearing the box must reset the override rather
+        // than silently leave the old value on the server.
+        booking_cutoff_hours: form.booking_cutoff_hours.trim() === ''
+          ? null
+          : Number(form.booking_cutoff_hours),
         available:        form.available,
         slots:            form.slots,
         days:             form.days,
@@ -258,6 +267,13 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
               Capacity is counted per SCAN, not per centre — a full MRI never closes the
               blood draw running at the same time.
             </Text>
+
+            <BookingNoticePicker
+              value={form.booking_cutoff_hours}
+              onChange={v => setField('booking_cutoff_hours', v)}
+              label="Booking notice"
+              noun="Patients"
+            />
 
             <Text style={s.section}>HOW THE PATIENT PAYS</Text>
             {collectionModes(unit).map(opt => {
