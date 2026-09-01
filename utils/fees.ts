@@ -27,6 +27,9 @@ export const money = (n: number | string): string => {
 export interface FeeBreakdown {
   doctor_fee:         number | string;  // charged ONLINE
   offline_doctor_fee: number | string;  // payable at the clinic (SERVICE_ONLY)
+  // Canonical mode the bill was priced under. Checkout reads it to decide
+  // whether an Appointment Pass applies (service-fee-only providers).
+  collection_mode?:   string;
   platform_fee:       number | string;
   gateway_fee:        number | string;
   gst_amount:         number | string;
@@ -53,6 +56,7 @@ export function computeFeeBreakdown(
   return {
     doctor_fee,
     offline_doctor_fee: serviceOnly ? fee : 0,
+    collection_mode: serviceOnly ? 'SERVICE_ONLY' : 'FULL',
     platform_fee,
     gateway_fee,
     gst_amount,

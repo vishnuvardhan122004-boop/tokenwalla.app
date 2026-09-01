@@ -55,6 +55,12 @@ export default function PaymentScreen() {
   const [loading,      setLoading]      = useState(false);
   const [showWebView,  setShowWebView]  = useState(false);
 
+  // The Appointment Pass: the server's offer AND whatever the patient already
+  // holds ({enabled, price, bookings, days, pass}). The price is never
+  // hard-coded here — it comes from payments/fees.py like every other figure.
+  const [passData, setPassData] = useState<any>(null);
+  const [buyPass,  setBuyPass]  = useState(false);
+
   // "Book for someone else" — appointment for another person (name + mobile).
   // Notifications still go to the logged-in account holder.
   const [forOther,    setForOther]    = useState(false);
@@ -105,6 +111,85 @@ export default function PaymentScreen() {
       });
     return () => { cancelled = true; };
   }, [providerId, isScan, scanId, doctorId, feeReload]);
+
+  // ── The Appointment Pass ───────────────────────────────────────────────
+  useEffect(() => {
+    if (isScan) return;                     // scans can't use a pass in v1
+    let cancelled = false;
+    API.get('/payment/pass/')
+      .then(({ data }) => { if (!cancelled) setPassData(data); })
+      // An older backend, or an offline moment, simply means no pass on
+      // offer — never a blocked checkout.
+      .catch(() => { if (!cancelled) setPassData(null); });
+    return () => { cancelled = true; };
+  }, [isScan]);
+
+  // A pass waives the SERVICE fee only, so it applies where nothing else is
+  // charged online. `collection_mode` is the server's verdict, not a guess.
+  const passOffered  = !!passData?.enabled && !isScan
+                       && breakdown?.collection_mode === 'SERVICE_ONLY';
+  const creditsLeft: number = passData?.pass?.remaining || 0;
+  const canRedeem    = passOffered && creditsLeft > 0;   // holding one → spend it
+  const canBuy       = passOffered && creditsLeft === 0; // otherwise → offer one
+  const passSelected = canBuy && buyPass;
+  const passExpiry   = passData?.pass?.expires_at
+    ? new Date(passData.pass.expires_at).toLocaleDateString('en-IN',
+        { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
+  // What is actually charged now: a redemption is free, a purchase is the
+  // server's quoted price, everything else is the usual bill.
+  const payable = canRedeem ? 0 : passSelected ? Number(passData.price) : total;
+
+  // Spending a credit: no order, no WebView, no Razorpay. The server re-checks
+  // the pass, the doctor and the slot — this only asks.
+  const redeemPass = async () => {
+    if (payBtnDisabled.current) return;
+    if (forOther) {
+      if (bookedForName.length < 2) {
+        Alert.alert('Missing name', "Please enter the other person's name.");
+        return;
+      }
+      if (!/^[6-9]\d{9}$/.test(bookedForMobile)) {
+        Alert.alert('Invalid mobile', "Please enter a valid 10-digit mobile number for the other person.");
+        return;
+      }
+    }
+    payBtnDisabled.current = true;
+    setLoading(true);
+    try {
+      const { data } = await API.post('/payment/pass/redeem/', {
+        doctorId, hospital, date, slot, bookedForName, bookedForMobile,
+      });
+      if (!data?.success) {
+        Alert.alert('Could not use your pass', data?.message || 'Please try again.');
+        return;
+      }
+      router.replace({
+        pathname: '/(patient)/booking-token',
+        params: {
+          token:        data.token,
+          doctorName:   providerName,
+          providerKind: 'DOCTOR',
+          doctorMobile: String(doctorMobile || ''),
+          hospital:     String(hospital),
+          date:         String(date),
+          slot:         String(slot),
+          paymentId:    '',
+          userName:     bookedForName || user?.name || user?.username,
+          queue_access: 'true',
+          offlineFee:   String(breakdown?.offline_doctor_fee ?? 0),
+        },
+      });
+    } catch (e: any) {
+      // Server message first — a 409 here means the last visit went while the
+      // patient was on this screen, and that sentence is the useful one.
+      const msg = e?.response?.data?.message || e?.message || 'Could not use your pass.';
+      Alert.alert('Pass', msg);
+    } finally {
+      setLoading(false);
+      payBtnDisabled.current = false;
+    }
+  };
 
   // ── Build HTML only after we have real orderData ───────────────────────
   const buildRazorpayHTML = (orderData: any, currentUser: any) => {
@@ -270,6 +355,9 @@ export default function PaymentScreen() {
         date,
         slot,
         currency: 'INR',
+        // Opt-in per checkout. The server prices and tags the order — this flag
+        // only asks for the upgrade, it never says what it costs.
+        ...(passSelected ? { buyPass: true } : {}),
         notes:    { providerId, providerName, hospital, date, slot },
       });
 
@@ -528,23 +616,108 @@ export default function PaymentScreen() {
                   <Text style={styles.feeValue}>₹{money(breakdown.doctor_fee)}</Text>
                 </View>
               )}
-              {[
-                { label: 'Platform fee',    value: breakdown.platform_fee },
-                { label: 'Payment gateway', value: breakdown.gateway_fee  },
-                { label: 'GST (18%)',       value: breakdown.gst_amount   },
-              ].map(({ label, value }) => (
-                <View key={label} style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>{label}</Text>
-                  <Text style={styles.feeValue}>₹{money(value)}</Text>
+              {/* A pass replaces the three service-fee lines with one. The GST
+                  split of ₹35 is computed server-side and itemised on the
+                  receipt — this screen never does money math. */}
+              {canRedeem ? (
+                <View style={styles.feeRow}>
+                  <View style={styles.feeLabelRow}>
+                    <Text style={styles.feeLabel}>Service fee</Text>
+                    <View style={styles.clinicTag}>
+                      <Text style={styles.clinicTagText}>paid by your pass</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.feeValue}>₹0.00</Text>
                 </View>
-              ))}
+              ) : passSelected ? (
+                <View style={styles.feeRow}>
+                  <View style={styles.feeLabelRow}>
+                    <Text style={styles.feeLabel}>Appointment Pass</Text>
+                    <View style={styles.clinicTag}>
+                      <Text style={styles.clinicTagText}>
+                        {passData.bookings} visits · {passData.days} days
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.feeValue}>₹{money(passData.price)}</Text>
+                </View>
+              ) : (
+                [
+                  { label: 'Platform fee',    value: breakdown.platform_fee },
+                  { label: 'Payment gateway', value: breakdown.gateway_fee  },
+                  { label: 'GST (18%)',       value: breakdown.gst_amount   },
+                ].map(({ label, value }) => (
+                  <View key={label} style={styles.feeRow}>
+                    <Text style={styles.feeLabel}>{label}</Text>
+                    <Text style={styles.feeValue}>₹{money(value)}</Text>
+                  </View>
+                ))
+              )}
             </View>
           )}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total Payable Now</Text>
-            <Text style={styles.totalAmt}>{total === null ? '—' : `₹${money(total)}`}</Text>
+            <Text style={styles.totalAmt}>
+              {payable === null ? '—' : `₹${money(payable)}`}
+            </Text>
           </View>
         </View>
+
+        {/* ── The Appointment Pass: spend one, or buy one. Never both. ── */}
+        {canRedeem && (
+          <View style={[styles.passCard, styles.passCardActive]}>
+            <View style={styles.passBadge}>
+              <Text style={styles.passBadgeText}>APPOINTMENT PASS</Text>
+            </View>
+            <Text style={styles.passTitle}>This visit is covered — no payment needed.</Text>
+            <Text style={styles.passDesc}>
+              {creditsLeft === 1
+                ? 'This is the last visit on your pass'
+                : `${creditsLeft} visits left on your pass`}
+              {passExpiry ? ` · valid to ${passExpiry}` : ''}
+              {Number(breakdown?.offline_doctor_fee) > 0
+                ? ` · the ₹${money(breakdown!.offline_doctor_fee)} consultation fee is still paid at the clinic`
+                : ''}
+            </Text>
+          </View>
+        )}
+
+        {canBuy && (
+          <View style={styles.passCard}>
+            <View style={styles.passBadge}>
+              <Text style={styles.passBadgeText}>SAVE ON YOUR NEXT VISIT</Text>
+            </View>
+            {[false, true].map((choice) => (
+              <TouchableOpacity
+                key={String(choice)}
+                style={[styles.passOption, buyPass === choice && styles.passOptionChosen]}
+                onPress={() => setBuyPass(choice)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={buyPass === choice ? 'radio-button-on' : 'radio-button-off'}
+                  size={18}
+                  color={buyPass === choice ? Colors.blue600 : Colors.gray400}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.passOptionTitle}>
+                    {choice
+                      ? `Appointment Pass — ₹${money(passData.price)}`
+                      : `Just this visit — ₹${money(total!)}`}
+                  </Text>
+                  <Text style={styles.passOptionDesc}>
+                    {choice
+                      ? `This visit plus ${passData.bookings - 1} more, at any doctor, `
+                        + `within ${passData.days} days. Service fee only — consultation `
+                        + `fees are still paid at the clinic. `
+                        + `Save ₹${money(Number(total) * passData.bookings - Number(passData.price))}.`
+                      : 'The usual service fee.'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Book for someone else */}
         <View style={styles.otherCard}>
@@ -606,14 +779,20 @@ export default function PaymentScreen() {
 
         <TouchableOpacity
           style={[styles.payBtn, !breakdown && styles.payBtnDisabled]}
-          onPress={createOrder}
+          onPress={canRedeem ? redeemPass : createOrder}
           disabled={!breakdown}
         >
-          <Ionicons name="card-outline" size={18} color={Colors.white} />
+          <Ionicons
+            name={canRedeem ? 'ticket-outline' : 'card-outline'}
+            size={18}
+            color={Colors.white}
+          />
           <Text style={styles.payBtnText}>
-            {breakdown
-              ? `Pay ₹${money(total!)} & Confirm Appointment`
-              : feeError ? 'Fee details unavailable' : 'Loading…'}
+            {!breakdown
+              ? (feeError ? 'Fee details unavailable' : 'Loading…')
+              : canRedeem
+                ? 'Use your pass — Confirm Appointment'
+                : `Pay ₹${money(payable!)} & Confirm Appointment`}
           </Text>
         </TouchableOpacity>
 
@@ -658,6 +837,17 @@ const styles = StyleSheet.create({
   totalRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.blue50 },
   totalLabel: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
   totalAmt:   { fontSize: 28, fontWeight: '800', color: Colors.blue600 },
+
+  passCard:        { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 20, padding: 16, marginBottom: 16 },
+  passCardActive:  { backgroundColor: Colors.blue50 },
+  passBadge:       { alignSelf: 'flex-start', backgroundColor: Colors.blue600, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 10 },
+  passBadgeText:   { fontSize: 10, fontWeight: '800', color: Colors.white, letterSpacing: 0.4 },
+  passTitle:       { fontSize: 15, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
+  passDesc:        { fontSize: 12, color: Colors.gray500, lineHeight: 18 },
+  passOption:       { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: Colors.gray200, borderRadius: 12, padding: 12, marginBottom: 10 },
+  passOptionChosen: { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
+  passOptionTitle:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 2 },
+  passOptionDesc:   { fontSize: 12, color: Colors.gray500, lineHeight: 18 },
 
   otherCard:      { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 20, marginBottom: 16, overflow: 'hidden' },
   otherToggleRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
