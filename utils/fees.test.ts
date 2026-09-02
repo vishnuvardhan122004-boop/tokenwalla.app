@@ -22,6 +22,14 @@ describe('computeFeeBreakdown', () => {
     expect(b.final_amount).toBe(225.37);
   });
 
+  it('reports a canonical collection_mode — checkout gates the pass on it', () => {
+    // Blank/unknown must report SERVICE_ONLY, not echo the input: the
+    // Appointment Pass is only offered where nothing else is charged online.
+    expect(computeFeeBreakdown(200, '').collection_mode).toBe('SERVICE_ONLY');
+    expect(computeFeeBreakdown(200, 'WHATEVER').collection_mode).toBe('SERVICE_ONLY');
+    expect(computeFeeBreakdown(200, 'FULL').collection_mode).toBe('FULL');
+  });
+
   it('money() keeps whole rupees clean and pads fractions to 2dp', () => {
     expect(money(200)).toBe('200');
     expect(money('25.37')).toBe('25.37');
