@@ -8,7 +8,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -236,16 +236,16 @@ export default function MyBookings() {
     return `${pos - 1} patient${pos > 2 ? 's' : ''} ahead of you`;
   };
 
-  const filtered = bookings.filter(b => {
+  const filtered = useMemo(() => bookings.filter(b => {
     const s = normalizeBookingStatus(b.status);
     if (tab === 'active')    return s === 'waiting' || s === 'in_progress';
     if (tab === 'completed') return s === 'completed' || s === 'cancelled';
     return true;
-  });
-  const activeCount = bookings.filter(b => {
+  }), [bookings, tab]);
+  const activeCount = useMemo(() => bookings.filter(b => {
     const s = normalizeBookingStatus(b.status);
     return s === 'waiting' || s === 'in_progress';
-  }).length;
+  }).length, [bookings]);
 
   // ── Not logged in ─────────────────────────────────────────────────────────
 

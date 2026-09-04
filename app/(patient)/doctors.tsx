@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -87,7 +87,7 @@ export default function DoctorsScreen() {
   const [centresLoading,  setCentresLoading] = useState(false);
 
   const isCentreMode = mode !== 'doctors';
-  const centres      = centresByKind[mode] || [];
+  const centres      = useMemo(() => centresByKind[mode] || [], [centresByKind, mode]);
 
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
@@ -137,12 +137,12 @@ export default function DoctorsScreen() {
     if (isCentreMode && !centresByKind[mode]) loadCentres(mode);
   }, [mode, isCentreMode, centresByKind, loadCentres]);
 
-  const scansByCentre = scans.reduce((acc: Record<string, any[]>, sc: any) => {
+  const scansByCentre = useMemo(() => scans.reduce((acc: Record<string, any[]>, sc: any) => {
     (acc[sc.center] = acc[sc.center] || []).push(sc);
     return acc;
-  }, {});
+  }, {}), [scans]);
 
-  const filteredCentres = centres
+  const filteredCentres = useMemo(() => centres
     .map(c => ({ ...c, scans: scansByCentre[c.id] || [] }))
     .filter(c => {
       const hay = [c.name, c.city, c.address,
@@ -156,7 +156,8 @@ export default function DoctorsScreen() {
     // A centre with nothing listed opens onto an empty menu — ranked last
     // rather than hidden, so it still appears in a search by name.
     .sort((a, b) => (b.scans.length > 0 ? 1 : 0) - (a.scans.length > 0 ? 1 : 0)
-                 || b.scans.length - a.scans.length);
+                 || b.scans.length - a.scans.length),
+    [centres, scansByCentre, search, city]);
 
   const loadDoctors = useCallback(async () => {
     setError(false);
@@ -267,7 +268,7 @@ export default function DoctorsScreen() {
     !!image && !image.includes('placehold') && image.startsWith('http');
 
   // ── FILTER + SORT ─────────────────────────────────────────────────────────
-  const filtered = doctors
+  const filtered = useMemo(() => doctors
     .filter((doc: Doctor) => {
       const q = search.trim().toLowerCase();
       // Expand common terms (skin→dermat, heart→cardio, …) so specialty chips
@@ -279,13 +280,16 @@ export default function DoctorsScreen() {
       const matchAvail = !availOnly || doc.available;
       return matchSearch && matchAvail;
     })
-    .sort((a: Doctor, b: Doctor) => rankDoctor(b) - rankDoctor(a));
+    .sort((a: Doctor, b: Doctor) => rankDoctor(b) - rankDoctor(a)),
+    // rankDoctor only reads `city`; listing it keeps the sort honest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doctors, search, availOnly, city]);
 
   // ── KEYWORD CHIPS ─────────────────────────────────────────────────────────
   // Tappable quick-search terms pulled from the real data: each doctor's
   // comma-separated `keywords` plus their specialization. Deduped
   // case-insensitively and capped so the strip stays short and scrollable.
-  const keywordChips = (() => {
+  const keywordChips = useMemo(() => {
     const seen = new Set<string>();
     const chips: string[] = [];
     for (const doc of doctors) {
@@ -303,13 +307,13 @@ export default function DoctorsScreen() {
       }
     }
     return chips.slice(0, 20);
-  })();
+  }, [doctors]);
 
   // ── SEARCH TYPEAHEAD ──────────────────────────────────────────────────────
   // Google-style completions under the search box. Candidates from the live
   // data (doctor names, specializations, keywords, hospitals, cities) rank
   // ahead of the generic term list, so a tapped suggestion always has results.
-  const searchSuggestions = (() => {
+  const searchSuggestions = useMemo(() => {
     if (!searchFocused) return [];
     const fromData: string[] = [];
     for (const doc of doctors) {
@@ -322,7 +326,7 @@ export default function DoctorsScreen() {
       );
     }
     return suggestKeywords(search, fromData.filter(Boolean), 6);
-  })();
+  }, [searchFocused, doctors, search]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

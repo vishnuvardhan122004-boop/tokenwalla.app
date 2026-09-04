@@ -14,7 +14,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -214,13 +214,15 @@ export default function HospitalPayments() {
   const setField = (k: keyof PayoutForm, v: string) => setForm(f => ({ ...f, [k]: v }));
 
   // ── Derived ─────────────────────────────────────────────────────────────
-  const q = search.trim().toLowerCase();
-  const filtered = q
-    ? doctors.filter(d =>
-        (d.name || '').toLowerCase().includes(q) ||
-        (d.specialization || '').toLowerCase().includes(q))
-    : doctors;
-  const needsSetup = doctors.filter(d => !d.has_payout_details).length;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return doctors;
+    return doctors.filter(d =>
+      (d.name || '').toLowerCase().includes(q) ||
+      (d.specialization || '').toLowerCase().includes(q));
+  }, [doctors, search]);
+  const needsSetup = useMemo(
+    () => doctors.filter(d => !d.has_payout_details).length, [doctors]);
 
   // Ownership is the organising idea: the first card is everything patients
   // paid, and it splits into the doctors' share and TokenWalla's.

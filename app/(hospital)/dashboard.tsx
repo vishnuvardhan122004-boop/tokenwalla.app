@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -772,20 +772,28 @@ export default function HospitalDashboard() {
     return (p.date || '') === (dayFilter === 'today' ? todayYMD : tomorrowYMD);
   };
 
-  const fWaiting    = queue.waiting.filter(matchesDay);
-  const fOnHold     = queue.onHold.filter(matchesDay);
-  const fInProgress = queue.inProgress.filter(matchesDay);
-  const fCompleted  = queue.completed.filter(matchesDay);
+  // The queue re-renders on every toggle, modal and poll tick; filtering the
+  // four lists (and counting the day pills) only when the queue or the day
+  // filter actually changes keeps that cheap.
+  const { fWaiting, fOnHold, fInProgress, fCompleted } = useMemo(() => ({
+    fWaiting:    queue.waiting.filter(matchesDay),
+    fOnHold:     queue.onHold.filter(matchesDay),
+    fInProgress: queue.inProgress.filter(matchesDay),
+    fCompleted:  queue.completed.filter(matchesDay),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [queue, dayFilter, todayYMD, tomorrowYMD]);
   const filteredTotal = fWaiting.length + fOnHold.length + fInProgress.length + fCompleted.length;
 
   // Counts per day for the filter pills, so staff see at a glance where the
   // patients are without switching tabs.
-  const countForDay = (day: 'today' | 'tomorrow' | 'all'): number => {
+  // Built once per queue change instead of rebuilding the combined array on
+  // each of the three pill lookups.
+  const dayCounts = useMemo(() => {
     const all = [...queue.waiting, ...queue.onHold, ...queue.inProgress, ...queue.completed];
-    if (day === 'all') return all.length;
-    const target = day === 'today' ? todayYMD : tomorrowYMD;
-    return all.filter(p => (p.date || '') === target).length;
-  };
+    const count = (target: string) => all.filter(p => (p.date || '') === target).length;
+    return { all: all.length, today: count(todayYMD), tomorrow: count(tomorrowYMD) };
+  }, [queue, todayYMD, tomorrowYMD]);
+  const countForDay = (day: 'today' | 'tomorrow' | 'all'): number => dayCounts[day];
 
   // Tapping a token opens a quick detail popup — handy for reading the token
   // aloud or confirming the patient at the counter. `done` popups (completed
