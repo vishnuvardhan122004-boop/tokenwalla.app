@@ -38,7 +38,6 @@ export default function EditProfile() {
   useAndroidBack(() => safeBack(router, '/(patient)/profile'));
   const { t } = useI18n();
 
-  const [origName,   setOrigName]   = useState('');
   const [origMobile, setOrigMobile] = useState('');
   const [name,       setName]       = useState('');
   const [mobile,     setMobile]     = useState('');
@@ -62,7 +61,7 @@ export default function EditProfile() {
       if (!u) { router.replace('/(auth)/login'); return; }
       const n = u.name || u.username || '';
       const m = u.mobile || '';
-      setOrigName(n); setOrigMobile(m); setName(n); setMobile(m);
+      setOrigMobile(m); setName(n); setMobile(m);
       // Drop the previous visit's OTP progress. Carrying `otpVerified` over
       // let the client-side gate (`mobileChanged && !otpVerified`) pass for a
       // number that was never verified — the backend still rejected it, since

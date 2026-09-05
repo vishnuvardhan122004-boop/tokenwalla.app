@@ -133,7 +133,7 @@ export default function HospitalPayments() {
       if (user.role !== 'hospital' || !user.hospital) { router.replace('/(hospital)/login'); return; }
       setHospitalId(user.hospital.id);
     })();
-  }, []);
+  }, [router]);
 
   const load = useCallback(async () => {
     if (!hospitalId) return;

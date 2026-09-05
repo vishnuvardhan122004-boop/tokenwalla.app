@@ -64,10 +64,10 @@ export default function MyQRScreen() {
           UTI: 'public.png',
         });
       } else {
-        Alert.alert('Not available', 'Saving is not available on this device.');
+        Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
       }
     } catch {
-      Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+      Alert.alert(t('error'), t('mb_ticket_failed'));
     } finally {
       setDownloading(false);
     }
@@ -239,7 +239,7 @@ export default function MyQRScreen() {
                 <View style={styles.qrFooter}>
                   <Ionicons name="lock-closed" size={12} color={Colors.gray400} style={{ marginRight: 5 }} />
                   <Text style={styles.qrFooterText}>
-                    Valid for this appointment only · tokenwalla.com
+                    {t('qr_valid_only')}
                   </Text>
                 </View>
               </View>

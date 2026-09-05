@@ -36,6 +36,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
+import { useI18n } from '../services/i18n';
 import { providerLabel } from '../utils/booking';
 import { money } from '../utils/fees';
 import { parsePaymentMessage } from '../utils/payment';
@@ -115,6 +116,8 @@ type Step = 'date' | 'slot' | 'pay' | 'verifying';
 // ── Component ──────────────────────────────────────────────────────────────
 export default function RescheduleModal({ visible, booking, onClose, onSuccess, user, free = false }: Props) {
 
+  const { t } = useI18n();
+
   const [step,          setStep]         = useState<Step>('date');
   const [selectedDate,  setSelectedDate] = useState('');
   const [selectedSlot,  setSelectedSlot] = useState('');
@@ -153,6 +156,11 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
         setDoctorSlots([]);
       })
       .finally(() => setSlotsLoading(false));
+  // Keyed on the booking's ID, not the object: the parent re-fetches its list
+  // every 15s and hands back a new object each time, which would reset the
+  // modal's date and slot out from under whoever is using it. `today` is a
+  // useMemo([]) — stable for the life of the modal.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, booking?.id]);
 
   // ── All hooks must run unconditionally, on every render, in the same
@@ -212,12 +220,12 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
           date: selectedDate,
           slot,
         });
-        Alert.alert('Rescheduled', 'Your appointment has been moved at no charge.');
+        Alert.alert(t('rs_done'), t('rs_done_free'));
         onSuccess();
         onClose();
       } catch (e: any) {
         setStep('slot');
-        Alert.alert('Failed', e?.response?.data?.message || e?.message || 'Could not reschedule. Please try again.');
+        Alert.alert(t('rs_failed'), e?.response?.data?.message || e?.message || t('rs_could_not'));
       } finally {
         setLoading(false);
         payBtnDisabled.current = false;
@@ -243,7 +251,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       const rpKeyId    = String(data.key || data.key_id || RAZORPAY_KEY_ID);
       const userName   = String(user?.name || user?.username || '');
       const userMobile = String(user?.mobile || '');
-      const drName     = providerLabel(String(booking.doctor_name || ''));
+      const drName     = providerLabel(String(booking.doctor_name || ''), booking.provider_kind);
       const feeDisplay = money(rpRupees);
 
       const html = `<!DOCTYPE html>
@@ -347,8 +355,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       setStep('pay');
     } catch (e: any) {
       Alert.alert(
-        'Payment Error',
-        e?.response?.data?.message || e?.message || 'Could not create payment order.',
+        t('pay_error'),
+        e?.response?.data?.message || e?.message || t('rs_order_failed'),
       );
       setStep('slot');
     } finally {
@@ -368,7 +376,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       setStep('slot'); // go back so user can try again
       const detail = [msg.message, msg.reason && `Reason: ${msg.reason}`]
         .filter(Boolean).join('\n');
-      Alert.alert('Payment Failed', detail || 'Payment failed. Please try again.');
+      Alert.alert(t('pay_failed'), detail || t('pay_failed_msg'));
       return;
     }
 
@@ -389,17 +397,17 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
         if (data.success) {
           Alert.alert(
-            'Rescheduled',
-            `Your appointment has been moved to ${selectedDate} at ${selectedSlot}.`,
-            [{ text: 'OK', onPress: () => { onSuccess(); onClose(); } }],
+            t('rs_done'),
+            t('rs_moved_to', { date: selectedDate, slot: selectedSlot }),
+            [{ text: t('ok'), onPress: () => { onSuccess(); onClose(); } }],
           );
         } else {
-          Alert.alert('Failed', data.message || 'Reschedule verification failed. Contact support.');
+          Alert.alert(t('rs_failed'), data.message || t('rs_verify_failed'));
           setStep('slot');
         }
       } catch (e: any) {
         const errMsg = e?.response?.data?.message || e?.message || 'Verification error. Contact support.';
-        Alert.alert('Error', errMsg);
+        Alert.alert(t('error'), errMsg);
         setStep('slot');
       }
     }
@@ -421,8 +429,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             <Ionicons name="close" size={22} color={Colors.gray600} />
           </TouchableOpacity>
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={st.headerTitle}>Reschedule Appointment</Text>
-            <Text style={st.headerSub}>{providerLabel(booking.doctor_name)}</Text>
+            <Text style={st.headerTitle}>{t('rs_title')}</Text>
+            <Text style={st.headerSub}>{providerLabel(booking.doctor_name, booking.provider_kind)}</Text>
           </View>
           <View style={{ width: 36 }} />
         </View>
@@ -452,8 +460,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
         {/* ── Step: Date (Calendar) ── */}
         {step === 'date' && (
           <ScrollView contentContainerStyle={st.body}>
-            <Text style={st.stepTitle}>Select a New Date</Text>
-            <Text style={st.stepSub}>Tap an available day on the calendar below</Text>
+            <Text style={st.stepTitle}>{t('rs_select_date')}</Text>
+            <Text style={st.stepSub}>{t('rs_tap_day')}</Text>
 
             {/* Calendar card */}
             <View style={st.calendarCard}>
@@ -528,15 +536,15 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
               <View style={st.calLegendRow}>
                 <View style={st.calLegendItem}>
                   <View style={[st.calLegendDot, { backgroundColor: Colors.blue600 }]} />
-                  <Text style={st.calLegendText}>Selected</Text>
+                  <Text style={st.calLegendText}>{t('rs_selected')}</Text>
                 </View>
                 <View style={st.calLegendItem}>
                   <View style={[st.calLegendDot, { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200 }]} />
-                  <Text style={st.calLegendText}>Available</Text>
+                  <Text style={st.calLegendText}>{t('available')}</Text>
                 </View>
                 <View style={st.calLegendItem}>
                   <View style={[st.calLegendDot, { backgroundColor: Colors.gray100 }]} />
-                  <Text style={st.calLegendText}>Unavailable</Text>
+                  <Text style={st.calLegendText}>{t('unavailable')}</Text>
                 </View>
               </View>
             </View>
@@ -549,31 +557,31 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             <TouchableOpacity style={st.backLink} onPress={() => setStep('date')}>
               <Text style={st.backLinkText}>← Change date</Text>
             </TouchableOpacity>
-            <Text style={st.stepTitle}>Select a Time Slot</Text>
+            <Text style={st.stepTitle}>{t('rs_select_slot')}</Text>
             <Text style={st.stepSub}>{formatDate(selectedDate)}</Text>
 
             {/* Loading slots from doctor API */}
             {slotsLoading ? (
               <View style={st.centreLoader}>
                 <ActivityIndicator size="large" color={Colors.blue600} />
-                <Text style={st.loadingText}>Loading available slots…</Text>
+                <Text style={st.loadingText}>{t('rs_loading_slots')}</Text>
               </View>
             ) : loading ? (
               <View style={st.centreLoader}>
                 <ActivityIndicator size="large" color={Colors.blue600} />
-                <Text style={st.loadingText}>Creating payment order…</Text>
+                <Text style={st.loadingText}>{t('rs_creating_order')}</Text>
               </View>
             ) : availableSlots.length === 0 ? (
               <View style={st.emptyBox}>
-                <Text style={st.emptyText}>No slots configured for this doctor.</Text>
-                <Text style={st.emptySubText}>Please contact the hospital directly.</Text>
+                <Text style={st.emptyText}>{t('rs_no_slots')}</Text>
+                <Text style={st.emptySubText}>{t('rs_contact_hospital')}</Text>
               </View>
             ) : (
               <View>
                 {/* Morning slots */}
                 {amSlots.length > 0 && (
                   <>
-                    <Text style={st.periodLabel}>Morning</Text>
+                    <Text style={st.periodLabel}>{t('rs_morning')}</Text>
                     <View style={st.slotGrid}>
                       {amSlots.map((slot: string) => (
                         <TouchableOpacity
@@ -594,7 +602,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                             {slot}
                           </Text>
                           {slot === booking.slot && (
-                            <Text style={st.currentBadge}>Current</Text>
+                            <Text style={st.currentBadge}>{t('rs_current')}</Text>
                           )}
                         </TouchableOpacity>
                       ))}
@@ -605,7 +613,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                 {/* Afternoon/Evening slots */}
                 {pmSlots.length > 0 && (
                   <>
-                    <Text style={[st.periodLabel, { marginTop: 16 }]}>Afternoon / Evening</Text>
+                    <Text style={[st.periodLabel, { marginTop: 16 }]}>{t('rs_afternoon_evening')}</Text>
                     <View style={st.slotGrid}>
                       {pmSlots.map((slot: string) => (
                         <TouchableOpacity
@@ -626,7 +634,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                             {slot}
                           </Text>
                           {slot === booking.slot && (
-                            <Text style={st.currentBadge}>Current</Text>
+                            <Text style={st.currentBadge}>{t('rs_current')}</Text>
                           )}
                         </TouchableOpacity>
                       ))}
@@ -639,8 +647,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             <View style={st.feeNote}>
               <Text style={st.feeNoteText}>
                 {free
-                  ? 'Free reschedule — your doctor was marked unavailable, so there is no charge. Tap a slot to confirm.'
-                  : `A ₹${RESCHEDULE_FEE} reschedule fee applies. Razorpay will open after you select a slot.`}
+                  ? t('rs_free_note')
+                  : t('rs_fee_note', { fee: RESCHEDULE_FEE })}
               </Text>
             </View>
           </ScrollView>
@@ -659,7 +667,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             renderLoading={() => (
               <View style={st.centreLoader}>
                 <ActivityIndicator size="large" color={Colors.blue600} />
-                <Text style={st.loadingText}>Loading Razorpay…</Text>
+                <Text style={st.loadingText}>{t('pay_loading_razorpay')}</Text>
               </View>
             )}
           />
@@ -669,8 +677,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
         {step === 'verifying' && (
           <View style={st.centreLoader}>
             <ActivityIndicator size="large" color={Colors.blue600} />
-            <Text style={st.loadingText}>Verifying payment…</Text>
-            <Text style={st.loadingSubText}>Please don't close the app</Text>
+            <Text style={st.loadingText}>{t('rs_verifying')}</Text>
+            <Text style={st.loadingSubText}>{t('rs_dont_close')}</Text>
           </View>
         )}
 
@@ -691,7 +699,7 @@ const st = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
   headerSub:   { fontSize: 12, color: Colors.gray500, marginTop: 1 },
   closeBtn:    { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
-  closeBtnText:{ fontSize: 16, color: Colors.gray600 ?? Colors.gray500, fontWeight: '700' },
+  closeBtnText:{ fontSize: 16, color: Colors.gray600, fontWeight: '700' },
 
   progressRow: {
     flexDirection: 'row', paddingVertical: 16, paddingHorizontal: 32,
@@ -703,7 +711,7 @@ const st = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
   progressDotActive: { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
-  progressDotDone:   { backgroundColor: Colors.successText ?? '#1A7A4A', borderColor: Colors.successText ?? '#1A7A4A' },
+  progressDotDone:   { backgroundColor: Colors.successText, borderColor: Colors.successText },
   progressDotText:   { fontSize: 12, fontWeight: '700', color: Colors.blue600 },
   progressLabel:     { fontSize: 11, color: Colors.gray400, textAlign: 'center' },
 
@@ -715,7 +723,7 @@ const st = StyleSheet.create({
 
   // ── Calendar styles ──────────────────────────────────────────────────────
   calendarCard: {
-    backgroundColor: Colors.blue50 ?? '#F4F9FF',
+    backgroundColor: Colors.blue50,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: Colors.blue100,
@@ -744,7 +752,7 @@ const st = StyleSheet.create({
   calDayCell: {
     borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.blue50 ?? '#F4F9FF',
+    backgroundColor: Colors.blue50,
     borderWidth: 1, borderColor: Colors.blue100,
   },
   calDayCellSelected: { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
@@ -778,17 +786,17 @@ const st = StyleSheet.create({
   },
 
   feeNote: {
-    backgroundColor: Colors.warningBg ?? '#FFF9EC',
-    borderWidth: 1, borderColor: Colors.warningBorder ?? '#F0D080',
+    backgroundColor: Colors.warningBg,
+    borderWidth: 1, borderColor: Colors.warningBorder,
     borderRadius: 10, padding: 12, marginTop: 8,
   },
-  feeNoteText: { fontSize: 12, color: Colors.warningText ?? '#7A5A00', lineHeight: 18 },
+  feeNoteText: { fontSize: 12, color: Colors.warningText, lineHeight: 18 },
 
   centreLoader:  { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
   loadingText:   { marginTop: 16, fontSize: 15, fontWeight: '700', color: Colors.gray900 },
   loadingSubText:{ marginTop: 6, fontSize: 12, color: Colors.gray500, textAlign: 'center' },
 
   emptyBox:    { alignItems: 'center', paddingVertical: 40 },
-  emptyText:   { fontSize: 15, fontWeight: '700', color: Colors.gray600 ?? Colors.gray500 },
+  emptyText:   { fontSize: 15, fontWeight: '700', color: Colors.gray600 },
   emptySubText:{ fontSize: 13, color: Colors.gray400, marginTop: 6 },
 });

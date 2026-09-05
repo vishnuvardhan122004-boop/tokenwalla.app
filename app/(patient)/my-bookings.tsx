@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Linking,
   RefreshControl,
   ScrollView,
@@ -25,11 +26,13 @@ import QRCode from 'react-native-qrcode-svg';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import RescheduleModal from '../../components/RescheduleModal';
+import { SkeletonList } from '../../components/Skeleton';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { openSharedDocument } from '../../services/reportFile';
 import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { usePolling } from '../../hooks/usePolling';
 import { syncAppointmentReminders } from '../../services/notifications';
 import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
 
@@ -76,7 +79,6 @@ export default function MyBookings() {
   const { user } = useCurrentUser();
   const [cancelling,        setCancelling]        = useState<number | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Download ticket: render a full ticket (with QR) off-screen for the chosen
   // booking, snapshot it to a PNG, then open the share sheet. The list cards
@@ -109,20 +111,20 @@ export default function MyBookings() {
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(shareUri, {
             mimeType: 'image/png',
-            dialogTitle: 'Save your appointment ticket',
+            dialogTitle: t('mb_save_ticket'),
             UTI: 'public.png',
           });
         } else {
-          Alert.alert('Not available', 'Saving is not available on this device.');
+          Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
         }
       } catch {
-        if (!cancelled) Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+        if (!cancelled) Alert.alert(t('error'), t('mb_ticket_failed'));
       } finally {
         if (!cancelled) { setTicketBooking(null); setDownloadingId(null); }
       }
     }, 450);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [ticketBooking]);
+  }, [ticketBooking, t]);
 
   // Keyed on the IDS, not on `bookings`. The list is re-fetched every 15s while
   // any booking is active, and each poll hands back a new array — so depending
@@ -131,7 +133,7 @@ export default function MyBookings() {
   // Any provider may share a document now — a hospital's discharge summary,
   // not just a centre's scan PDF.
   const completedScanIds = bookings
-    .filter((b: Booking) => b.status === 'COMPLETED')
+    .filter((b: Booking) => normalizeBookingStatus(b.status) === 'completed')
     .map((b: Booking) => String(b.id))
     .join(',');
 
@@ -151,7 +153,7 @@ export default function MyBookings() {
     try {
       await openSharedDocument(report);
     } catch {
-      Alert.alert('Error', 'Could not open the file. Please try again.');
+      Alert.alert(t('error'), t('mb_open_file_failed'));
     } finally {
       setReportBusyId(null);
     }
@@ -174,22 +176,16 @@ export default function MyBookings() {
     finally { setLoading(false); setRefreshing(false); }
   }, []);
 
-  useFocusEffect(useCallback(() => {
-    fetchBookings();
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [fetchBookings]));
+  useFocusEffect(useCallback(() => { fetchBookings(); }, [fetchBookings]));
 
-  useEffect(() => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    const hasActive = bookings.some(b => {
-      const s = normalizeBookingStatus(b.status);
-      return s === 'waiting' || s === 'in_progress';
-    });
-    if (hasActive) {
-      pollingRef.current = setInterval(() => fetchBookings(true), 15_000);
-    }
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, [bookings, fetchBookings]);
+  // Only while something is actually moving — and only while this tab is on
+  // screen and the app is in the foreground (see hooks/usePolling).
+  const hasActive = useMemo(() => bookings.some(b => {
+    const s = normalizeBookingStatus(b.status);
+    return s === 'waiting' || s === 'in_progress';
+  }), [bookings]);
+
+  usePolling(() => fetchBookings(true), 15_000, hasActive);
 
   // Deep-link from a "doctor unavailable" push (data.reschedule='free') — once the
   // matching booking has loaded, pop the reschedule modal automatically. Consumed
@@ -207,19 +203,19 @@ export default function MyBookings() {
 
   const handleCancel = (booking: Booking) => {
     Alert.alert(
-      'Cancel Appointment',
-      `Cancel with ${providerLabel(booking.doctor_name, booking.provider_kind)}?\n\nRefunds are processed within 5–7 business days.`,
+      t('mb_cancel_appt'),
+      `${t('mb_cancel_confirm', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}\n\n${t('mb_refund_note')}`,
       [
-        { text: 'Keep Booking', style: 'cancel' },
+        { text: t('mb_keep_booking'), style: 'cancel' },
         {
-          text: 'Yes, Cancel', style: 'destructive',
+          text: t('mb_yes_cancel'), style: 'destructive',
           onPress: async () => {
             setCancelling(booking.id);
             try {
               await API.patch(`/bookings/cancel/${booking.id}/`);
               fetchBookings(true);
             } catch (e: any) {
-              Alert.alert('Error', e?.response?.data?.message || 'Failed to cancel booking.');
+              Alert.alert(t('error'), e?.response?.data?.message || t('mb_cancel_failed'));
             } finally {
               setCancelling(null);
             }
@@ -230,10 +226,10 @@ export default function MyBookings() {
   };
 
   const queueMsg = (pos: number | null | undefined) => {
-    if (pos == null) return 'Loading queue position…';
-    if (pos === 0)   return 'Your turn — go in now!';
-    if (pos === 1)   return "You're next! Head to the clinic.";
-    return `${pos - 1} patient${pos > 2 ? 's' : ''} ahead of you`;
+    if (pos == null) return t('mb_queue_loading');
+    if (pos === 0)   return t('mb_queue_your_turn');
+    if (pos === 1)   return t('mb_queue_next');
+    return t('mb_queue_ahead', { count: pos - 1 });
   };
 
   const filtered = useMemo(() => bookings.filter(b => {
@@ -290,9 +286,7 @@ export default function MyBookings() {
 
       {/* Loading */}
       {loading ? (
-        <View style={st.centreLoader}>
-          <ActivityIndicator size="large" color={Colors.blue600} />
-        </View>
+        <SkeletonList count={4} variant="booking" />
 
       /* Error */
       ) : error && bookings.length === 0 ? (
@@ -327,18 +321,32 @@ export default function MyBookings() {
 
       /* List */
       ) : (
-        <ScrollView
+        <FlatList
+          data={filtered}
+          keyExtractor={(b: Booking) => String(b.id)}
           contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings(true)} tintColor={Colors.blue600} />
           }
-        >
-          {filtered.map(booking => {
+          // /bookings/my/ returns a patient's whole history, and every card
+          // carries a status block, an action row and (for scans) a report
+          // list. A ScrollView mounted all of them at once.
+          initialNumToRender={5}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          removeClippedSubviews
+          renderItem={({ item: booking }: { item: Booking }) => {
             const cs        = normalizeBookingStatus(booking.status);
             const s         = STATUS_MAP[cs] ?? STATUS_MAP.cancelled;
             const isActive  = cs === 'waiting' || cs === 'in_progress';
             const isWaiting = cs === 'waiting';
+            // Reschedule is a DOCTOR flow end to end: the modal fetches the
+            // doctor's slots and the backend prices a doctor reschedule. A scan
+            // booking carries no `doctor`, so offering it here opened a modal
+            // titled "Dr. Complete Blood Count (CBC)" onto an empty calendar.
+            // Cancel (which the backend does support for scans) fills the row.
+            const canReschedule = isWaiting && booking.provider_kind !== 'SCAN';
 
             return (
               <View key={booking.id} style={st.card}>
@@ -347,7 +355,7 @@ export default function MyBookings() {
 
                 <View style={st.cardBody}>
                   <View style={st.tokenCol}>
-                    <Text style={st.tokenLabel}>TOKEN</Text>
+                    <Text style={st.tokenLabel}>{t('mb_token_caps')}</Text>
                     <Text style={st.tokenNum} numberOfLines={2}>
                       {booking.token?.replace('TW-', '#')}
                     </Text>
@@ -445,7 +453,7 @@ export default function MyBookings() {
                     would read as something having gone missing. */}
                 {(reports[String(booking.id)]?.length ?? 0) > 0 && (
                   <View style={st.reportBox}>
-                    <Text style={st.reportTitle}>Your documents</Text>
+                    <Text style={st.reportTitle}>{t('mb_your_documents')}</Text>
                     {reports[String(booking.id)].map((r: any) => (
                       <TouchableOpacity
                         key={String(r.id)}
@@ -468,11 +476,11 @@ export default function MyBookings() {
 
                 {/* Doctor-unavailable banner: hospital marked the doctor off,
                     so this booking can be rescheduled for free. */}
-                {isWaiting && booking.free_reschedule && (
+                {canReschedule && booking.free_reschedule && (
                   <View style={st.unavailBanner}>
-                    <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
+                    <Ionicons name="alert-circle" size={15} color={Colors.warningText} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      {providerLabel(booking.doctor_name, booking.provider_kind)} is unavailable. Reschedule below at no charge.
+                      {t('mb_free_reschedule', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}
                     </Text>
                   </View>
                 )}
@@ -480,19 +488,21 @@ export default function MyBookings() {
                 {/* Action row */}
                 {isWaiting && (
                   <View style={st.actionRow}>
-                    <TouchableOpacity
-                      style={[st.rescheduleBtn, booking.free_reschedule && st.rescheduleBtnFree]}
-                      onPress={() => setRescheduleBooking(booking)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="calendar-outline" size={18} color={Colors.blue600} />
-                      <View>
-                        <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
-                        <Text style={st.rescheduleBtnFee}>
-                          {booking.free_reschedule ? 'FREE' : t('reschedule_fee', { fee: RESCHEDULE_FEE })}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
+                    {canReschedule && (
+                      <TouchableOpacity
+                        style={[st.rescheduleBtn, booking.free_reschedule && st.rescheduleBtnFree]}
+                        onPress={() => setRescheduleBooking(booking)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="calendar-outline" size={18} color={Colors.blue600} />
+                        <View>
+                          <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
+                          <Text style={st.rescheduleBtnFee}>
+                            {booking.free_reschedule ? 'FREE' : t('reschedule_fee', { fee: RESCHEDULE_FEE })}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
 
                     <TouchableOpacity
                       style={[st.cancelBtn, cancelling === booking.id && { opacity: 0.5 }]}
@@ -516,8 +526,8 @@ export default function MyBookings() {
                 )}
               </View>
             );
-          })}
-        </ScrollView>
+          }}
+        />
       )}
 
       {/* RescheduleModal — WebView-based, no react-native-razorpay */}
@@ -557,7 +567,7 @@ export default function MyBookings() {
             </View>
           </View>
 
-          <Text style={st.ticketTokenLabel}>YOUR TOKEN</Text>
+          <Text style={st.ticketTokenLabel}>{t('mb_your_token')}</Text>
           <Text style={st.ticketToken}>{ticketBooking.token}</Text>
 
           <View style={st.ticketDivider} />
@@ -578,7 +588,7 @@ export default function MyBookings() {
             ))}
           </View>
 
-          <Text style={st.ticketFooter}>Show this token & QR at the hospital reception</Text>
+          <Text style={st.ticketFooter}>{t('mb_show_at_reception')}</Text>
         </View>
       )}
 
@@ -596,7 +606,7 @@ const st = StyleSheet.create({
   header: {
     padding: 20, paddingBottom: 0,
     borderBottomWidth: 1, borderBottomColor: Colors.blue100,
-    backgroundColor: Colors.bg ?? Colors.white,
+    backgroundColor: Colors.bg,
   },
   title: { fontSize: 24, fontWeight: '800', color: Colors.gray900, marginBottom: 2 },
   sub:   { fontSize: 14, color: Colors.gray400, marginBottom: 14 },
@@ -609,9 +619,9 @@ const st = StyleSheet.create({
   tabBtn:        { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
   tabBtnActive:  { backgroundColor: Colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 1 },
   tabText:       { fontSize: 13, fontWeight: '500', color: Colors.gray400 },
-  tabTextActive: { color: Colors.blue700 ?? Colors.blue600, fontWeight: '700' },
+  tabTextActive: { color: Colors.blue700, fontWeight: '700' },
 
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.gray600 ?? Colors.gray500, marginBottom: 8, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: Colors.gray600, marginBottom: 8, textAlign: 'center' },
   emptySub:   { fontSize: 14, color: Colors.gray400, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   primaryBtn: { backgroundColor: Colors.blue600, borderRadius: 12, paddingHorizontal: 28, paddingVertical: 14, marginTop: 4 },
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
@@ -628,7 +638,7 @@ const st = StyleSheet.create({
     width: 90, alignItems: 'center', justifyContent: 'center', padding: 16,
     backgroundColor: Colors.blue50, borderRightWidth: 1, borderRightColor: Colors.blue100,
   },
-  tokenLabel: { fontSize: 9, fontWeight: '700', color: Colors.blue400 ?? Colors.blue200, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
+  tokenLabel: { fontSize: 9, fontWeight: '700', color: Colors.blue400, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 },
   tokenNum:   { fontFamily: 'monospace', fontSize: 14, fontWeight: '600', color: Colors.blue600, textAlign: 'center' },
 
   statusBadge:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', borderWidth: 1, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 4, marginTop: 12, marginBottom: 8, gap: 5 },
@@ -656,7 +666,7 @@ const st = StyleSheet.create({
   qrBtnText: { fontSize: 13, fontWeight: '700', color: Colors.white },
 
   downloadBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, minHeight: 44, backgroundColor: Colors.blue50, borderTopWidth: 1, borderTopColor: Colors.blue100 },
-  downloadBtnText: { fontSize: 13, fontWeight: '700', color: Colors.blue700 ?? Colors.blue600 },
+  downloadBtnText: { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
 
   reportBox:   { marginTop: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, borderRadius: 12, padding: 12 },
   reportTitle: { fontSize: 12, fontWeight: '800', color: Colors.blue800, letterSpacing: 0.4, marginBottom: 8 },
@@ -671,7 +681,7 @@ const st = StyleSheet.create({
   ticketAccent:       { color: Colors.blue600 },
   ticketConfirmed:    { fontSize: 12, fontWeight: '700', color: Colors.successText },
   ticketQrWrap:       { alignItems: 'center', paddingVertical: 20 },
-  ticketQrBox:        { padding: 14, backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: Colors.blue100 },
+  ticketQrBox:        { padding: 14, backgroundColor: Colors.white, borderRadius: 16, borderWidth: 1, borderColor: Colors.blue100 },
   ticketTokenLabel:   { textAlign: 'center', fontSize: 10, fontWeight: '700', letterSpacing: 2, color: Colors.gray400 },
   ticketToken:        { textAlign: 'center', fontSize: 26, fontWeight: '700', color: Colors.blue600, fontFamily: 'monospace', letterSpacing: 2, marginTop: 4 },
   ticketDivider:      { height: 1, backgroundColor: Colors.blue50, marginHorizontal: 20, marginTop: 16 },
@@ -683,14 +693,14 @@ const st = StyleSheet.create({
 
   actionRow: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.blue50 },
   rescheduleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.blue50, borderRightWidth: 1, borderRightColor: Colors.blue100 },
-  rescheduleBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue700 ?? Colors.blue600 },
+  rescheduleBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   rescheduleBtnFee:   { fontSize: 11, color: Colors.blue600, marginTop: 1 },
-  rescheduleBtnFree:  { backgroundColor: Colors.successBg ?? '#E6F6EC' },
+  rescheduleBtnFree:  { backgroundColor: Colors.successBg },
 
-  unavailBanner:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.warningBg ?? '#FAEEDA', borderTopWidth: 1, borderTopColor: Colors.warningBorder ?? '#EF9F27', paddingVertical: 10, paddingHorizontal: 14 },
-  unavailBannerText:  { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.warningText ?? '#854F0B', lineHeight: 17 },
+  unavailBanner:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.warningBg, borderTopWidth: 1, borderTopColor: Colors.warningBorder, paddingVertical: 10, paddingHorizontal: 14 },
+  unavailBannerText:  { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.warningText, lineHeight: 17 },
 
-  cancelBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.errorBg ?? '#FCEBEB' },
-  cancelBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.errorText ?? '#A32D2D' },
-  cancelBtnFee:   { fontSize: 11, color: Colors.errorText ?? '#A32D2D', marginTop: 1, opacity: 0.7 },
+  cancelBtn:      { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 13, paddingHorizontal: 14, backgroundColor: Colors.errorBg },
+  cancelBtnTitle: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
+  cancelBtnFee:   { fontSize: 11, color: Colors.errorText, marginTop: 1, opacity: 0.7 },
 });

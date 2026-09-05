@@ -12,17 +12,18 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { isTestHospital } from '../constants/config';
 import { providerLabel } from '../utils/booking';
+import { computeFeeBreakdown, money } from '../utils/fees';
 import API, { getUser } from '../services/api';
 import { useI18n } from '../services/i18n';
 import { registerPushToken } from '../services/notifications';
@@ -54,6 +55,13 @@ const STEPS_2_4: { icon: IconName; titleKey: string; descKey: string }[] = [
 ];
 
 const PRICE_FEATURES = ['price_f1', 'price_f2', 'price_f3', 'price_f4', 'price_f5'];
+
+// What a booking actually costs online, computed from the same constants the
+// backend prices with (utils/fees.ts mirrors payments/fees.py). Passing 0 as
+// the doctor's fee gives the SERVICE_ONLY bill — the consultation itself is
+// settled at the clinic. Derived, never typed in, so it cannot go stale the
+// way the old hardcoded "₹20" did.
+const SERVICE_BILL = computeFeeBreakdown(0);
 
 // Quick-access specialty chips. `key` is the search term deep-linked to the
 // doctors tab (?q=key); doctors.tsx expands it via SPEC_SYNONYMS so e.g. "skin"
@@ -314,7 +322,13 @@ export default function HomeScreen() {
                 >
                   <View style={styles.docImgBox}>
                     {hasDoctorImage(doc.image) ? (
-                      <Image source={{ uri: doc.image }} style={styles.docImg} resizeMode="cover" />
+                      <Image
+                        source={{ uri: doc.image }}
+                        style={styles.docImg}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={180}
+                      />
                     ) : (
                       <Ionicons name="medkit-outline" size={30} color={Colors.blue400} />
                     )}
@@ -375,9 +389,34 @@ export default function HomeScreen() {
             <Text style={styles.pricePlan}>{t('queue_view')}</Text>
             <View style={styles.priceAmtRow}>
               <Text style={styles.priceCur}>₹</Text>
-              <Text style={styles.priceAmt}>20</Text>
+              <Text style={styles.priceAmt}>{money(SERVICE_BILL.final_amount)}</Text>
             </View>
             <Text style={styles.priceSub}>{t('per_appointment')}</Text>
+
+            {/* The itemised bill, straight from utils/fees.ts — the same
+                mirror checkout falls back to. The card used to advertise a
+                flat ₹20, which was the platform fee alone. */}
+            <View style={styles.priceBreakdown}>
+              {([
+                [t('price_platform'), SERVICE_BILL.platform_fee],
+                [t('price_gateway'),  SERVICE_BILL.gateway_fee ],
+                [t('price_gst'),      SERVICE_BILL.gst_amount  ],
+              ] as const).map(([label, amt]) => (
+                <View key={label} style={styles.priceRow}>
+                  <Text style={styles.priceRowLabel}>{label}</Text>
+                  <Text style={styles.priceRowValue}>₹{money(amt)}</Text>
+                </View>
+              ))}
+              <View style={styles.priceDivider} />
+              <View style={styles.priceRow}>
+                <Text style={styles.priceTotalLabel}>{t('price_total')}</Text>
+                <Text style={styles.priceTotalValue}>₹{money(SERVICE_BILL.final_amount)}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.priceNote}>{t('price_clinic_note')}</Text>
+
+            <Text style={styles.priceIncluded}>{t('price_whats_included')}</Text>
             {PRICE_FEATURES.map((f) => (
               <View key={f} style={styles.priceFeatureRow}>
                 <Text style={styles.priceCheck}>✓</Text>
@@ -470,8 +509,8 @@ const styles = StyleSheet.create({
   stepTitle:   { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
   stepDesc:    { fontSize: 12, color: Colors.gray500, lineHeight: 18 },
   stepCardActive:    { borderColor: Colors.blue200, borderWidth: 1.5, backgroundColor: Colors.blue50 },
-  stepIconBoxActive: { backgroundColor: Colors.blue100, borderColor: Colors.blue100 ?? Colors.blue200 },
-  stepTitleActive:   { color: Colors.blue700 ?? Colors.blue600 },
+  stepIconBoxActive: { backgroundColor: Colors.blue100, borderColor: Colors.blue100 },
+  stepTitleActive:   { color: Colors.blue700 },
 
   // Doctor cards
   docCard:   { width: 162, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, marginRight: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
@@ -499,8 +538,17 @@ const styles = StyleSheet.create({
   pricePlan:    { fontSize: 14, color: 'rgba(255,255,255,0.65)', marginBottom: 8 },
   priceAmtRow:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   priceCur:     { fontSize: 22, fontWeight: '700', color: Colors.white, marginTop: 6 },
-  priceAmt:     { fontSize: 52, fontWeight: '800', color: Colors.white, lineHeight: 58 },
+  priceAmt:     { fontSize: 46, fontWeight: '800', color: Colors.white, lineHeight: 52, fontVariant: ['tabular-nums'] },
   priceSub:     { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 22 },
+  priceBreakdown:  { backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 14, padding: 16, marginBottom: 14 },
+  priceRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
+  priceRowLabel:   { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
+  priceRowValue:   { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.9)', fontVariant: ['tabular-nums'] },
+  priceDivider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 11, marginTop: 2 },
+  priceTotalLabel: { fontSize: 14, fontWeight: '700', color: Colors.white },
+  priceTotalValue: { fontSize: 16, fontWeight: '800', color: Colors.white, fontVariant: ['tabular-nums'] },
+  priceNote:       { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18, marginBottom: 20 },
+  priceIncluded:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 12 },
   priceFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   priceCheck:   { fontSize: 15, color: '#9FE1CB', fontWeight: '700' },
   priceFeature: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },

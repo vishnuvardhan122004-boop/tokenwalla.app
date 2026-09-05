@@ -14,9 +14,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Modal, Platform, ScrollView,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView,
   StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
@@ -299,7 +300,13 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
             <Text style={s.label}>Photo (optional)</Text>
             <TouchableOpacity style={s.photoRow} onPress={pickPhoto}>
               {picked?.uri || existingImage ? (
-                <Image source={{ uri: picked?.uri || existingImage! }} style={s.photoThumb} resizeMode="cover" />
+                <Image
+                  source={{ uri: picked?.uri || existingImage! }}
+                  style={s.photoThumb}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={180}
+                />
               ) : (
                 <View style={[s.photoThumb, s.photoEmpty]}>
                   <Ionicons name="image-outline" size={20} color={Colors.blue600} />
