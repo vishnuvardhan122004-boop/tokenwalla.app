@@ -528,6 +528,9 @@ const en: Dict = {
   rs_order_failed: 'Could not create payment order.',
   mb_save_ticket: 'Save your appointment ticket',
   qr_valid_only: 'Valid for this appointment only · tokenwalla.com',
+  price_or: 'or',
+  price_pass_offer: '{visits} visits · {days} days · save ₹{save}',
+  price_pass_held: '{count} left · valid to {date}',
 };
 
 const hi: Dict = {
@@ -1029,6 +1032,9 @@ const hi: Dict = {
   rs_order_failed: 'भुगतान ऑर्डर नहीं बन सका।',
   mb_save_ticket: 'अपना अपॉइंटमेंट टिकट सेव करें',
   qr_valid_only: 'केवल इसी अपॉइंटमेंट के लिए मान्य · tokenwalla.com',
+  price_or: 'या',
+  price_pass_offer: '{visits} विज़िट · {days} दिन · ₹{save} बचाएँ',
+  price_pass_held: '{count} बची · {date} तक वैध',
 };
 
 const te: Dict = {
@@ -1530,6 +1536,9 @@ const te: Dict = {
   rs_order_failed: 'చెల్లింపు ఆర్డర్ సృష్టించలేకపోయాము.',
   mb_save_ticket: 'మీ అపాయింట్‌మెంట్ టికెట్ సేవ్ చేయండి',
   qr_valid_only: 'ఈ అపాయింట్‌మెంట్‌కు మాత్రమే చెల్లుబాటు · tokenwalla.com',
+  price_or: 'లేదా',
+  price_pass_offer: '{visits} సందర్శనలు · {days} రోజులు · ₹{save} ఆదా',
+  price_pass_held: '{count} మిగిలాయి · {date} వరకు చెల్లుబాటు',
 };
 
 const kn: Dict = {
@@ -2031,6 +2040,9 @@ const kn: Dict = {
   rs_order_failed: 'ಪಾವತಿ ಆರ್ಡರ್ ರಚಿಸಲಾಗಲಿಲ್ಲ.',
   mb_save_ticket: 'ನಿಮ್ಮ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಟಿಕೆಟ್ ಉಳಿಸಿ',
   qr_valid_only: 'ಈ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್‌ಗೆ ಮಾತ್ರ ಮಾನ್ಯ · tokenwalla.com',
+  price_or: 'ಅಥವಾ',
+  price_pass_offer: '{visits} ಭೇಟಿಗಳು · {days} ದಿನಗಳು · ₹{save} ಉಳಿತಾಯ',
+  price_pass_held: '{count} ಬಾಕಿ · {date} ವರೆಗೆ ಮಾನ್ಯ',
 };
 
 const TRANSLATIONS: Record<LangCode, Dict> = { en, hi, te, kn };

@@ -117,6 +117,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
   const [langOpen, setLangOpen] = useState(false);
+  // The Appointment Pass offer + whatever this patient already holds.
+  const [passData, setPassData] = useState<any>(null);
 
   // Which user id this device was last registered for. A ref, not state: it
   // must not trigger a render, and it must survive re-renders of this screen.
@@ -146,6 +148,20 @@ export default function HomeScreen() {
     });
   }, []));
 
+  // Gated on `user`, not fired on mount. /payment/pass/ is IsAuthenticated and
+  // is NOT in api.ts's PUBLIC_ROUTES, so calling it before anyone logs in would
+  // 401 and drag the launch path into the refresh-retry flow — the same trap
+  // the /app-version/ carve-out exists to avoid. A failure of any kind (old
+  // backend with no endpoint, offline, feature off) simply means no pass block.
+  useEffect(() => {
+    if (!user) { setPassData(null); return; }
+    let cancelled = false;
+    API.get('/payment/pass/')
+      .then(({ data }) => { if (!cancelled) setPassData(data); })
+      .catch(() => { if (!cancelled) setPassData(null); });
+    return () => { cancelled = true; };
+  }, [user]);
+
   useEffect(() => {
     API.get('/doctors/')
       .then(({ data }) => {
@@ -159,6 +175,19 @@ export default function HomeScreen() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  // Only render the pass when the server says it is on sale. `credits` is what
+  // the patient is holding right now; when they hold one we show that instead
+  // of the sales pitch.
+  const passOn   = !!passData?.enabled;
+  const credits  = passData?.pass?.remaining || 0;
+  const passSave = passOn
+    ? money(Number(SERVICE_BILL.final_amount) * passData.bookings - Number(passData.price))
+    : '0';
+  const passExpiry = passData?.pass?.expires_at
+    ? new Date(passData.pass.expires_at).toLocaleDateString('en-IN',
+        { day: 'numeric', month: 'short' })
+    : '';
 
   const handlePatientLoginPress = async () => {
     setNavBusy('patient');
@@ -416,6 +445,41 @@ export default function HomeScreen() {
 
             <Text style={styles.priceNote}>{t('price_clinic_note')}</Text>
 
+            {/* The Appointment Pass, priced by the same server call checkout
+                uses — never hard-coded here. Only shown to a signed-in patient
+                (see the fetch above); a visitor sees the single-visit price
+                alone, which is what they are about to pay anyway. */}
+            {passOn && (
+              <>
+                <View style={styles.priceOrRow}>
+                  <View style={styles.priceOrLine} />
+                  <Text style={styles.priceOrText}>{t('price_or')}</Text>
+                  <View style={styles.priceOrLine} />
+                </View>
+
+                <View style={styles.passRow}>
+                  <View style={styles.passIcon}>
+                    <Ionicons name="ticket-outline" size={17} color={Colors.white} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.passName}>{t('pay_appointment_pass')}</Text>
+                    <Text style={styles.passTerms}>
+                      {credits > 0
+                        ? t('price_pass_held', { count: credits, date: passExpiry })
+                        : t('price_pass_offer', {
+                            visits: passData.bookings,
+                            days:   passData.days,
+                            save:   passSave,
+                          })}
+                    </Text>
+                  </View>
+                  {credits === 0 && (
+                    <Text style={styles.passPrice}>₹{money(passData.price)}</Text>
+                  )}
+                </View>
+              </>
+            )}
+
             <Text style={styles.priceIncluded}>{t('price_whats_included')}</Text>
             {PRICE_FEATURES.map((f) => (
               <View key={f} style={styles.priceFeatureRow}>
@@ -548,6 +612,14 @@ const styles = StyleSheet.create({
   priceTotalLabel: { fontSize: 14, fontWeight: '700', color: Colors.white },
   priceTotalValue: { fontSize: 16, fontWeight: '800', color: Colors.white, fontVariant: ['tabular-nums'] },
   priceNote:       { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18, marginBottom: 20 },
+  priceOrRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  priceOrLine:     { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
+  priceOrText:     { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1.2 },
+  passRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 14, padding: 14, marginBottom: 22 },
+  passIcon:        { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  passName:        { fontSize: 14, fontWeight: '700', color: Colors.white },
+  passTerms:       { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  passPrice:       { fontSize: 16, fontWeight: '800', color: Colors.white, fontVariant: ['tabular-nums'] },
   priceIncluded:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 12 },
   priceFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   priceCheck:   { fontSize: 15, color: '#9FE1CB', fontWeight: '700' },
