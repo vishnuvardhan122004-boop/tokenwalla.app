@@ -14,12 +14,14 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import {
-  Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { Colors } from '../constants/colors';
 import { directionsUrl, isOpenNow } from '../utils/booking';
+import { useI18n } from '../services/i18n';
 
 // Official brand marks (simple-icons paths), not look-alike emoji. Exported
 // because the doctor screen's share sheet uses the same two.
@@ -72,8 +74,10 @@ interface Props {
 }
 
 export default function ProviderAboutPanel({
-  info, title = 'About the Hospital', fallbackIcon = 'business-outline',
+  info, title, fallbackIcon = 'business-outline',
 }: Props) {
+  // Above the early return — hooks must run on every render.
+  const { t } = useI18n();
   if (!info) return null;
 
   const hasAnything = info.description || info.open_time || info.instagram || info.youtube
@@ -88,9 +92,15 @@ export default function ProviderAboutPanel({
       <View style={st.headRow}>
         <View style={st.headLeft}>
           {hasLogo
-            ? <Image source={{ uri: info.logo! }} style={st.logo} resizeMode="cover" />
+            ? <Image
+                source={{ uri: info.logo! }}
+                style={st.logo}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={180}
+              />
             : <Ionicons name={fallbackIcon} size={16} color={Colors.blue600} />}
-          <Text style={st.title}>{title}</Text>
+          <Text style={st.title}>{title ?? t('pa_about_hospital')}</Text>
         </View>
         {openNow != null && (
           <View style={[st.openPill, {
@@ -118,7 +128,7 @@ export default function ProviderAboutPanel({
 
       <TouchableOpacity style={st.directionsBtn} onPress={() => Linking.openURL(directionsUrl(info))}>
         <Ionicons name="navigate-outline" size={15} color={Colors.blue700} />
-        <Text style={st.directionsBtnText}>Get Directions</Text>
+        <Text style={st.directionsBtnText}>{t('pa_directions')}</Text>
       </TouchableOpacity>
 
       {(info.instagram || info.youtube || info.facebook) && (
@@ -146,7 +156,7 @@ export default function ProviderAboutPanel({
 
       {info.services && info.services.length > 0 && (
         <>
-          <Text style={st.sectionLabel}>SERVICES</Text>
+          <Text style={st.sectionLabel}>{t('pa_services')}</Text>
           <View style={st.chipWrap}>
             {info.services.map(s => (
               <View key={s} style={st.chip}><Text style={st.chipText}>{s}</Text></View>
@@ -157,10 +167,17 @@ export default function ProviderAboutPanel({
 
       {info.gallery && info.gallery.length > 0 && (
         <>
-          <Text style={st.sectionLabel}>PHOTOS</Text>
+          <Text style={st.sectionLabel}>{t('pa_photos')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
             {info.gallery.map(p => (
-              <Image key={p.id} source={{ uri: p.url }} style={st.galleryImg} resizeMode="cover" />
+              <Image
+                key={p.id}
+                source={{ uri: p.url }}
+                style={st.galleryImg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={180}
+              />
             ))}
           </ScrollView>
         </>

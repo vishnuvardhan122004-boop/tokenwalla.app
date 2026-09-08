@@ -66,7 +66,7 @@ export default function HospitalAnalytics() {
       setHospitalId(user.hospital.id);
       load(user.hospital.id);
     })();
-  }, []);
+  }, [router, load]);
 
   const allToday = [...queue.waiting, ...queue.inProgress, ...queue.completed];
   const total = allToday.length;

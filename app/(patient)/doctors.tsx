@@ -2,12 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,12 +14,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { isTestHospital } from '../../constants/config';
 import { suggestKeywords } from '../../constants/searchKeywords';
 import API from '../../services/api';
+import { providerLabel } from '../../utils/booking';
 import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from '../../utils/scanCenters';
+import { SkeletonList } from '../../components/Skeleton';
 import { useI18n } from '../../services/i18n';
 
 // Last successful doctor list, cached so the screen paints instantly on reopen.
@@ -69,6 +71,134 @@ interface Doctor {
   city: string;
 }
 
+// A doctor image is usable only if it's a real remote URL (not a placeholder).
+const hasDoctorImage = (image: string | null): boolean =>
+  !!image && !image.includes('placehold') && image.startsWith('http');
+
+// ── DOCTOR CARD ───────────────────────────────────────────────────────────────
+// Lifted out of the screen and memoised. It used to be an inline closure inside
+// `renderItem`, so every keystroke in the search box rebuilt the function and
+// re-rendered every visible row. Now a row only re-renders when its own props
+// change — the list stays smooth while typing.
+const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
+  doc:    Doctor;
+  index:  number;
+  city:   string;
+  t:      (key: string, vars?: Record<string, string | number>) => string;
+  router: ReturnType<typeof useRouter>;
+}) {
+
+    const isTopRanked = index === 0 && doc.available;
+    const isNearby    = city && (doc.city || '').toLowerCase() === city.toLowerCase();
+
+    return (
+      <TouchableOpacity
+        style={[styles.docCard, isTopRanked && styles.docCardTop]}
+        activeOpacity={0.85}
+        onPress={() => router.push({ pathname: '/(patient)/doctor/[id]', params: { id: doc.id } })}
+      >
+        {/* Top colour strip */}
+        <View style={[styles.cardStrip, isTopRanked && styles.cardStripTop]} />
+
+        {/* Top Ranked Badge */}
+        {isTopRanked && (
+          <View style={styles.topBadge}>
+            <Text style={styles.topBadgeText}>{t('top_match')}</Text>
+          </View>
+        )}
+
+        <View style={styles.cardBody}>
+
+          {/* ── AVATAR ── */}
+          {hasDoctorImage(doc.image) ? (
+            <Image
+              source={{ uri: doc.image! }}
+              style={styles.docAvatarImg}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={180}
+            />
+          ) : (
+            <View style={styles.docAvatarFallback}>
+              <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />
+            </View>
+          )}
+
+          {/* ── CENTER INFO ── */}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.docSpec}>{doc.specialization}</Text>
+            <Text style={styles.docName}>{providerLabel(doc.name)}</Text>
+            <View style={styles.docHospitalRow}>
+              <Ionicons name="business-outline" size={12} color={Colors.gray500} />
+              <Text style={styles.docHospital} numberOfLines={1}>{doc.hospital_name}</Text>
+            </View>
+            <View style={styles.docMeta}>
+              <View style={styles.metaChipRow}>
+                <Ionicons name="location-outline" size={12} color={isNearby ? Colors.blue600 : Colors.gray400} />
+                <Text style={[styles.metaChip, isNearby && { color: Colors.blue600, fontWeight: '700' }]}>
+                  {isNearby ? `Nearby · ${doc.city}` : doc.city}
+                </Text>
+              </View>
+              <View style={styles.metaChipRow}>
+                <Ionicons name="time-outline" size={12} color={Colors.gray400} />
+                <Text style={styles.metaChip}>{t('yrs_exp', { years: doc.experience })}</Text>
+              </View>
+            </View>
+            {doc.slots && doc.slots.length > 0 && (
+              <View style={styles.slotRow}>
+                {doc.slots.slice(0, 2).map((s: string) => (
+                  <View key={s} style={styles.slotChip}>
+                    <Text style={styles.slotText}>{s}</Text>
+                  </View>
+                ))}
+                {doc.slots.length > 2 && (
+                  <Text style={styles.slotMore}>+{doc.slots.length - 2}</Text>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* ── RIGHT: STATUS + FEE ── */}
+          <View style={styles.cardRight}>
+            <View style={[
+              styles.availBadge,
+              { backgroundColor: doc.available ? Colors.successBg : Colors.errorBg }
+            ]}>
+              <View style={{
+                width: 5, height: 5, borderRadius: 3,
+                backgroundColor: doc.available ? Colors.successText : Colors.errorText,
+                marginRight: 4,
+              }} />
+              <Text style={{
+                fontSize: 10, fontWeight: '700',
+                color: doc.available ? Colors.successText : Colors.errorText,
+              }}>
+                {doc.available ? t('available') : t('busy')}
+              </Text>
+            </View>
+            <Text style={styles.feeText}>₹{doc.fee ?? 0}</Text>
+            <Text style={styles.feeSub}>per visit</Text>
+          </View>
+        </View>
+
+        {/* ── FOOTER ── */}
+        <View style={styles.cardFooter}>
+          <Text style={styles.slotsCount}>
+            {doc.slots?.length
+              ? t('slots_today', { count: doc.slots.length })
+              : t('walk_in_contact')}
+          </Text>
+          <View style={[styles.bookBtn, !doc.available && styles.bookBtnDisabled]}>
+            <Text style={styles.bookBtnText}>
+              {doc.available ? t('book_now') : t('unavailable')}
+            </Text>
+          </View>
+        </View>
+
+      </TouchableOpacity>
+    );
+});
+
 export default function DoctorsScreen() {
   const router = useRouter();
   const { t } = useI18n();
@@ -87,7 +217,7 @@ export default function DoctorsScreen() {
   const [centresLoading,  setCentresLoading] = useState(false);
 
   const isCentreMode = mode !== 'doctors';
-  const centres      = centresByKind[mode] || [];
+  const centres      = useMemo(() => centresByKind[mode] || [], [centresByKind, mode]);
 
   const [doctors,         setDoctors]         = useState<Doctor[]>([]);
   const [search,          setSearch]          = useState(typeof params.q === 'string' ? params.q : '');
@@ -137,12 +267,12 @@ export default function DoctorsScreen() {
     if (isCentreMode && !centresByKind[mode]) loadCentres(mode);
   }, [mode, isCentreMode, centresByKind, loadCentres]);
 
-  const scansByCentre = scans.reduce((acc: Record<string, any[]>, sc: any) => {
+  const scansByCentre = useMemo(() => scans.reduce((acc: Record<string, any[]>, sc: any) => {
     (acc[sc.center] = acc[sc.center] || []).push(sc);
     return acc;
-  }, {});
+  }, {}), [scans]);
 
-  const filteredCentres = centres
+  const filteredCentres = useMemo(() => centres
     .map(c => ({ ...c, scans: scansByCentre[c.id] || [] }))
     .filter(c => {
       const hay = [c.name, c.city, c.address,
@@ -156,7 +286,8 @@ export default function DoctorsScreen() {
     // A centre with nothing listed opens onto an empty menu — ranked last
     // rather than hidden, so it still appears in a search by name.
     .sort((a, b) => (b.scans.length > 0 ? 1 : 0) - (a.scans.length > 0 ? 1 : 0)
-                 || b.scans.length - a.scans.length);
+                 || b.scans.length - a.scans.length),
+    [centres, scansByCentre, search, city]);
 
   const loadDoctors = useCallback(async () => {
     setError(false);
@@ -217,7 +348,7 @@ export default function DoctorsScreen() {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Allow location access to find nearby doctors.');
+        Alert.alert(t('permission_denied'), t('allow_location'));
         return;
       }
       const coords = await Location.getCurrentPositionAsync({});
@@ -231,7 +362,7 @@ export default function DoctorsScreen() {
       // doctors sees an empty list with no explanation.
       setCity(detectedCity);
     } catch {
-      Alert.alert('Error', 'Could not detect location. Try again.');
+      Alert.alert(t('error'), t('location_failed'));
     } finally {
       setLocationLoading(false);
     }
@@ -262,12 +393,8 @@ export default function DoctorsScreen() {
     return score;
   };
 
-  // ── IMAGE CHECK ───────────────────────────────────────────────────────────
-  const hasDoctorImage = (image: string | null): boolean =>
-    !!image && !image.includes('placehold') && image.startsWith('http');
-
   // ── FILTER + SORT ─────────────────────────────────────────────────────────
-  const filtered = doctors
+  const filtered = useMemo(() => doctors
     .filter((doc: Doctor) => {
       const q = search.trim().toLowerCase();
       // Expand common terms (skin→dermat, heart→cardio, …) so specialty chips
@@ -279,13 +406,16 @@ export default function DoctorsScreen() {
       const matchAvail = !availOnly || doc.available;
       return matchSearch && matchAvail;
     })
-    .sort((a: Doctor, b: Doctor) => rankDoctor(b) - rankDoctor(a));
+    .sort((a: Doctor, b: Doctor) => rankDoctor(b) - rankDoctor(a)),
+    // rankDoctor only reads `city`; listing it keeps the sort honest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [doctors, search, availOnly, city]);
 
   // ── KEYWORD CHIPS ─────────────────────────────────────────────────────────
   // Tappable quick-search terms pulled from the real data: each doctor's
   // comma-separated `keywords` plus their specialization. Deduped
   // case-insensitively and capped so the strip stays short and scrollable.
-  const keywordChips = (() => {
+  const keywordChips = useMemo(() => {
     const seen = new Set<string>();
     const chips: string[] = [];
     for (const doc of doctors) {
@@ -303,13 +433,13 @@ export default function DoctorsScreen() {
       }
     }
     return chips.slice(0, 20);
-  })();
+  }, [doctors]);
 
   // ── SEARCH TYPEAHEAD ──────────────────────────────────────────────────────
   // Google-style completions under the search box. Candidates from the live
   // data (doctor names, specializations, keywords, hospitals, cities) rank
   // ahead of the generic term list, so a tapped suggestion always has results.
-  const searchSuggestions = (() => {
+  const searchSuggestions = useMemo(() => {
     if (!searchFocused) return [];
     const fromData: string[] = [];
     for (const doc of doctors) {
@@ -322,7 +452,14 @@ export default function DoctorsScreen() {
       );
     }
     return suggestKeywords(search, fromData.filter(Boolean), 6);
-  })();
+  }, [searchFocused, doctors, search]);
+
+  const renderDoctor = useCallback(
+    ({ item: doc, index }: { item: Doctor; index: number }) => (
+      <DoctorCard doc={doc} index={index} city={city} t={t} router={router} />
+    ),
+    [city, t, router],
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -330,15 +467,15 @@ export default function DoctorsScreen() {
       {/* ── HEADER ── */}
       <View style={styles.header}>
         <Text style={styles.title}>
-          {mode === BLOOD_CENTER ? 'Blood Tests'
-           : mode === SCAN_CENTER ? 'Scans & Diagnostics'
+          {mode === BLOOD_CENTER ? t('title_blood')
+           : mode === SCAN_CENTER ? t('title_scans')
            : t('find_doctors')}
         </Text>
         <Text style={styles.sub}>
           {isCentreMode
             ? (centresLoading
                 ? t('loading_ellipsis')
-                : `${centres.length} centre${centres.length === 1 ? '' : 's'} near you`)
+                : t('centres_near_you', { count: centres.length }))
             : loading ? t('loading_ellipsis') : t('doctors_available', { count: doctors.length })}
         </Text>
 
@@ -348,7 +485,7 @@ export default function DoctorsScreen() {
           <TextInput
             style={styles.searchInput}
             placeholder={isCentreMode
-              ? `Search ${mode === BLOOD_CENTER ? 'tests' : 'scans'}, centre, city...`
+              ? t(mode === BLOOD_CENTER ? 'search_tests_ph' : 'search_scans_ph')
               : t('search_placeholder')}
             placeholderTextColor={Colors.gray400}
             value={search}
@@ -464,13 +601,13 @@ export default function DoctorsScreen() {
       {/* ── DOCTORS ⇄ SCAN CENTRES ⇄ BLOOD CENTRES ── */}
       <View style={styles.modeRow}>
         {([
-          { key: 'doctors',      icon: 'medkit-outline', label: 'Doctors' },
+          { key: 'doctors',      icon: 'medkit-outline', labelKey: 'tab_doctors' },
           // "Scans", not "Scan Centres" — at three tabs the longer label no
           // longer fits 375pt and truncated to "Scan Centr…". Both of these
           // name what the patient WANTS, which is also how the rest of the
           // app words it ("3 scans", "Add scan").
-          { key: SCAN_CENTER,    icon: 'pulse-outline',  label: 'Scans' },
-          { key: BLOOD_CENTER,   icon: 'water-outline',  label: 'Blood Tests' },
+          { key: SCAN_CENTER,    icon: 'pulse-outline',  labelKey: 'tab_scans' },
+          { key: BLOOD_CENTER,   icon: 'water-outline',  labelKey: 'tab_blood' },
         ] as const).map(m => {
           const active = mode === m.key;
           return (
@@ -483,7 +620,7 @@ export default function DoctorsScreen() {
             >
               <Ionicons name={m.icon} size={14} color={active ? Colors.blue700 : Colors.gray500} />
               <Text numberOfLines={1} style={[styles.modeText, active && styles.modeTextActive]}>
-                {m.label}
+                {t(m.labelKey)}
               </Text>
             </TouchableOpacity>
           );
@@ -494,7 +631,7 @@ export default function DoctorsScreen() {
       <View style={styles.countRow}>
         <Text style={styles.countText}>
           {isCentreMode
-            ? `${filteredCentres.length} centre${filteredCentres.length === 1 ? '' : 's'}`
+            ? t('centres_count', { count: filteredCentres.length })
             : t('results_count', { count: filtered.length })}
           {mode === 'doctors' && (city ? ` · ${t('sorted_proximity')}` : ` · ${t('sorted_availability')}`)}
         </Text>
@@ -512,19 +649,17 @@ export default function DoctorsScreen() {
       {/* ── SCAN CENTRE LIST ── */}
       {isCentreMode ? (
         centresLoading ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color={Colors.blue600} />
-          </View>
+          <SkeletonList count={4} />
         ) : filteredCentres.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name={mode === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
               size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
             <Text style={styles.emptyTitle}>
-              {mode === BLOOD_CENTER ? 'No blood centres yet' : 'No scanning centres yet'}
+              {t(mode === BLOOD_CENTER ? 'no_blood_centres' : 'no_scan_centres')}
             </Text>
             <Text style={styles.emptySub}>
-              We&apos;re onboarding diagnostic partners now. Try the Doctors tab.
+              {t('onboarding_partners')}
             </Text>
           </View>
         ) : (
@@ -535,6 +670,10 @@ export default function DoctorsScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             onScrollBeginDrag={() => setSearchFocused(false)}
+            initialNumToRender={6}
+            maxToRenderPerBatch={8}
+            windowSize={7}
+            removeClippedSubviews
             renderItem={({ item: c }: { item: any }) => {
               const prices = c.scans.map((sc: any) => sc.price || 0);
               const from   = prices.length ? Math.min(...prices) : null;
@@ -573,10 +712,10 @@ export default function DoctorsScreen() {
                   <View style={styles.centreFooter}>
                     <Text style={styles.centreCount}>
                       {c.scans.length > 0
-                        ? `${c.scans.length} ${mode === BLOOD_CENTER ? 'test' : 'scan'}${c.scans.length === 1 ? '' : 's'}`
-                        : 'Contact the centre'}
+                        ? t(mode === BLOOD_CENTER ? 'tests_count' : 'scans_count', { count: c.scans.length })
+                        : t('contact_the_centre')}
                     </Text>
-                    {from != null && <Text style={styles.centreFrom}>from ₹{from}</Text>}
+                    {from != null && <Text style={styles.centreFrom}>{t('from_price', { price: from })}</Text>}
                   </View>
                 </TouchableOpacity>
               );
@@ -585,10 +724,12 @@ export default function DoctorsScreen() {
         )
       ) : /* ── DOCTOR LIST ── */
       loading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={Colors.blue600} />
-          <Text style={{ marginTop: 12, color: Colors.gray400, fontSize: 14 }}>{t('loading_doctors')}</Text>
-        </View>
+        // Skeletons, not a spinner: this list paints from cache almost
+        // immediately, and a full-screen spinner made the fast path feel
+        // slower than it is. Lists get skeletons; one-off transitions (the
+        // detail screen, checkout) keep the spinner — there the shape of what
+        // is coming isn't predictable enough for a placeholder to help.
+        <SkeletonList count={5} />
       ) : error ? (
         <View style={styles.emptyState}>
           <Ionicons name="cloud-offline-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
@@ -613,116 +754,13 @@ export default function DoctorsScreen() {
           keyboardShouldPersistTaps="handled"
           // Scrolling the results means the user is done with the typeahead.
           onScrollBeginDrag={() => setSearchFocused(false)}
-          renderItem={({ item: doc, index }: { item: Doctor; index: number }) => {
-
-            const isTopRanked = index === 0 && doc.available;
-            const isNearby    = city && (doc.city || '').toLowerCase() === city.toLowerCase();
-
-            return (
-              <TouchableOpacity
-                style={[styles.docCard, isTopRanked && styles.docCardTop]}
-                activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/(patient)/doctor/[id]', params: { id: doc.id } })}
-              >
-                {/* Top colour strip */}
-                <View style={[styles.cardStrip, isTopRanked && styles.cardStripTop]} />
-
-                {/* Top Ranked Badge */}
-                {isTopRanked && (
-                  <View style={styles.topBadge}>
-                    <Text style={styles.topBadgeText}>{t('top_match')}</Text>
-                  </View>
-                )}
-
-                <View style={styles.cardBody}>
-
-                  {/* ── AVATAR ── */}
-                  {hasDoctorImage(doc.image) ? (
-                    <Image
-                      source={{ uri: doc.image! }}
-                      style={styles.docAvatarImg}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={styles.docAvatarFallback}>
-                      <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />
-                    </View>
-                  )}
-
-                  {/* ── CENTER INFO ── */}
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.docSpec}>{doc.specialization}</Text>
-                    <Text style={styles.docName}>{doc.name}</Text>
-                    <View style={styles.docHospitalRow}>
-                      <Ionicons name="business-outline" size={12} color={Colors.gray500} />
-                      <Text style={styles.docHospital} numberOfLines={1}>{doc.hospital_name}</Text>
-                    </View>
-                    <View style={styles.docMeta}>
-                      <View style={styles.metaChipRow}>
-                        <Ionicons name="location-outline" size={12} color={isNearby ? Colors.blue600 : Colors.gray400} />
-                        <Text style={[styles.metaChip, isNearby && { color: Colors.blue600, fontWeight: '700' }]}>
-                          {isNearby ? `Nearby · ${doc.city}` : doc.city}
-                        </Text>
-                      </View>
-                      <View style={styles.metaChipRow}>
-                        <Ionicons name="time-outline" size={12} color={Colors.gray400} />
-                        <Text style={styles.metaChip}>{t('yrs_exp', { years: doc.experience })}</Text>
-                      </View>
-                    </View>
-                    {doc.slots && doc.slots.length > 0 && (
-                      <View style={styles.slotRow}>
-                        {doc.slots.slice(0, 2).map((s: string) => (
-                          <View key={s} style={styles.slotChip}>
-                            <Text style={styles.slotText}>{s}</Text>
-                          </View>
-                        ))}
-                        {doc.slots.length > 2 && (
-                          <Text style={styles.slotMore}>+{doc.slots.length - 2}</Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-
-                  {/* ── RIGHT: STATUS + FEE ── */}
-                  <View style={styles.cardRight}>
-                    <View style={[
-                      styles.availBadge,
-                      { backgroundColor: doc.available ? Colors.successBg : Colors.errorBg }
-                    ]}>
-                      <View style={{
-                        width: 5, height: 5, borderRadius: 3,
-                        backgroundColor: doc.available ? Colors.successText : Colors.errorText,
-                        marginRight: 4,
-                      }} />
-                      <Text style={{
-                        fontSize: 10, fontWeight: '700',
-                        color: doc.available ? Colors.successText : Colors.errorText,
-                      }}>
-                        {doc.available ? t('available') : t('busy')}
-                      </Text>
-                    </View>
-                    <Text style={styles.feeText}>₹{doc.fee ?? 0}</Text>
-                    <Text style={styles.feeSub}>per visit</Text>
-                  </View>
-                </View>
-
-                {/* ── FOOTER ── */}
-                <View style={styles.cardFooter}>
-                  <Text style={styles.slotsCount}>
-                    {doc.slots?.length
-                      ? t('slots_today', { count: doc.slots.length })
-                      : t('walk_in_contact')}
-                  </Text>
-                  <View style={[styles.bookBtn, !doc.available && styles.bookBtnDisabled]}>
-                    <Text style={styles.bookBtnText}>
-                      {doc.available ? t('book_now') : t('unavailable')}
-                    </Text>
-                  </View>
-                </View>
-
-              </TouchableOpacity>
-            );
-          }}
+          renderItem={renderDoctor}
+          // Windowing: a city with a few hundred doctors used to mount every
+          // card up front. These keep the first paint to roughly a screenful.
+          initialNumToRender={6}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews
         />
       )}
     </SafeAreaView>

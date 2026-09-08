@@ -381,7 +381,7 @@ const st = StyleSheet.create({
     position: 'absolute', right: 14, bottom: 14,
     width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.white,
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#0F172A', shadowOpacity: 0.25, shadowRadius: 6,
+    shadowColor: Colors.gray900, shadowOpacity: 0.25, shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
 

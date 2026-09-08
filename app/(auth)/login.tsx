@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useState } from 'react';
 import {
@@ -77,7 +77,7 @@ export default function LoginScreen() {
       await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'OTP failed. Please try again.');
       } else {
         setError('OTP failed. Please try again.');
@@ -99,7 +99,7 @@ export default function LoginScreen() {
       if (data.user?.role === 'hospital') router.replace('/(hospital)/dashboard');
       else router.replace('/(patient)/home');
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'Invalid credentials');
       } else {
         setError('Invalid credentials');

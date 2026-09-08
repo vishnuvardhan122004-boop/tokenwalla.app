@@ -48,10 +48,10 @@ export default function BookingTokenScreen() {
           UTI: 'public.png',
         });
       } else {
-        Alert.alert('Not available', 'Saving is not available on this device.');
+        Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
       }
     } catch {
-      Alert.alert('Error', 'Could not prepare the ticket. Please try again or take a screenshot.');
+      Alert.alert(t('error'), t('mb_ticket_failed'));
     } finally {
       setDownloading(false);
     }
@@ -91,7 +91,7 @@ export default function BookingTokenScreen() {
        slot:        slotStr,
      });
    }
-    }, [token]);
+    }, [token, router, doctorName, hospital, date, slot]);
 
      if (!token) return null;
 
@@ -164,7 +164,7 @@ export default function BookingTokenScreen() {
             hospital. If it was paid online, there's nothing left to warn about. */}
         {dueAtHospital > 0 && (
           <View style={styles.feeNote}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 8, marginTop: 1 }} />
+            <Ionicons name="information-circle-outline" size={16} color={Colors.warningText} style={{ marginRight: 8, marginTop: 1 }} />
             <Text style={styles.feeNoteText}>{t('bt_fee_disclaimer', { fee: money(dueAtHospital) })}</Text>
           </View>
         )}
@@ -244,8 +244,8 @@ const styles = StyleSheet.create({
   outlineBtn:     { width: '100%', borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   outlineBtnText: { color: Colors.blue600, fontWeight: '600', fontSize: 15 },
 
-  feeNote:             { flexDirection: 'row', alignItems: 'flex-start', width: '100%', backgroundColor: Colors.warningBg ?? '#FAEEDA', borderWidth: 1, borderColor: Colors.warningBorder ?? '#EF9F27', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 4, marginBottom: 16 },
-  feeNoteText:         { flex: 1, fontSize: 12.5, color: Colors.warningText ?? '#854F0B', lineHeight: 18 },
+  feeNote:             { flexDirection: 'row', alignItems: 'flex-start', width: '100%', backgroundColor: Colors.warningBg, borderWidth: 1, borderColor: Colors.warningBorder, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, marginTop: 4, marginBottom: 16 },
+  feeNoteText:         { flex: 1, fontSize: 12.5, color: Colors.warningText, lineHeight: 18 },
   downloadBtn:         { width: '100%', flexDirection: 'row', gap: 8, backgroundColor: Colors.blue50, borderWidth: 1.5, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 12, minHeight: 50 },
   downloadBtnDisabled: { opacity: 0.7 },
   downloadBtnText:     { color: Colors.blue600, fontWeight: '700', fontSize: 15 },

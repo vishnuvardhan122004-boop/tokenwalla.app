@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useState } from 'react';
 import {
@@ -52,7 +52,7 @@ export default function HospitalLoginScreen() {
       }
       AsyncStorage.multiRemove(['access', 'refresh', 'user']).catch(() => {});
     })();
-  }, []);
+  }, [router]);
 
   // ── Validate mobile format ────────────────────────────────────────────────
   const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
@@ -103,7 +103,7 @@ export default function HospitalLoginScreen() {
       await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'OTP failed. Please try again.');
       } else {
         setError('OTP failed. Please try again.');
@@ -125,7 +125,7 @@ export default function HospitalLoginScreen() {
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(hospital)/dashboard');
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'Invalid credentials');
       } else {
         setError('Invalid credentials');

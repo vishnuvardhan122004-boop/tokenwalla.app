@@ -16,15 +16,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text,
+  ActivityIndicator, Linking, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '../../../constants/colors';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import ProviderAboutPanel from '../../../components/ProviderAboutPanel';
 import API from '../../../services/api';
+import { useI18n } from '../../../services/i18n';
 import { directionsUrl } from '../../../utils/booking';
 import { asList, BLOOD_CENTER } from '../../../utils/scanCenters';
 import { safeBack } from '../../../utils/navigation';
@@ -58,6 +60,7 @@ const next7Days = () => Array.from({ length: 7 }, (_, i) => {
 export default function ScanCenterScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const { t } = useI18n();
   useAndroidBack(() => safeBack(router, '/(patient)/doctors'));
 
   const [centre,  setCentre]  = useState<any>(null);
@@ -88,9 +91,15 @@ export default function ScanCenterScreen() {
     return u && String(u).startsWith('http') && !String(u).includes('placehold') ? u : null;
   };
 
-  const noun = centre?.kind === BLOOD_CENTER
-    ? { Title: 'Tests', plural: 'tests', one: 'test', label: 'Blood Centre',    icon: 'water-outline' as const }
-    : { Title: 'Scans', plural: 'scans', one: 'scan', label: 'Scanning Centre', icon: 'pulse-outline' as const };
+  // Word order differs enough between English, Hindi, Telugu and Kannada that
+  // substituting a noun into a shared sentence does not survive translation —
+  // so each sentence carries its own blood/scan key. This flag picks between
+  // the pair.
+  const isBlood  = centre?.kind === BLOOD_CENTER;
+  const nounIcon: 'water-outline' | 'pulse-outline' = isBlood ? 'water-outline' : 'pulse-outline';
+  /** t() for a key that comes in a blood/scan pair. */
+  const tn = (stem: string, vars?: Record<string, string | number>) =>
+    t(`${stem}_${isBlood ? 'blood' : 'scan'}`, vars);
   // Offer the map button only when there is a REAL destination: geocoded
   // coordinates, or a maps URL the centre saved itself. directionsUrl() would
   // happily fall back to a name+city search, but a button promising "View on
@@ -99,9 +108,7 @@ export default function ScanCenterScreen() {
   const hasMap = (typeof centre?.latitude === 'number' && typeof centre?.longitude === 'number')
     || /^https?:\/\//i.test((centre?.location || '').trim());
 
-  const kind = centre?.kind === BLOOD_CENTER
-    ? { label: 'BLOOD CENTRE',    icon: 'water'  as const, one: 'test' }
-    : { label: 'SCANNING CENTRE', icon: 'pulse'  as const, one: 'scan' };
+  const kindIcon: 'water' | 'pulse' = isBlood ? 'water' : 'pulse';
 
   // Reset on centre change. This screen is a single Tabs.Screen instance, so
   // without this the previous centre's scans flash before the new ones land.
@@ -140,13 +147,22 @@ export default function ScanCenterScreen() {
     return () => { cancelled = true; };
   }, [openScan, selectedDate]);
 
+  useEffect(() => {
+    if (selectedDate && !dates.some(d => d.value === selectedDate)) {
+      setSelectedDate('');
+      setSelectedSlot('');
+    }
+  // dates is rebuilt every render; dates[0].value is the primitive that moves.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dates[0].value, selectedDate]);
+
   const pickScan = useCallback((scan: Scan) => {
     const same = openScan?.id === scan.id;
     setOpenScan(same ? null : scan);
     setSelectedSlot('');
-    setSelectedDate(same ? '' : dates[0].value);
+    setSelectedDate(same ? '' : next7Days()[0].value);
     if (!same) API.post(`/scans/${scan.id}/view/`).catch(() => {});
-  }, [openScan, dates]);
+  }, [openScan]);
 
   const callNumber = centre?.landline || centre?.mobile;
 
@@ -178,9 +194,9 @@ export default function ScanCenterScreen() {
       <SafeAreaView style={st.safe} edges={['top']}>
         <View style={st.centre}>
           <Ionicons name="cloud-offline-outline" size={44} color={Colors.gray400} />
-          <Text style={st.emptyTitle}>We couldn&apos;t load this centre</Text>
+          <Text style={st.emptyTitle}>{t('sc_cant_load')}</Text>
           <TouchableOpacity style={st.retry} onPress={() => safeBack(router, '/(patient)/doctors')}>
-            <Text style={st.retryText}>Go back</Text>
+            <Text style={st.retryText}>{t('sc_go_back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -202,9 +218,15 @@ export default function ScanCenterScreen() {
             Hospital.image was already being uploaded and never displayed. */}
         <View style={st.banner}>
           {centre.image?.startsWith('http') && !centre.image.includes('placehold') ? (
-            <Image source={{ uri: centre.image }} style={st.bannerImage} resizeMode="cover" />
+            <Image
+              source={{ uri: centre.image }}
+              style={st.bannerImage}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={180}
+            />
           ) : (
-            <Ionicons name={kind.icon} size={54} color={Colors.blue200} />
+            <Ionicons name={kindIcon} size={54} color={Colors.blue200} />
           )}
           <View style={st.bannerOverlay} />
         </View>
@@ -212,14 +234,14 @@ export default function ScanCenterScreen() {
         <View style={{ padding: 16 }}>
         <View style={st.card}>
           <View style={st.kindPill}>
-            <Ionicons name={kind.icon} size={12} color={Colors.blue700} />
-            <Text style={st.kindText}>{kind.label}</Text>
+            <Ionicons name={kindIcon} size={12} color={Colors.blue700} />
+            <Text style={st.kindText}>{tn('sc_kind')}</Text>
           </View>
           <Text style={st.name}>{centre.name}</Text>
           <Text style={st.meta}>
             {[centre.city,
               (centre.open_time || centre.close_time) ? `${centre.open_time || '—'} – ${centre.close_time || '—'}` : null,
-              `${scans.length} ${kind.one}${scans.length === 1 ? '' : 's'}`,
+              t(isBlood ? 'tests_count' : 'scans_count', { count: scans.length }),
             ].filter(Boolean).join('  •  ')}
           </Text>
           {!!centre.address && <Text style={st.address}>{centre.address}</Text>}
@@ -240,10 +262,10 @@ export default function ScanCenterScreen() {
                   style={st.mapBtn}
                   onPress={() => Linking.openURL(directionsUrl(centre))}
                   accessibilityRole="button"
-                  accessibilityLabel={`Open ${centre.name} in maps`}
+                  accessibilityLabel={t('sc_open_in_maps', { name: centre.name })}
                 >
                   <Ionicons name="location-outline" size={16} color={Colors.blue700} />
-                  <Text style={st.mapText}>View on Map</Text>
+                  <Text style={st.mapText}>{t('view_on_map')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -256,16 +278,16 @@ export default function ScanCenterScreen() {
             and thrown away. */}
         <ProviderAboutPanel
           info={centre}
-          title={`About the ${noun.label}`}
-          fallbackIcon={noun.icon}
+          title={tn('sc_about')}
+          fallbackIcon={nounIcon}
         />
 
-        <Text style={st.sectionTitle}>{noun.Title} &amp; Prices</Text>
+        <Text style={st.sectionTitle}>{tn('sc_prices')}</Text>
 
         {scans.length === 0 && (
           <Text style={st.emptySub}>
-            This centre hasn&apos;t listed its {noun.plural} yet.
-            {callNumber ? ` Call ${callNumber} to ask what they offer.` : ''}
+            {tn('sc_none_listed')}
+            {callNumber ? t('sc_call_to_ask', { phone: callNumber }) : ''}
           </Text>
         )}
 
@@ -276,20 +298,26 @@ export default function ScanCenterScreen() {
             <View key={String(scan.id)} style={[st.item, open && st.itemOpen]}>
               <TouchableOpacity style={st.itemRow} onPress={() => pickScan(scan)} activeOpacity={0.8}>
                 {scanImg(scan) && (
-                  <Image source={{ uri: scanImg(scan)! }} style={st.itemImg} resizeMode="cover" />
+                  <Image
+                    source={{ uri: scanImg(scan)! }}
+                    style={st.itemImg}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={180}
+                  />
                 )}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={st.itemName}>{scan.name}</Text>
                   <View style={st.itemTags}>
                     {!!scan.modality && <Text style={st.tag}>{scan.modality}</Text>}
-                    {isWalkIn(scan) && <Text style={[st.tag, st.tagWalkIn]}>Walk-in</Text>}
-                    <Text style={st.dur}>{scan.duration_minutes} min</Text>
+                    {isWalkIn(scan) && <Text style={[st.tag, st.tagWalkIn]}>{t('walk_in')}</Text>}
+                    <Text style={st.dur}>{t('sc_minutes', { n: scan.duration_minutes })}</Text>
                   </View>
                 </View>
                 <View style={{ alignItems: 'flex-end' }}>
                   <Text style={st.price}>₹{scan.price}</Text>
                   <Text style={st.select}>
-                    {open ? 'Close' : isWalkIn(scan) ? 'Details' : 'Select'}
+                    {t(open ? 'sc_close' : isWalkIn(scan) ? 'sc_details' : 'sc_select')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -302,18 +330,18 @@ export default function ScanCenterScreen() {
                       the slot and the machine time. */}
                   {!!scan.prep_instructions && (
                     <View style={st.prep}>
-                      <Text style={st.prepTitle}>⚠ Before you come</Text>
+                      <Text style={st.prepTitle}>{t('sc_before_you_come')}</Text>
                       <Text style={st.prepBody}>{scan.prep_instructions}</Text>
                     </View>
                   )}
 
                   {scan.days?.length > 0 && (
-                    <Text style={st.days}>Available days: {scan.days.join(', ')}</Text>
+                    <Text style={st.days}>{t('sc_available_days_inline', { days: scan.days.join(', ') })}</Text>
                   )}
 
                   {scan.slots?.length > 0 ? (
                     <>
-                      <Text style={st.sub}>PICK A DATE</Text>
+                      <Text style={st.sub}>{t('pick_a_date')}</Text>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
                         {dates.map(d => {
                           const on = selectedDate === d.value;
@@ -331,7 +359,7 @@ export default function ScanCenterScreen() {
                         })}
                       </ScrollView>
 
-                      <Text style={st.sub}>PICK A TIME</Text>
+                      <Text style={st.sub}>{t('pick_a_time')}</Text>
                       <View style={[st.slots, availLoading && { opacity: 0.5 }]}>
                         {scan.slots.map(sl => {
                           const full = avail[sl]?.full;
@@ -360,26 +388,25 @@ export default function ScanCenterScreen() {
                         onPress={() => book(scan)}
                       >
                         <Text style={st.bookText}>
-                          {!scan.available ? 'Currently unavailable'
-                            : !selectedSlot ? 'Select a time slot'
-                            : `Book ${scan.name} →`}
+                          {!scan.available ? t('sc_currently_unavailable')
+                            : !selectedSlot ? t('sc_select_a_slot')
+                            : t('sc_book_named', { name: scan.name })}
                         </Text>
                       </TouchableOpacity>
                       <Text style={st.note}>
                         {isFull
-                          ? `${noun.Title.slice(0, -1)} price + service fee payable now — nothing to pay at the centre`
-                          : `Pay ₹${scan.price} at the centre — only the service fee is paid online`}
+                          ? tn('sc_price_note')
+                          : t('sc_pay_at_centre_note', { price: scan.price })}
                       </Text>
                     </>
                   ) : (
                     <View style={st.walkIn}>
                       <Text style={st.walkInLead}>
-                        This {noun.one} is walk-in — the centre takes patients as they arrive
-                        rather than at fixed times, so there is nothing to book online.
+                        {tn('sc_walkin')} {t('sc_walkin_tail')}
                       </Text>
                       {(!!centre.open_time || !!centre.close_time) && (
                         <View style={st.walkInRow}>
-                          <Text style={st.walkInKey}>Centre hours</Text>
+                          <Text style={st.walkInKey}>{t('centre_hours')}</Text>
                           <Text style={st.walkInVal}>
                             {centre.open_time || '—'} – {centre.close_time || '—'}
                           </Text>
@@ -387,7 +414,7 @@ export default function ScanCenterScreen() {
                       )}
                       {scan.days?.length > 0 && (
                         <View style={st.walkInRow}>
-                          <Text style={st.walkInKey}>Available days</Text>
+                          <Text style={st.walkInKey}>{t('available_days')}</Text>
                           <Text style={st.walkInVal}>{scan.days.join(', ')}</Text>
                         </View>
                       )}
@@ -397,13 +424,13 @@ export default function ScanCenterScreen() {
                           onPress={() => Linking.openURL(`tel:${callNumber}`)}
                         >
                           <Ionicons name="call-outline" size={15} color={Colors.white} />
-                          <Text style={st.walkInCallText}>Call {callNumber}</Text>
+                          <Text style={st.walkInCallText}>{t('sc_call_number', { phone: callNumber })}</Text>
                         </TouchableOpacity>
                       ) : (
-                        <Text style={st.walkInLead}>Contact the centre directly to visit.</Text>
+                        <Text style={st.walkInLead}>{t('contact_centre_direct')}</Text>
                       )}
                       <Text style={st.walkInNote}>
-                        Pay at the centre. No online booking for this {noun.one}.
+                        {tn('sc_pay_at_centre')}
                       </Text>
                     </View>
                   )}
