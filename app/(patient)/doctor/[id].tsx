@@ -3,7 +3,6 @@ import { ComponentProps, ReactNode, useCallback, useEffect, useState } from 'rea
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Linking,
   Modal,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import Svg, { Path } from 'react-native-svg';
@@ -19,10 +19,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import { isTestHospital } from '../../../constants/config';
 import API from '../../../services/api';
+import { useI18n } from '../../../services/i18n';
 import {
   getNext7Days,
   isSlotTooSoon,
   providerLabel,
+  resolveSelectedDate,
 } from '../../../utils/booking';
 import ProviderAboutPanel, { FacebookLogo, InstagramLogo } from '../../../components/ProviderAboutPanel';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
@@ -61,13 +63,6 @@ interface Doctor {
   payment_collection_mode?: string;
 }
 
-// The next 7 days, computed once at module load (the date/slot/open-hours
-// helpers now live in utils/booking.ts and are unit-tested there).
-const DAYS = getNext7Days();
-
-// The full fee (doctor fee + platform + gateway + GST) is computed server-side
-// at checkout from the doctor's consultation fee. This is just the plan label.
-const PLAN = { name: 'Queue View', desc: 'Token + live queue position tracking' };
 
 // Official brand logos (simple-icons paths) so the share menu shows real
 // WhatsApp/Facebook/Instagram marks instead of look-alike emoji.
@@ -104,6 +99,7 @@ const BlockTitle = ({ icon, children }: {
 export default function DoctorDetails() {
   const { id }  = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
+  const { t }   = useI18n();
   useAndroidBack(() => safeBack(router, '/(patient)/doctors'));
 
   const [doctor,       setDoctor]       = useState<Doctor | null>(null);
@@ -113,7 +109,17 @@ export default function DoctorDetails() {
   const [slotAvail,    setSlotAvail]    = useState<Record<string, SlotInfo>>({}); // { "09:00 AM": { booked, max, full } }
   const [availLoading, setAvailLoading] = useState(false);
 
-  const [selectedDate, setSelectedDate] = useState(DAYS[0].full);
+  // The next 7 days, recomputed every render rather than once at module load.
+  // This screen is a Tabs.Screen (`href: null`), so ONE instance serves the
+  // whole session — and an Android process survives for days (see the
+  // AppState note in app/_layout.tsx). A frozen list left the "Today" chip
+  // pointing at yesterday after midnight: every slot on it read "Too soon"
+  // and the 7th day was missing. Seven Date objects per render is cheaper
+  // than being wrong about what day it is.
+  const DAYS     = getNext7Days();
+  const todayKey = DAYS[0].full;
+
+  const [selectedDate, setSelectedDate] = useState(todayKey);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [shareOpen,    setShareOpen]    = useState(false);
 
@@ -170,7 +176,7 @@ export default function DoctorDetails() {
     // this, a slow response for the doctor you left could land last and overwrite
     // the one you are actually looking at.
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, router]);
 
   // Fetch slot availability whenever doctor or date changes
   const fetchAvailability = useCallback(async (doctorId: number | string, date: string) => {
@@ -190,18 +196,20 @@ export default function DoctorDetails() {
     fetchAvailability(doctor.id, selectedDate);
   }, [doctor, selectedDate, fetchAvailability]);
 
-  // Restrict the calendar to the doctor's working days. If today isn't one,
-  // jump the selection to the first upcoming working day.
+  // Keep the selected date valid — on a day this doctor works, and inside the
+  // 7-day window. Both can be invalidated independently (the doctor loading,
+  // and midnight passing while the screen sits open), so ONE effect watches
+  // both triggers; splitting them let the rollover park the selection on a day
+  // the doctor is off. The decision itself is pure and unit-tested.
   useEffect(() => {
-    const wd = doctor?.days;
-    if (!Array.isArray(wd) || wd.length === 0) return; // no days set → allow all
-    const cur = DAYS.find(d => d.full === selectedDate);
-    if (cur && !wd.includes(cur.dayKey)) {
-      const firstAvail = DAYS.find(d => wd.includes(d.dayKey));
-      if (firstAvail) { setSelectedDate(firstAvail.full); setSelectedSlot(''); }
+    const next = resolveSelectedDate(DAYS, selectedDate, doctor?.days);
+    if (next && next !== selectedDate) {
+      setSelectedDate(next);
+      setSelectedSlot('');
     }
+  // DAYS is rebuilt every render; todayKey is the primitive that actually moves.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doctor]);
+  }, [doctor, todayKey, selectedDate]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -218,18 +226,18 @@ export default function DoctorDetails() {
   const handleBook = () => {
     if (!doctor) return;
     if (!user) { router.push('/(auth)/login'); return; }
-    if (!selectedSlot) { Alert.alert('Select Slot', 'Please select a time slot first'); return; }
-    if (!doctor.available) { Alert.alert('Unavailable', 'This doctor is currently unavailable'); return; }
+    if (!selectedSlot) { Alert.alert(t('dr_select_slot'), t('dr_select_slot_msg')); return; }
+    if (!doctor.available) { Alert.alert(t('unavailable'), t('dr_unavailable_msg')); return; }
     // Guard: slot may have filled up since page load
     if (slotAvail[selectedSlot]?.full) {
-      Alert.alert('Slot Full', 'This slot just filled up. Please choose another slot.');
+      Alert.alert(t('dr_slot_full'), t('dr_slot_full_msg'));
       setSelectedSlot('');
       return;
     }
     // Guard: slot must be at least 2.1 hours away (also covers slots that
     // lapsed while the page was open).
     if (isSlotTooSoon(selectedDate, selectedSlot)) {
-      Alert.alert('Too Soon', 'Please pick a slot at least 2 hours from now so you have time to reach the hospital.');
+      Alert.alert(t('dr_too_soon'), t('dr_too_soon_msg'));
       setSelectedSlot('');
       return;
     }
@@ -278,12 +286,12 @@ export default function DoctorDetails() {
         // Instagram has no share-a-link URL — copy the link and open the app so
         // the user can paste it into a story or DM.
         await Clipboard.setStringAsync(full);
-        Alert.alert('Link copied', 'Paste it into your Instagram story or DM to share.');
+        Alert.alert(t('dr_link_copied'), t('dr_insta_copied_msg'));
         await Linking.openURL('instagram://app').catch(() =>
           Linking.openURL('https://www.instagram.com/'));
       }
     } catch {
-      Alert.alert('Not available', `Couldn't open ${target}. Is it installed?`);
+      Alert.alert(t('dr_not_available'), `Couldn't open ${target}. Is it installed?`);
     }
   };
 
@@ -292,7 +300,7 @@ export default function DoctorDetails() {
     const { full } = buildShare();
     await Clipboard.setStringAsync(full);
     setShareOpen(false);
-    Alert.alert('Link copied', 'Share it anywhere so others can book this doctor.');
+    Alert.alert(t('dr_link_copied'), t('dr_share_copied_msg'));
   };
 
   // ── slot state helpers ──────────────────────────────────────────────────
@@ -307,11 +315,11 @@ export default function DoctorDetails() {
   };
 
   const slotSubtext = (slot: string) => {
-    if (slot !== selectedSlot && isSlotTooSoon(selectedDate, slot)) return 'Too soon';
+    if (slot !== selectedSlot && isSlotTooSoon(selectedDate, slot)) return t('dr_too_soon_chip');
     const info = slotAvail[slot];
     if (!info || info.booked === 0) return null;
-    if (info.full) return 'Full';
-    return `${info.max - info.booked} left`;
+    if (info.full) return t('dr_full');
+    return t('dr_left_count', { count: info.max - info.booked });
   };
 
   const slotFillPct = (slot: string) => {
@@ -390,7 +398,7 @@ export default function DoctorDetails() {
         {/* "FULL" badge top-right */}
         {state === 'full' && (
           <View style={styles.slotFullBadge}>
-            <Text style={styles.slotFullBadgeText}>FULL</Text>
+            <Text style={styles.slotFullBadgeText}>{t('dr_full')}</Text>
           </View>
         )}
 
@@ -448,7 +456,9 @@ export default function DoctorDetails() {
             <Image
               source={{ uri: hospitalInfo?.image?.startsWith('http') ? hospitalInfo.image : doctor.hospital_image }}
               style={styles.bannerImage}
-              resizeMode="cover"
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              transition={180}
             />
           ) : (
             <View style={styles.bannerPlaceholder}>
@@ -463,7 +473,13 @@ export default function DoctorDetails() {
           <View style={styles.cardTopBar} />
           <View style={styles.profileRow}>
             {hasDoctorImage ? (
-              <Image source={{ uri: doctor.image }} style={styles.doctorAvatarImg} resizeMode="cover" />
+              <Image
+                source={{ uri: doctor.image }}
+                style={styles.doctorAvatarImg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={180}
+              />
             ) : (
               <View style={styles.doctorAvatarBox}>
                 <Ionicons name="medkit-outline" size={32} color={Colors.blue400} />
@@ -529,7 +545,7 @@ export default function DoctorDetails() {
 
         {/* ── DOCTOR INFO ── */}
         <View style={styles.block}>
-          <BlockTitle icon="person-outline">Doctor Info</BlockTitle>
+          <BlockTitle icon="person-outline">{t('dr_doctor_info')}</BlockTitle>
 
           {/* Fee */}
           {(doctor.fee ?? 0) > 0 && (
@@ -538,7 +554,7 @@ export default function DoctorDetails() {
                 <Ionicons name="cash-outline" size={17} color={Colors.blue600} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.infoLabel}>Consultation Fee</Text>
+                <Text style={styles.infoLabel}>{t('dr_consultation_fee')}</Text>
                 <Text style={styles.infoValue}>₹{doctor.fee}</Text>
               </View>
             </View>
@@ -550,7 +566,7 @@ export default function DoctorDetails() {
               <Ionicons name="business-outline" size={17} color={Colors.blue600} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Hospital</Text>
+              <Text style={styles.infoLabel}>{t('dr_hospital')}</Text>
               <Text style={styles.infoValue}>{doctor.hospital_name}</Text>
             </View>
           </View>
@@ -561,7 +577,7 @@ export default function DoctorDetails() {
               <Ionicons name="location-outline" size={17} color={Colors.blue600} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.infoLabel}>Location</Text>
+              <Text style={styles.infoLabel}>{t('dr_location')}</Text>
               <Text style={styles.infoValue}>{doctor.city}</Text>
             </View>
           </View>
@@ -584,7 +600,7 @@ export default function DoctorDetails() {
         {/* ── DATE PICKER ── pointless without slots to pick on that date. */}
         {!walkIn && (
         <View style={styles.block}>
-          <BlockTitle icon="calendar-outline">Select Date</BlockTitle>
+          <BlockTitle icon="calendar-outline">{t('dr_select_date')}</BlockTitle>
           {doctor.days && doctor.days.length > 0 && (
             <View style={styles.workingDaysRow}>
               <Ionicons name="medkit-outline" size={13} color={Colors.blue600} />
@@ -613,7 +629,7 @@ export default function DoctorDetails() {
                   <Text style={[styles.dateDay,   isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.label}</Text>
                   <Text style={[styles.dateNum,   isActive && styles.dateNumActive,  !isWorking && styles.dateTextDisabled]}>{day.num}</Text>
                   <Text style={[styles.dateMonth, isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.month}</Text>
-                  {!isWorking && <Text style={styles.dayOff}>Off</Text>}
+                  {!isWorking && <Text style={styles.dayOff}>{t('dr_off')}</Text>}
                 </TouchableOpacity>
               );
             })}
@@ -625,11 +641,11 @@ export default function DoctorDetails() {
         <View style={styles.block}>
           {/* Header row */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <BlockTitle icon="time-outline">{walkIn ? 'Visiting Hours' : 'Select Time Slot'}</BlockTitle>
+            <BlockTitle icon="time-outline">{t(walkIn ? 'dr_visiting_hours' : 'dr_select_time_slot')}</BlockTitle>
             {availLoading ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <ActivityIndicator size="small" color={Colors.blue400} />
-                <Text style={{ fontSize: 11, color: Colors.gray400 }}>Checking…</Text>
+                <Text style={{ fontSize: 11, color: Colors.gray400 }}>{t('dr_checking')}</Text>
               </View>
             ) : selectedSlot ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -644,15 +660,15 @@ export default function DoctorDetails() {
             <View style={styles.legend}>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.blue50, borderColor: Colors.blue600, borderWidth: 1 }]} />
-                <Text style={styles.legendText}>Available</Text>
+                <Text style={styles.legendText}>{t('available')}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: '#FFF8ED', borderColor: '#F0A030', borderWidth: 1 }]} />
-                <Text style={styles.legendText}>Filling up</Text>
+                <Text style={styles.legendText}>{t('dr_filling_up')}</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: Colors.gray100, borderColor: Colors.gray200, borderWidth: 1 }]} />
-                <Text style={styles.legendText}>Full</Text>
+                <Text style={styles.legendText}>{t('dr_full')}</Text>
               </View>
             </View>
           )}
@@ -667,7 +683,7 @@ export default function DoctorDetails() {
                 <View style={styles.walkInRow}>
                   <View style={styles.walkInKeyRow}>
                     <Ionicons name="time-outline" size={14} color={Colors.gray600} />
-                    <Text style={styles.walkInKey}>Hospital hours</Text>
+                    <Text style={styles.walkInKey}>{t('dr_hospital_hours')}</Text>
                   </View>
                   <Text style={styles.walkInVal}>
                     {hospitalInfo?.open_time || '—'} – {hospitalInfo?.close_time || '—'}
@@ -678,7 +694,7 @@ export default function DoctorDetails() {
                 <View style={styles.walkInRow}>
                   <View style={styles.walkInKeyRow}>
                     <Ionicons name="calendar-outline" size={14} color={Colors.gray600} />
-                    <Text style={styles.walkInKey}>Available days</Text>
+                    <Text style={styles.walkInKey}>{t('available_days')}</Text>
                   </View>
                   <Text style={styles.walkInVal}>{doctor.days.join(', ')}</Text>
                 </View>
@@ -694,7 +710,7 @@ export default function DoctorDetails() {
                 </TouchableOpacity>
               ) : (
                 <Text style={{ color: Colors.gray400, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
-                  Contact the hospital directly to visit.
+                  {t('dr_contact_hospital_direct')}
                 </Text>
               )}
             </View>
@@ -704,7 +720,7 @@ export default function DoctorDetails() {
                 <>
                   <View style={styles.slotPeriodRow}>
                     <Ionicons name="sunny-outline" size={13} color={Colors.gray500} />
-                    <Text style={styles.slotPeriod}>MORNING</Text>
+                    <Text style={styles.slotPeriod}>{t('dr_morning')}</Text>
                   </View>
                   <View style={styles.slotGrid}>
                     {am.map(s => renderSlot(s))}
@@ -715,7 +731,7 @@ export default function DoctorDetails() {
                 <>
                   <View style={[styles.slotPeriodRow, am.length > 0 && { marginTop: 18 }]}>
                     <Ionicons name="partly-sunny-outline" size={13} color={Colors.gray500} />
-                    <Text style={styles.slotPeriod}>AFTERNOON / EVENING</Text>
+                    <Text style={styles.slotPeriod}>{t('dr_afternoon_evening')}</Text>
                   </View>
                   <View style={styles.slotGrid}>
                     {pm.map(s => renderSlot(s))}
@@ -728,7 +744,7 @@ export default function DoctorDetails() {
 
         {/* ── BOOKING SUMMARY ── */}
         <View style={styles.block}>
-          <BlockTitle icon="receipt-outline">Booking Summary</BlockTitle>
+          <BlockTitle icon="receipt-outline">{t('dr_booking_summary')}</BlockTitle>
 
           {[
             { label: 'Doctor',   value: providerLabel(doctor.name)                                              },
@@ -755,22 +771,22 @@ export default function DoctorDetails() {
               <View style={styles.planInfo}>
                 <View style={styles.planNameRow}>
                   <Ionicons name="people-outline" size={14} color={Colors.blue700} />
-                  <Text style={styles.planName}>{PLAN.name}</Text>
+                  <Text style={styles.planName}>{t('queue_view')}</Text>
                 </View>
-                <Text style={styles.planDesc}>{PLAN.desc}</Text>
+                <Text style={styles.planDesc}>{t('dr_plan_desc')}</Text>
               </View>
               <View style={styles.planBadge}>
-                <Text style={styles.planBadgeText}>Popular</Text>
+                <Text style={styles.planBadgeText}>{t('dr_popular')}</Text>
               </View>
             </View>
           )}
 
           <View style={styles.summaryRow}>
             <View style={styles.feeLabelRow}>
-              <Text style={styles.summaryLabel}>Consultation fee</Text>
+              <Text style={styles.summaryLabel}>{t('pay_consultation_fee')}</Text>
               {atClinic && (
                 <View style={styles.clinicTag}>
-                  <Text style={styles.clinicTagText}>pay at clinic</Text>
+                  <Text style={styles.clinicTagText}>{t('dr_pay_at_clinic_tag')}</Text>
                 </View>
               )}
             </View>
@@ -780,17 +796,13 @@ export default function DoctorDetails() {
           </View>
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>{walkIn ? 'Payable at Hospital' : 'Payable Now'}</Text>
+            <Text style={styles.totalLabel}>{t(walkIn ? 'dr_payable_at_hospital' : 'dr_payable_now')}</Text>
             <Text style={styles.totalAmount}>
               ₹{money(walkIn ? (doctor.fee ?? 0) : fees.final_amount)}
             </Text>
           </View>
           <Text style={styles.feeNote}>
-            {walkIn
-              ? 'No online booking for this doctor — pay at the hospital when you visit'
-              : atClinic
-              ? 'Booking charge only — the consultation fee is paid at the clinic'
-              : 'Includes platform fee, payment gateway fee & GST'}
+            {t(walkIn ? 'dr_note_walkin' : atClinic ? 'dr_note_at_clinic' : 'dr_note_includes')}
           </Text>
         </View>
 
@@ -810,7 +822,7 @@ export default function DoctorDetails() {
           >
             {callNumber ? <Ionicons name="call-outline" size={17} color={Colors.white} /> : null}
             <Text style={styles.bookBtnText}>
-              {callNumber ? `Call ${callNumber}` : 'Contact the hospital to visit'}
+              {callNumber ? t('dr_call_number', { phone: callNumber }) : t('dr_contact_to_visit')}
             </Text>
           </TouchableOpacity>
         ) : (
@@ -840,8 +852,8 @@ export default function DoctorDetails() {
         <TouchableOpacity style={styles.shareBackdrop} activeOpacity={1} onPress={() => setShareOpen(false)}>
           <TouchableOpacity style={styles.shareSheet} activeOpacity={1}>
             <View style={styles.shareHandle} />
-            <Text style={styles.shareSheetTitle}>Share this doctor</Text>
-            <Text style={styles.shareSheetSub}>So others can book the same appointment</Text>
+            <Text style={styles.shareSheetTitle}>{t('dr_share_title')}</Text>
+            <Text style={styles.shareSheetSub}>{t('dr_share_sub')}</Text>
 
             <View style={styles.shareOptRow}>
               {[
@@ -867,12 +879,12 @@ export default function DoctorDetails() {
                 </Text>
               </View>
               <TouchableOpacity style={styles.shareLinkCopyBtn} onPress={copyShareLink} activeOpacity={0.8}>
-                <Text style={styles.shareLinkCopyText}>Copy</Text>
+                <Text style={styles.shareLinkCopyText}>{t('dr_copy')}</Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity style={styles.shareCancel} onPress={() => setShareOpen(false)}>
-              <Text style={styles.shareCancelText}>Cancel</Text>
+              <Text style={styles.shareCancelText}>{t('cancel')}</Text>
             </TouchableOpacity>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -883,7 +895,7 @@ export default function DoctorDetails() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.white },
-  root: { flex: 1, backgroundColor: '#F4F9FF' },
+  root: { flex: 1, backgroundColor: Colors.bg },
 
   // ── Banner ──
   banner:            { height: 200, position: 'relative', overflow: 'hidden', backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
@@ -1016,7 +1028,7 @@ const styles = StyleSheet.create({
 
   slotTime:         { fontSize: 12, fontWeight: '500', color: Colors.gray600 },
   slotTimeSelected: { color: Colors.blue600, fontWeight: '700' },
-  slotTimePartial:  { color: '#854F0B' },
+  slotTimePartial:  { color: Colors.warningText },
   slotTimeFull:     { color: Colors.gray400, textDecorationLine: 'line-through', textDecorationColor: Colors.gray200 },
 
   slotSub:         { fontSize: 9, fontWeight: '700', marginTop: 1 },
@@ -1024,7 +1036,7 @@ const styles = StyleSheet.create({
   slotSubFull:     { color: Colors.gray400 },
   slotSubSelected: { color: Colors.blue600 },
 
-  slotFullBadge:     { position: 'absolute', top: 2, right: 2, backgroundColor: '#FCEBEB', borderWidth: 1, borderColor: '#F09595', borderRadius: 3, paddingHorizontal: 3, paddingVertical: 1 },
+  slotFullBadge:     { position: 'absolute', top: 2, right: 2, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 3, paddingHorizontal: 3, paddingVertical: 1 },
   slotFullBadgeText: { fontSize: 7, fontWeight: '800', color: '#E2384B', letterSpacing: 0.3 },
 
   slotBar:     { height: 3, width: '80%', backgroundColor: Colors.gray200, borderRadius: 2, marginTop: 4, overflow: 'hidden' },

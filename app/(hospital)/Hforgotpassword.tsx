@@ -20,6 +20,7 @@ import {
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { Colors } from '../../constants/colors';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -43,33 +44,37 @@ const FEATURES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; 
   },
 ];
 
-// ── Color tokens (mirrors authStyles.js CSS vars) ────────────────────────────
+// ── Color tokens ─────────────────────────────────────────────────────────────
+// This screen was ported from the website and brought authStyles.js's Tailwind
+// palette with it — a #2563EB blue against the app's #185FA5 everywhere else,
+// so the one screen rendered visibly off-brand. `C` is kept as the local alias
+// (it is referenced ~90 times below) but now resolves to the app's own tokens.
+// Only the names actually used remain; blue400/blue800/gray200 were dead.
 const C = {
-  blue50:   '#EFF6FF',
-  blue100:  '#DBEAFE',
-  blue200:  '#BFDBFE',
-  blue400:  '#60A5FA',
-  blue600:  '#2563EB',
-  blue700:  '#1D4ED8',
-  blue800:  '#1E40AF',
-  gray50:   '#F9FAFB',
-  gray200:  '#E5E7EB',
-  gray300:  '#D1D5DB',
-  gray400:  '#9CA3AF',
-  gray500:  '#6B7280',
-  gray600:  '#4B5563',
-  gray900:  '#111827',
-  white:    '#FFFFFF',
-  successBg:     '#F0FDF4',
-  successBorder: '#86EFAC',
-  successText:   '#15803D',
-  errorBg:       '#FEF2F2',
-  errorBorder:   '#FECACA',
-  errorText:     '#DC2626',
+  blue50:   Colors.blue50,
+  blue100:  Colors.blue100,
+  blue200:  Colors.blue200,
+  blue600:  Colors.blue600,
+  blue700:  Colors.blue700,
+  gray50:   Colors.gray50,
+  // No gray300 in the palette; gray200 is the border tone it was used for.
+  gray300:  Colors.gray200,
+  gray400:  Colors.gray400,
+  gray500:  Colors.gray500,
+  gray600:  Colors.gray600,
+  gray900:  Colors.gray900,
+  white:    Colors.white,
+  successBg:     Colors.successBg,
+  successBorder: Colors.successBorder,
+  successText:   Colors.successText,
+  errorBg:       Colors.errorBg,
+  errorBorder:   Colors.errorBorder,
+  errorText:     Colors.errorText,
 };
 
 // ── Strength helpers ─────────────────────────────────────────────────────────
-const strengthColors = ['', '#F09595', '#EF9F27', '#97C459', '#3B6D11'];
+// weak → strong; these were already the app's colours, just written as literals.
+const strengthColors = ['', Colors.errorBorder, Colors.warningBorder, Colors.successBorder, Colors.successText];
 const strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
 
 function calcStrength(pw: string): number {

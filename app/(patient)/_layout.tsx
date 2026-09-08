@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingTop: 8,
     // iOS shadow
-    shadowColor: '#185FA5',
+    shadowColor: Colors.blue600,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   iconWrapActive: {
-    backgroundColor: '#E6F1FB', // blue-50
+    backgroundColor: Colors.blue50,
   },
   activePill: {
     position: 'absolute',

@@ -65,7 +65,7 @@ export default function MyDocumentsScreen() {
     try {
       await openSharedDocument(doc);
     } catch {
-      Alert.alert('Error', 'Could not open the file. Please try again.');
+      Alert.alert(t('error'), t('md_open_failed'));
     } finally {
       setBusyId(null);
     }
@@ -113,7 +113,7 @@ export default function MyDocumentsScreen() {
           ListEmptyComponent={
             <View style={st.empty}>
               <Ionicons name="document-outline" size={44} color={Colors.gray400} />
-              <Text style={st.emptyTitle}>No documents yet</Text>
+              <Text style={st.emptyTitle}>{t('md_no_documents')}</Text>
               <Text style={st.emptyText}>
                 When a hospital, scanning centre or blood centre shares a report
                 with you, it appears here — and we&apos;ll notify you.

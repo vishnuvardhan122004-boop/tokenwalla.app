@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
+import { isAxiosError } from 'axios';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -142,7 +142,7 @@ export default function HospitalRegisterScreen() {
       setOtpSent(true);
       setGlobalInfo(`OTP sent to ${form.mobile}.`);
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setGlobalError(e.response?.data?.message || 'OTP failed. Please try again.');
       } else {
         setGlobalError('OTP failed. Please try again.');
@@ -209,7 +209,7 @@ export default function HospitalRegisterScreen() {
         params: { registered: '1' },
       } as never);
     } catch (e: unknown) {
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         setGlobalError(e.response?.data?.message || 'Registration failed. Please try again.');
       } else {
         setGlobalError('Registration failed. Please try again.');

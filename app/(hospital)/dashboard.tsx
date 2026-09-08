@@ -17,11 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -35,6 +34,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKeywords';
@@ -49,6 +49,7 @@ import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../compo
 import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
 import BookingNoticePicker from '../../components/BookingNoticePicker';
 import { providerLabel } from '../../utils/booking';
+import { usePolling } from '../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 
@@ -328,7 +329,7 @@ export default function HospitalDashboard() {
       // Register this device so the hospital gets new-booking pushes in the background.
       registerPushToken('hospital');
     })();
-  }, []);
+  }, [router]);
 
   // Tracks booking ids already seen so we only notify on genuinely new bookings.
   // null until the first successful load (so we don't alert for the initial batch).
@@ -448,9 +449,13 @@ export default function HospitalDashboard() {
     if (!hospital) return;
     loadQueue();
     loadDoctors();
-    const interval = setInterval(loadQueue, 10000);
-    return () => clearInterval(interval);
   }, [hospital, loadQueue, loadDoctors]);
+
+  // The queue refreshes every 10s, but only while this screen is focused and
+  // the app is in the foreground. This is a Stack, so the dashboard stays
+  // mounted behind Payments and Analytics — it used to keep polling from
+  // there, and from a locked phone, all day (see hooks/usePolling).
+  usePolling(loadQueue, 10_000, !!hospital);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -795,20 +800,28 @@ export default function HospitalDashboard() {
     return (p.date || '') === (dayFilter === 'today' ? todayYMD : tomorrowYMD);
   };
 
-  const fWaiting    = queue.waiting.filter(matchesDay);
-  const fOnHold     = queue.onHold.filter(matchesDay);
-  const fInProgress = queue.inProgress.filter(matchesDay);
-  const fCompleted  = queue.completed.filter(matchesDay);
+  // The queue re-renders on every toggle, modal and poll tick; filtering the
+  // four lists (and counting the day pills) only when the queue or the day
+  // filter actually changes keeps that cheap.
+  const { fWaiting, fOnHold, fInProgress, fCompleted } = useMemo(() => ({
+    fWaiting:    queue.waiting.filter(matchesDay),
+    fOnHold:     queue.onHold.filter(matchesDay),
+    fInProgress: queue.inProgress.filter(matchesDay),
+    fCompleted:  queue.completed.filter(matchesDay),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [queue, dayFilter, todayYMD, tomorrowYMD]);
   const filteredTotal = fWaiting.length + fOnHold.length + fInProgress.length + fCompleted.length;
 
   // Counts per day for the filter pills, so staff see at a glance where the
   // patients are without switching tabs.
-  const countForDay = (day: 'today' | 'tomorrow' | 'all'): number => {
+  // Built once per queue change instead of rebuilding the combined array on
+  // each of the three pill lookups.
+  const dayCounts = useMemo(() => {
     const all = [...queue.waiting, ...queue.onHold, ...queue.inProgress, ...queue.completed];
-    if (day === 'all') return all.length;
-    const target = day === 'today' ? todayYMD : tomorrowYMD;
-    return all.filter(p => (p.date || '') === target).length;
-  };
+    const count = (target: string) => all.filter(p => (p.date || '') === target).length;
+    return { all: all.length, today: count(todayYMD), tomorrow: count(tomorrowYMD) };
+  }, [queue, todayYMD, tomorrowYMD]);
+  const countForDay = (day: 'today' | 'tomorrow' | 'all'): number => dayCounts[day];
 
   // Tapping a token opens a quick detail popup — handy for reading the token
   // aloud or confirming the patient at the counter. `done` popups (completed
@@ -935,7 +948,13 @@ export default function HospitalDashboard() {
               <Text style={styles.fieldLabel}>Doctor Profile Photo</Text>
               <View style={styles.imageRow}>
                 {doctorImagePreview ? (
-                  <Image source={{ uri: doctorImagePreview }} style={styles.doctorImgPreview} resizeMode="cover" />
+                  <Image
+                    source={{ uri: doctorImagePreview }}
+                    style={styles.doctorImgPreview}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={180}
+                  />
                 ) : (
                   <View style={styles.doctorImgPlaceholder}>
                     <Ionicons name="medkit-outline" size={30} color={Colors.blue400} />
@@ -970,7 +989,13 @@ export default function HospitalDashboard() {
 
               {hospitalImagePreview ? (
                 <View style={styles.hospitalBannerPreviewWrap}>
-                  <Image source={{ uri: hospitalImagePreview }} style={styles.hospitalBannerPreview} resizeMode="cover" />
+                  <Image
+                    source={{ uri: hospitalImagePreview }}
+                    style={styles.hospitalBannerPreview}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={180}
+                  />
                   <TouchableOpacity
                     style={styles.bannerRemoveBtn}
                     onPress={() => { setHospitalImageFile(null); setHospitalImagePreview(null); }}
@@ -1719,7 +1744,13 @@ export default function HospitalDashboard() {
                     {/* ── Hospital Banner ── */}
                     <View style={styles.doctorBanner}>
                       {hasHospitalImg ? (
-                        <Image source={{ uri: doc.hospital_image }} style={styles.doctorBannerImg} resizeMode="cover" />
+                        <Image
+                          source={{ uri: doc.hospital_image }}
+                          style={styles.doctorBannerImg}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={180}
+                        />
                       ) : (
                         <View style={styles.doctorBannerPlaceholder}>
                           <Ionicons name="business-outline" size={26} color={Colors.gray400} />
@@ -1747,7 +1778,13 @@ export default function HospitalDashboard() {
                     {/* ── Doctor Profile Row ── */}
                     <View style={styles.doctorProfileRow}>
                       {hasDoctorImg ? (
-                        <Image source={{ uri: doc.image }} style={styles.doctorProfileImg} resizeMode="cover" />
+                        <Image
+                          source={{ uri: doc.image }}
+                          style={styles.doctorProfileImg}
+                          contentFit="cover"
+                          cachePolicy="memory-disk"
+                          transition={180}
+                        />
                       ) : (
                         <View style={styles.doctorProfilePlaceholder}>
                           <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />

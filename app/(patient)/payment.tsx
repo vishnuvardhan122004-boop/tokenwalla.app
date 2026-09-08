@@ -19,6 +19,7 @@ import { WebView } from 'react-native-webview';
 import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
+import { useI18n } from '../../services/i18n';
 import { parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { providerLabel } from '../../utils/booking';
@@ -28,6 +29,7 @@ import { useAndroidBack } from '../../hooks/useAndroidBack';
 
 export default function PaymentScreen() {
   const router = useRouter();
+  const { t }  = useI18n();
   const params = useLocalSearchParams();
   const {
     doctorId, doctorName, doctorMobile,
@@ -87,7 +89,7 @@ export default function PaymentScreen() {
       if (!raw) { router.replace('/(auth)/login'); return; }
       setUser(JSON.parse(raw));
     })();
-  }, []);
+  }, [router]);
 
   // ── Server-computed fee breakdown for this provider ────────────────────
   useEffect(() => {
@@ -146,11 +148,11 @@ export default function PaymentScreen() {
     if (payBtnDisabled.current) return;
     if (forOther) {
       if (bookedForName.length < 2) {
-        Alert.alert('Missing name', "Please enter the other person's name.");
+        Alert.alert(t('pay_missing_name'), t('pay_missing_name_msg'));
         return;
       }
       if (!/^[6-9]\d{9}$/.test(bookedForMobile)) {
-        Alert.alert('Invalid mobile', "Please enter a valid 10-digit mobile number for the other person.");
+        Alert.alert(t('pay_invalid_mobile'), t('pay_invalid_mobile_msg'));
         return;
       }
     }
@@ -161,7 +163,7 @@ export default function PaymentScreen() {
         doctorId, hospital, date, slot, bookedForName, bookedForMobile,
       });
       if (!data?.success) {
-        Alert.alert('Could not use your pass', data?.message || 'Please try again.');
+        Alert.alert(t('pay_pass_failed'), data?.message || t('pay_try_again'));
         return;
       }
       router.replace({
@@ -183,8 +185,8 @@ export default function PaymentScreen() {
     } catch (e: any) {
       // Server message first — a 409 here means the last visit went while the
       // patient was on this screen, and that sentence is the useful one.
-      const msg = e?.response?.data?.message || e?.message || 'Could not use your pass.';
-      Alert.alert('Pass', msg);
+      const msg = e?.response?.data?.message || e?.message || t('pay_pass_error');
+      Alert.alert(t('pay_pass'), msg);
     } finally {
       setLoading(false);
       payBtnDisabled.current = false;
@@ -329,11 +331,11 @@ export default function PaymentScreen() {
     // Validate the "book for someone else" details before charging.
     if (forOther) {
       if (bookedForName.length < 2) {
-        Alert.alert('Missing name', "Please enter the other person's name.");
+        Alert.alert(t('pay_missing_name'), t('pay_missing_name_msg'));
         return;
       }
       if (!/^[6-9]\d{9}$/.test(bookedForMobile)) {
-        Alert.alert('Invalid mobile', "Please enter a valid 10-digit mobile number for the other person.");
+        Alert.alert(t('pay_invalid_mobile'), t('pay_invalid_mobile_msg'));
         return;
       }
     }
@@ -370,8 +372,8 @@ export default function PaymentScreen() {
       // useless "Request failed with status code 409", so checking it first
       // swallowed the server's actual explanation ("This slot is full…").
       // That only became visible once we started sending date/slot above.
-      const msg = e?.response?.data?.message || e?.message || 'Could not initiate payment.';
-      Alert.alert('Payment Error', msg);
+      const msg = e?.response?.data?.message || e?.message || t('pay_error_msg');
+      Alert.alert(t('pay_error'), msg);
     } finally {
       setLoading(false);
       payBtnDisabled.current = false;
@@ -449,11 +451,11 @@ export default function PaymentScreen() {
             },
           });
         } else {
-          Alert.alert('Verification Failed', 'Payment could not be verified. Contact support with Payment ID: ' + msg.paymentId);
+          Alert.alert(t('pay_verify_failed'), t('pay_verify_failed_msg') + msg.paymentId);
         }
       } catch (e: any) {
-        const errMsg = e?.response?.data?.message || e?.message || 'Verification error. Contact support.';
-        Alert.alert('Error', errMsg + '\n\nPayment ID: ' + msg.paymentId);
+        const errMsg = e?.response?.data?.message || e?.message || t('pay_verify_error');
+        Alert.alert(t('error'), errMsg + '\n\nPayment ID: ' + msg.paymentId);
       } finally {
         setLoading(false);
       }
@@ -472,7 +474,7 @@ export default function PaymentScreen() {
         msg.step    ? `Step: ${msg.step}`      : null,
         msg.code    ? `Code: ${msg.code}`      : null,
       ].filter(Boolean).join('\n');
-      Alert.alert('Payment Failed', detail || 'Payment failed. Please try again.');
+      Alert.alert(t('pay_failed'), detail || t('pay_failed_msg'));
     }
   };
 
@@ -487,10 +489,10 @@ export default function PaymentScreen() {
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.bg, padding: 40 }}>
       <ActivityIndicator size="large" color={Colors.blue600} />
       <Text style={{ marginTop: 16, fontSize: 16, fontWeight: '700', color: Colors.gray900 }}>
-        {showWebView ? 'Opening Payment...' : 'Verifying Payment...'}
+        {t(showWebView ? 'pay_opening' : 'pay_verifying')}
       </Text>
       <Text style={{ marginTop: 8, fontSize: 13, color: Colors.gray500, textAlign: 'center' }}>
-        Please wait, do not close the app
+        {t('pay_please_wait')}
       </Text>
     </View>
   );
@@ -505,7 +507,7 @@ export default function PaymentScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => {
           setShowWebView(false);
-          Alert.alert('Cancelled', 'Payment was cancelled. You can try again.');
+          Alert.alert(t('pay_cancelled'), t('pay_cancelled_msg'));
         }}
       >
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
@@ -514,13 +516,13 @@ export default function PaymentScreen() {
               style={styles.closeBtn}
               onPress={() => {
                 setShowWebView(false);
-                Alert.alert('Cancelled', 'Payment was cancelled. You can try again.');
+                Alert.alert(t('pay_cancelled'), t('pay_cancelled_msg'));
               }}
             >
               <Ionicons name="close" size={15} color={Colors.errorText} />
-              <Text style={styles.closeBtnText}>Cancel</Text>
+              <Text style={styles.closeBtnText}>{t('cancel')}</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Secure Payment</Text>
+            <Text style={styles.modalTitle}>{t('pay_secure_payment')}</Text>
             <View style={styles.sslBadge}>
               <Ionicons name="lock-closed" size={12} color={Colors.successText} />
               <Text style={styles.sslText}>SSL</Text>
@@ -539,7 +541,7 @@ export default function PaymentScreen() {
             renderLoading={() => (
               <View style={styles.webLoading}>
                 <ActivityIndicator size="large" color={Colors.blue600} />
-                <Text style={styles.webLoadingText}>Loading Razorpay...</Text>
+                <Text style={styles.webLoadingText}>{t('pay_loading_razorpay')}</Text>
               </View>
             )}
           />
@@ -550,26 +552,26 @@ export default function PaymentScreen() {
       <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/doctors')}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backText}>{t('pay_back')}</Text>
         </TouchableOpacity>
 
-        <Text style={styles.title}>Complete Payment</Text>
-        <Text style={styles.sub}>Review your appointment before paying</Text>
+        <Text style={styles.title}>{t('pay_complete_payment')}</Text>
+        <Text style={styles.sub}>{t('pay_review')}</Text>
 
         <View style={styles.card}>
           <View style={styles.cardTop} />
           <View style={styles.cardHeader}>
             <Ionicons name="document-text-outline" size={19} color={Colors.blue600} />
-            <Text style={styles.cardTitle}>Appointment Summary</Text>
+            <Text style={styles.cardTitle}>{t('pay_appt_summary')}</Text>
           </View>
           <View style={styles.cardBody}>
             {[
-              { label: isScan ? 'Scan' : 'Doctor',
+              { label: t(isScan ? 'bt_scan' : 'bt_doctor'),
                 value: providerLabel(providerName, isScan ? 'SCAN' : 'DOCTOR') },
-              { label: 'Hospital', value: String(hospital)             },
-              { label: 'Date',     value: String(date)                 },
-              { label: 'Slot',     value: String(slot)                 },
-              { label: 'Patient',  value: bookedForName || user?.name || user?.username },
+              { label: t('bt_hospital'), value: String(hospital)             },
+              { label: t('bt_date'),     value: String(date)                 },
+              { label: t('bt_slot'),     value: String(slot)                 },
+              { label: t('bt_patient'),  value: bookedForName || user?.name || user?.username },
             ].map(({ label, value }) => (
               <View key={label} style={styles.row}>
                 <Text style={styles.rowLabel}>{label}</Text>
@@ -586,13 +588,13 @@ export default function PaymentScreen() {
                   <Text style={styles.feeErrorText}>{feeError}</Text>
                   <TouchableOpacity style={styles.retryBtn} onPress={() => setFeeReload(n => n + 1)}>
                     <Ionicons name="refresh" size={14} color={Colors.blue600} />
-                    <Text style={styles.retryText}>Retry</Text>
+                    <Text style={styles.retryText}>{t('retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View style={styles.feeLoadingRow}>
                   <ActivityIndicator size="small" color={Colors.blue600} />
-                  <Text style={styles.feeLabel}>Loading fee details…</Text>
+                  <Text style={styles.feeLabel}>{t('pay_loading_fees')}</Text>
                 </View>
               )}
             </View>
@@ -603,16 +605,16 @@ export default function PaymentScreen() {
               {Number(breakdown.offline_doctor_fee) > 0 ? (
                 <View style={styles.feeRow}>
                   <View style={styles.feeLabelRow}>
-                    <Text style={styles.feeLabel}>Consultation fee</Text>
+                    <Text style={styles.feeLabel}>{t('pay_consultation_fee')}</Text>
                     <View style={styles.clinicTag}>
-                      <Text style={styles.clinicTagText}>pay at clinic</Text>
+                      <Text style={styles.clinicTagText}>{t('dr_pay_at_clinic_tag')}</Text>
                     </View>
                   </View>
                   <Text style={styles.feeValueMuted}>₹{money(breakdown.offline_doctor_fee)}</Text>
                 </View>
               ) : (
                 <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>Consultation fee</Text>
+                  <Text style={styles.feeLabel}>{t('pay_consultation_fee')}</Text>
                   <Text style={styles.feeValue}>₹{money(breakdown.doctor_fee)}</Text>
                 </View>
               )}
@@ -622,9 +624,9 @@ export default function PaymentScreen() {
               {canRedeem ? (
                 <View style={styles.feeRow}>
                   <View style={styles.feeLabelRow}>
-                    <Text style={styles.feeLabel}>Service fee</Text>
+                    <Text style={styles.feeLabel}>{t('pay_service_fee')}</Text>
                     <View style={styles.clinicTag}>
-                      <Text style={styles.clinicTagText}>paid by your pass</Text>
+                      <Text style={styles.clinicTagText}>{t('pay_paid_by_pass')}</Text>
                     </View>
                   </View>
                   <Text style={styles.feeValue}>₹0.00</Text>
@@ -632,10 +634,10 @@ export default function PaymentScreen() {
               ) : passSelected ? (
                 <View style={styles.feeRow}>
                   <View style={styles.feeLabelRow}>
-                    <Text style={styles.feeLabel}>Appointment Pass</Text>
+                    <Text style={styles.feeLabel}>{t('pay_appointment_pass')}</Text>
                     <View style={styles.clinicTag}>
                       <Text style={styles.clinicTagText}>
-                        {passData.bookings} visits · {passData.days} days
+                        {t('pay_pass_visits_days', { visits: passData.bookings, days: passData.days })}
                       </Text>
                     </View>
                   </View>
@@ -643,9 +645,9 @@ export default function PaymentScreen() {
                 </View>
               ) : (
                 [
-                  { label: 'Platform fee',    value: breakdown.platform_fee },
-                  { label: 'Payment gateway', value: breakdown.gateway_fee  },
-                  { label: 'GST (18%)',       value: breakdown.gst_amount   },
+                  { label: t('price_platform'), value: breakdown.platform_fee },
+                  { label: t('price_gateway'),  value: breakdown.gateway_fee  },
+                  { label: t('price_gst'),      value: breakdown.gst_amount   },
                 ].map(({ label, value }) => (
                   <View key={label} style={styles.feeRow}>
                     <Text style={styles.feeLabel}>{label}</Text>
@@ -656,7 +658,7 @@ export default function PaymentScreen() {
             </View>
           )}
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Payable Now</Text>
+            <Text style={styles.totalLabel}>{t('pay_total_now')}</Text>
             <Text style={styles.totalAmt}>
               {payable === null ? '—' : `₹${money(payable)}`}
             </Text>
@@ -667,16 +669,16 @@ export default function PaymentScreen() {
         {canRedeem && (
           <View style={[styles.passCard, styles.passCardActive]}>
             <View style={styles.passBadge}>
-              <Text style={styles.passBadgeText}>APPOINTMENT PASS</Text>
+              <Text style={styles.passBadgeText}>{t('pay_pass_caps')}</Text>
             </View>
-            <Text style={styles.passTitle}>This visit is covered — no payment needed.</Text>
+            <Text style={styles.passTitle}>{t('pay_pass_covered')}</Text>
             <Text style={styles.passDesc}>
               {creditsLeft === 1
-                ? 'This is the last visit on your pass'
-                : `${creditsLeft} visits left on your pass`}
-              {passExpiry ? ` · valid to ${passExpiry}` : ''}
+                ? t('pay_last_visit')
+                : t('pay_visits_left', { count: creditsLeft })}
+              {passExpiry ? t('pay_valid_to', { date: passExpiry }) : ''}
               {Number(breakdown?.offline_doctor_fee) > 0
-                ? ` · the ₹${money(breakdown!.offline_doctor_fee)} consultation fee is still paid at the clinic`
+                ? t('pay_clinic_still', { amount: money(breakdown!.offline_doctor_fee) })
                 : ''}
             </Text>
           </View>
@@ -685,7 +687,7 @@ export default function PaymentScreen() {
         {canBuy && (
           <View style={styles.passCard}>
             <View style={styles.passBadge}>
-              <Text style={styles.passBadgeText}>SAVE ON YOUR NEXT VISIT</Text>
+              <Text style={styles.passBadgeText}>{t('pay_save_next')}</Text>
             </View>
             {[false, true].map((choice) => (
               <TouchableOpacity
@@ -702,16 +704,17 @@ export default function PaymentScreen() {
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.passOptionTitle}>
                     {choice
-                      ? `Appointment Pass — ₹${money(passData.price)}`
-                      : `Just this visit — ₹${money(total!)}`}
+                      ? t('pay_opt_pass',   { price: money(passData.price) })
+                      : t('pay_opt_single', { price: money(total!) })}
                   </Text>
                   <Text style={styles.passOptionDesc}>
                     {choice
-                      ? `This visit plus ${passData.bookings - 1} more, at any doctor, `
-                        + `within ${passData.days} days. Service fee only — consultation `
-                        + `fees are still paid at the clinic. `
-                        + `Save ₹${money(Number(total) * passData.bookings - Number(passData.price))}.`
-                      : 'The usual service fee.'}
+                      ? t('pay_opt_pass_desc', {
+                          more: passData.bookings - 1,
+                          days: passData.days,
+                          save: money(Number(total) * passData.bookings - Number(passData.price)),
+                        })
+                      : t('pay_opt_single_desc')}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -723,8 +726,8 @@ export default function PaymentScreen() {
         <View style={styles.otherCard}>
           <View style={styles.otherToggleRow}>
             <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={styles.otherTitle}>Booking for someone else?</Text>
-              <Text style={styles.otherDesc}>Book this appointment for a family member or friend</Text>
+              <Text style={styles.otherTitle}>{t('pay_for_someone')}</Text>
+              <Text style={styles.otherDesc}>{t('pay_for_someone_sub')}</Text>
             </View>
             <Switch
               value={forOther}
@@ -736,19 +739,19 @@ export default function PaymentScreen() {
 
           {forOther && (
             <View style={styles.otherFields}>
-              <Text style={styles.otherLabel}>Patient's full name</Text>
+              <Text style={styles.otherLabel}>{t('pay_patient_name')}</Text>
               <TextInput
                 style={styles.otherInput}
-                placeholder="e.g. Rahul Kumar"
+                placeholder={t('pay_name_ph')}
                 placeholderTextColor={Colors.gray400}
                 value={otherName}
                 onChangeText={setOtherName}
                 maxLength={100}
               />
-              <Text style={[styles.otherLabel, { marginTop: 14 }]}>Patient's mobile number</Text>
+              <Text style={[styles.otherLabel, { marginTop: 14 }]}>{t('pay_patient_mobile')}</Text>
               <TextInput
                 style={styles.otherInput}
-                placeholder="10-digit mobile number"
+                placeholder={t('mobile_placeholder')}
                 placeholderTextColor={Colors.gray400}
                 value={otherMobile}
                 onChangeText={(v) => setOtherMobile(v.replace(/\D/g, '').slice(0, 10))}
@@ -756,7 +759,7 @@ export default function PaymentScreen() {
                 maxLength={10}
               />
               <Text style={styles.otherNote}>
-                Appointment updates (SMS/WhatsApp) are sent to your account. The hospital sees this patient&apos;s name at reception.
+                {t('pay_other_note')}
               </Text>
             </View>
           )}
@@ -765,8 +768,8 @@ export default function PaymentScreen() {
         <View style={styles.secureBadge}>
           <Ionicons name="shield-checkmark" size={26} color={Colors.blue600} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.secureTitle}>Secured by Razorpay</Text>
-            <Text style={styles.secureDesc}>256-bit SSL encrypted · PCI DSS compliant</Text>
+            <Text style={styles.secureTitle}>{t('pay_secured_by')}</Text>
+            <Text style={styles.secureDesc}>{t('pay_secure_desc')}</Text>
             <View style={styles.methodRow}>
               {['UPI', 'Cards', 'Net Banking', 'Wallets'].map(m => (
                 <View key={m} style={styles.chip}>
@@ -789,16 +792,16 @@ export default function PaymentScreen() {
           />
           <Text style={styles.payBtnText}>
             {!breakdown
-              ? (feeError ? 'Fee details unavailable' : 'Loading…')
+              ? t(feeError ? 'pay_fee_unavailable' : 'loading_ellipsis')
               : canRedeem
-                ? 'Use your pass — Confirm Appointment'
-                : `Pay ₹${money(payable!)} & Confirm Appointment`}
+                ? t('pay_use_pass_btn')
+                : t('pay_pay_confirm', { amount: money(payable!) })}
           </Text>
         </TouchableOpacity>
 
         <Text style={styles.note}>
-          By paying, you agree to our Terms & Conditions.{'\n'}
-          Refundable if cancelled at least 2 hours before your slot.
+          {t('pay_terms_note')}{'\n'}
+          {t('pay_refund_note')}
         </Text>
       </ScrollView>
     </SafeAreaView>

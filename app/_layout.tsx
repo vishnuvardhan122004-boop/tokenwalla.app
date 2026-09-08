@@ -12,6 +12,7 @@ import {
 } from '../services/notifications';
 import { initSentry, wrapWithSentry } from '../services/sentry';
 import { checkForUpdate } from '../services/appUpdate';
+import { Colors } from '../constants/colors';
 
 // Initialise crash reporting as early as possible so launch-time errors are caught.
 initSentry();
@@ -62,7 +63,7 @@ function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" backgroundColor="#F4F9FF" />
+      <StatusBar style="dark" backgroundColor={Colors.bg} />
       <I18nProvider>
         <ErrorBoundary>
           <Stack screenOptions={{ headerShown: false }} />

@@ -17,7 +17,6 @@ import { ComponentProps, useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -29,6 +28,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
@@ -189,7 +189,7 @@ export default function HospitalProfile() {
         setPayoutSaved(p);
       } catch { /* older backend or no access — the section stays empty */ }
     })();
-  }, []);
+  }, [router]);
 
   const hasPayout = !!(payoutSaved?.upi_id || payoutSaved?.account_number);
   const mobileChanged = form.mobile.trim() !== origMobile;
@@ -467,7 +467,13 @@ export default function HospitalProfile() {
                 {/* Banner + logo */}
                 <Text style={styles.label}>Banner Image (16:9)</Text>
                 {bannerPreview ? (
-                  <Image source={{ uri: bannerPreview }} style={styles.bannerPreview} resizeMode="cover" />
+                  <Image
+                    source={{ uri: bannerPreview }}
+                    style={styles.bannerPreview}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={180}
+                  />
                 ) : (
                   <View style={styles.bannerPlaceholder}><Ionicons name="image-outline" size={28} color={Colors.gray400} /></View>
                 )}
@@ -479,7 +485,13 @@ export default function HospitalProfile() {
                 <Text style={[styles.label, { marginTop: 14 }]}>Logo (square)</Text>
                 <View style={styles.logoRow}>
                   {logoPreview ? (
-                    <Image source={{ uri: logoPreview }} style={styles.logoPreview} resizeMode="cover" />
+                    <Image
+                      source={{ uri: logoPreview }}
+                      style={styles.logoPreview}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={180}
+                    />
                   ) : (
                     <View style={styles.logoPlaceholder}><Ionicons name="image-outline" size={22} color={Colors.gray400} /></View>
                   )}
@@ -747,7 +759,13 @@ export default function HospitalProfile() {
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                 {gallery.map(p => (
                   <TouchableOpacity key={p.id} onPress={() => removePhoto(p.id)} activeOpacity={0.8}>
-                    <Image source={{ uri: p.url }} style={styles.galleryImg} resizeMode="cover" />
+                    <Image
+                      source={{ uri: p.url }}
+                      style={styles.galleryImg}
+                      contentFit="cover"
+                      cachePolicy="memory-disk"
+                      transition={180}
+                    />
                     <View style={styles.galleryRemove}><Ionicons name="close" size={12} color={Colors.white} /></View>
                   </TouchableOpacity>
                 ))}
