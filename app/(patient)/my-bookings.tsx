@@ -34,7 +34,7 @@ import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { usePolling } from '../../hooks/usePolling';
 import { syncAppointmentReminders } from '../../services/notifications';
-import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
+import { normalizeBookingStatus, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -47,6 +47,18 @@ const STATUS_LABEL_KEY: Record<string, string> = {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const RESCHEDULE_FEE = 5;
+
+// "10:30 AM" + 15min delay -> "10:45 AM". Reuses slotDateTime (utils/booking.ts)
+// for the date math; no equivalent formatter exists there or nearby, so it's
+// local to this screen (mirrors the website's addMinutesToSlot in MyBookings.js).
+function addDelayToSlot(dateStr: string, slot: string, delayMinutes: number): string {
+  const base = slotDateTime(dateStr, slot);
+  if (!base) return slot;
+  const adjusted = new Date(base.getTime() + delayMinutes * 60_000);
+  const hour = adjusted.getHours() % 12 || 12;
+  const min  = String(adjusted.getMinutes()).padStart(2, '0');
+  return `${hour}:${min} ${adjusted.getHours() >= 12 ? 'PM' : 'AM'}`;
+}
 
 const STATUS_MAP: Record<string, { label: string; bg: string; text: string; border: string }> = {
   waiting:     { label: 'Waiting',         bg: Colors.warningBg,  text: Colors.warningText,  border: Colors.warningBorder  },
@@ -187,6 +199,32 @@ export default function MyBookings() {
 
   usePolling(() => fetchBookings(true), 15_000, hasActive);
 
+  // Doctor Running Late: { [doctorId]: running_delay_minutes }. Bookings carry
+  // only the doctor's id, not their live delay, so it's fetched separately for
+  // today's confirmed doctors — depends on `bookings` (not a memoized id list)
+  // so it refetches on every bookings poll and a delay set mid-wait shows up
+  // within 15s, same cadence as the queue position.
+  const [doctorDelays, setDoctorDelays] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const today = toLocalISODate(new Date());
+    const ids = [...new Set(
+      bookings.filter(b => b.status === 'CONFIRMED' && b.date === today).map(b => b.doctor),
+    )].filter(Boolean);
+    if (!ids.length) return;
+    let alive = true;
+    Promise.all(ids.map(id =>
+      API.get(`/doctors/${id}/`).then(({ data }) => [id, data.running_delay_minutes]).catch(() => null),
+    )).then(pairs => {
+      if (!alive) return;
+      setDoctorDelays(prev => {
+        const next = { ...prev };
+        pairs.forEach(p => { if (p) next[p[0]] = p[1]; });
+        return next;
+      });
+    });
+    return () => { alive = false; };
+  }, [bookings]);
+
   // Deep-link from a "doctor unavailable" push (data.reschedule='free') — once the
   // matching booking has loaded, pop the reschedule modal automatically. Consumed
   // once via a ref so it doesn't reopen on every poll/refresh.
@@ -242,6 +280,7 @@ export default function MyBookings() {
     const s = normalizeBookingStatus(b.status);
     return s === 'waiting' || s === 'in_progress';
   }).length, [bookings]);
+  const todayISO = toLocalISODate(new Date());
 
   // ── Not logged in ─────────────────────────────────────────────────────────
 
@@ -481,6 +520,21 @@ export default function MyBookings() {
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
                       {t('mb_free_reschedule', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Doctor Running Late: hospital set a delay for today's confirmed
+                    booking. Delay lives on the doctor record, fetched separately
+                    into doctorDelays above (bookings only carry the doctor id). */}
+                {booking.status === 'CONFIRMED' && booking.date === todayISO && (doctorDelays[booking.doctor] ?? 0) > 0 && (
+                  <View style={st.unavailBanner}>
+                    <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
+                    <Text style={st.unavailBannerText}>
+                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{doctorDelays[booking.doctor]} mins late. Adjusted time:{' '}
+                      <Text style={{ textDecorationLine: 'line-through' }}>{booking.slot}</Text>
+                      {' → '}
+                      {addDelayToSlot(booking.date, booking.slot, doctorDelays[booking.doctor])}
                     </Text>
                   </View>
                 )}

@@ -82,6 +82,7 @@ interface Doctor {
   max_per_slot: number | string;
   booking_cutoff_hours?: number | null;
   available: boolean;
+  running_delay_minutes?: number;
   slots: string[];
   days?: string[];
   image?: string;
@@ -307,6 +308,7 @@ export default function HospitalDashboard() {
   const [errors,     setErrors]     = useState<Record<string, string>>({});
   const [saving,     setSaving]     = useState<boolean>(false);
   const [toggling,   setToggling]   = useState<number | string | null>(null);
+  const [settingDelay, setSettingDelay] = useState<number | string | null>(null);
 
   const [doctorImageFile,      setDoctorImageFile]      = useState<ImageFile | null>(null);
   const [doctorImagePreview,   setDoctorImagePreview]   = useState<string | null>(null);
@@ -515,6 +517,27 @@ export default function HospitalDashboard() {
       Alert.alert('Error', 'Failed to update availability');
     }
     setToggling(null);
+  };
+
+  // ── Doctor Running Late ────────────────────────────────────────────────────
+  const setDoctorDelay = async (doc: Doctor, minutes: number) => {
+    setSettingDelay(doc.id);
+    try {
+      const { data } = await API.post(
+        `/doctors/${doc.id}/set-delay/`,
+        { delay_minutes: minutes },
+        { headers: { 'Content-Type': 'application/json' } },
+      );
+      setDoctors(prev => prev.map(d => (
+        d.id === doc.id ? { ...d, running_delay_minutes: data.running_delay_minutes } : d
+      )));
+      Alert.alert('Updated', minutes > 0
+        ? `${providerLabel(doc.name, 'DOCTOR')} marked ${minutes}m late. ${data.notified_count} patients notified.`
+        : `${providerLabel(doc.name, 'DOCTOR')}'s delay cleared.`);
+    } catch (e) {
+      Alert.alert('Error', extractApiError(e, 'Failed to update delay.'));
+    }
+    setSettingDelay(null);
   };
 
   // ── Share a document with the patient ─────────────────────────────────────
@@ -1844,6 +1867,40 @@ export default function HospitalDashboard() {
                       </TouchableOpacity>
                     </View>
 
+                    {/* ── Running Late ── */}
+                    <View style={styles.delayRow}>
+                      <Text style={styles.delayLabel}>
+                        Running Late{doc.running_delay_minutes ? ` · +${doc.running_delay_minutes}m` : ''}
+                      </Text>
+                      <View style={styles.delayBtnRow}>
+                        {[10, 15, 20, 30].map(m => {
+                          const isOn = doc.running_delay_minutes === m;
+                          const isBusy = settingDelay === doc.id;
+                          return (
+                            <TouchableOpacity
+                              key={m}
+                              style={[styles.delayBtn, isOn ? styles.delayBtnOn : styles.delayBtnOff, isBusy && { opacity: 0.5 }]}
+                              onPress={() => setDoctorDelay(doc, m)}
+                              disabled={isBusy}
+                            >
+                              <Text style={styles.delayBtnText}>+{m}m</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                        <TouchableOpacity
+                          style={[
+                            styles.delayBtn,
+                            styles.delayBtnOff,
+                            (settingDelay === doc.id || !doc.running_delay_minutes) && { opacity: 0.5 },
+                          ]}
+                          onPress={() => setDoctorDelay(doc, 0)}
+                          disabled={settingDelay === doc.id || !doc.running_delay_minutes}
+                        >
+                          <Text style={styles.delayBtnText}>Clear</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
                   </View>
                 );
               })
@@ -2005,6 +2062,14 @@ const styles = StyleSheet.create({
   editBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   deleteBtn:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
   deleteBtnText: { fontSize: 14 },
+
+  delayRow:      { paddingHorizontal: 14, paddingTop: 2, paddingBottom: 12 },
+  delayLabel:    { fontSize: 11, color: Colors.gray500, fontWeight: '600', marginBottom: 6 },
+  delayBtnRow:   { flexDirection: 'row', gap: 6 },
+  delayBtn:      { flex: 1, paddingVertical: 7, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  delayBtnOn:    { backgroundColor: Colors.warningBg, borderColor: Colors.warningBorder },
+  delayBtnOff:   { backgroundColor: Colors.gray100, borderColor: Colors.gray200 },
+  delayBtnText:  { fontSize: 11, fontWeight: '700', color: Colors.gray700 },
 
   modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
   modalCancel:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8 },

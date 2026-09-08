@@ -34,7 +34,7 @@ export type AppNotification = {
   id: string;
   title: string;
   body: string;
-  type?: string;                    // booking_confirmed | appointment_reminder | new_booking | queue_advance | ...
+  type?: string;                    // booking_confirmed | appointment_reminder | new_booking | queue_advance | doctor_delay | ...
   audience: NotificationAudience;
   data?: Record<string, any>;
   createdAt: number;                // epoch ms
