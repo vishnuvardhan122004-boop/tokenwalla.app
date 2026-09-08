@@ -54,6 +54,7 @@ function iconFor(n: AppNotification): ComponentProps<typeof Ionicons>['name'] {
     case 'booking_on_hold':     return 'pause-circle-outline';
     case 'booking_no_show':     return 'person-remove-outline';
     case 'doctor_unavailable':  return 'alert-circle-outline';
+    case 'doctor_delay':        return 'time-outline';
     case 'payout_paid':         return 'cash-outline';
     default:                    return 'notifications-outline';
   }
