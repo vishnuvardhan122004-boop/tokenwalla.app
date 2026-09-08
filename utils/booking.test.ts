@@ -7,6 +7,7 @@ import {
   isSlotTooSoon,
   normalizeBookingStatus,
   providerLabel,
+  resolveSelectedDate,
   slotDateTime,
   toLocalISODate,
 } from './booking';
@@ -65,6 +66,39 @@ describe('getNext7Days', () => {
     const days = getNext7Days();
     expect(days).toHaveLength(7);
     expect(days[0].full).toBe(toLocalISODate(new Date()));
+  });
+});
+
+describe('resolveSelectedDate', () => {
+  // Mon 2 Feb 2026 -> [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+  const days = getNext7Days(new Date(2026, 1, 2));
+
+  it('keeps the selected date when it is in the window and on a working day', () => {
+    expect(resolveSelectedDate(days, days[3].full, ['Mon', 'Thu'])).toBe(days[3].full);
+  });
+
+  it('falls back to the first working day when selected is on a day off', () => {
+    // days[3] is Thu, not a working day here -> first Mon in the window.
+    expect(resolveSelectedDate(days, days[3].full, ['Mon', 'Fri'])).toBe(days[0].full);
+  });
+
+  it('falls back to the first working day when selected has rolled out of the window', () => {
+    expect(resolveSelectedDate(days, '2026-01-01', ['Mon', 'Fri'])).toBe(days[0].full);
+  });
+
+  it('treats every day as working when workingDays is empty, null, or undefined', () => {
+    expect(resolveSelectedDate(days, days[2].full, [])).toBe(days[2].full);
+    expect(resolveSelectedDate(days, days[2].full, null)).toBe(days[2].full);
+    expect(resolveSelectedDate(days, days[2].full, undefined)).toBe(days[2].full);
+  });
+
+  it('returns the first working day, not day 0, when day 0 is off', () => {
+    // Mon is off; first working day in the window is Wed (days[2]).
+    expect(resolveSelectedDate(days, days[0].full, ['Wed'])).toBe(days[2].full);
+  });
+
+  it('returns null only when the window itself is empty', () => {
+    expect(resolveSelectedDate([], '2026-02-02', ['Mon'])).toBeNull();
   });
 });
 

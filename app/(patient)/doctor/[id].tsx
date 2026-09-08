@@ -24,6 +24,7 @@ import {
   getNext7Days,
   isSlotTooSoon,
   providerLabel,
+  resolveSelectedDate,
 } from '../../../utils/booking';
 import ProviderAboutPanel, { FacebookLogo, InstagramLogo } from '../../../components/ProviderAboutPanel';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
@@ -195,30 +196,20 @@ export default function DoctorDetails() {
     fetchAvailability(doctor.id, selectedDate);
   }, [doctor, selectedDate, fetchAvailability]);
 
-  // Restrict the calendar to the doctor's working days. If today isn't one,
-  // jump the selection to the first upcoming working day.
+  // Keep the selected date valid — on a day this doctor works, and inside the
+  // 7-day window. Both can be invalidated independently (the doctor loading,
+  // and midnight passing while the screen sits open), so ONE effect watches
+  // both triggers; splitting them let the rollover park the selection on a day
+  // the doctor is off. The decision itself is pure and unit-tested.
   useEffect(() => {
-    const wd = doctor?.days;
-    if (!Array.isArray(wd) || wd.length === 0) return; // no days set → allow all
-    const cur = DAYS.find(d => d.full === selectedDate);
-    if (cur && !wd.includes(cur.dayKey)) {
-      const firstAvail = DAYS.find(d => wd.includes(d.dayKey));
-      if (firstAvail) { setSelectedDate(firstAvail.full); setSelectedSlot(''); }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doctor]);
-
-  // The day rolled over while this screen sat open, so the selected date has
-  // just fallen out of the 7-day window. Keyed on todayKey, which changes only
-  // at midnight.
-  useEffect(() => {
-    if (!DAYS.some(d => d.full === selectedDate)) {
-      setSelectedDate(todayKey);
+    const next = resolveSelectedDate(DAYS, selectedDate, doctor?.days);
+    if (next && next !== selectedDate) {
+      setSelectedDate(next);
       setSelectedSlot('');
     }
   // DAYS is rebuilt every render; todayKey is the primitive that actually moves.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [todayKey, selectedDate]);
+  }, [doctor, todayKey, selectedDate]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);

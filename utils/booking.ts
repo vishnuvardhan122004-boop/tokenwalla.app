@@ -50,6 +50,34 @@ export function getNext7Days(from: Date = new Date()): DayCell[] {
   });
 }
 
+/**
+ * Which date the calendar should have selected.
+ *
+ * Two separate things can invalidate a selection, and answering them in two
+ * effects is what let a bad state through: one effect kept the choice on a day
+ * the provider actually works (keyed on the provider), the other pulled it back
+ * into the window after midnight (keyed on the date). The second could fire
+ * without the first, parking the selection on a day the doctor is off — a chip
+ * rendered "Off" and highlighted at once, and still bookable.
+ *
+ *   • `selected` is still in the window AND on a working day → keep it.
+ *   • otherwise → the first working day in the window.
+ *   • no working days recorded → every day counts as working.
+ *
+ * Returns null only when `days` is empty.
+ */
+export function resolveSelectedDate(
+  days: DayCell[],
+  selected: string,
+  workingDays?: string[] | null,
+): string | null {
+  const wd = Array.isArray(workingDays) && workingDays.length ? workingDays : null;
+  const cur = days.find(d => d.full === selected);
+  if (cur && (!wd || wd.includes(cur.dayKey))) return selected;
+  const first = wd ? days.find(d => wd.includes(d.dayKey)) : days[0];
+  return first ? first.full : null;
+}
+
 /** Combine a YYYY-MM-DD date and an "hh:mm AM/PM" slot into a local Date, or null. */
 export function slotDateTime(dateStr: string, slot: string): Date | null {
   const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec((dateStr || '').trim());
