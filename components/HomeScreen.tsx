@@ -148,13 +148,16 @@ export default function HomeScreen() {
     });
   }, []));
 
-  // Gated on `user`, not fired on mount. /payment/pass/ is IsAuthenticated and
-  // is NOT in api.ts's PUBLIC_ROUTES, so calling it before anyone logs in would
-  // 401 and drag the launch path into the refresh-retry flow — the same trap
-  // the /app-version/ carve-out exists to avoid. A failure of any kind (old
-  // backend with no endpoint, offline, feature off) simply means no pass block.
+  // /payment/pass/ is AllowAny on the backend now (web PR #68, so the offer
+  // can be advertised pre-login) — an anonymous call gets the real `enabled`
+  // + price/bookings/days with `pass: null`, never a 401, so there's no more
+  // refresh-retry trap to dodge by gating on `user`. Still keyed on `[user]`
+  // so logging in refetches and picks up whatever pass this patient actually
+  // holds — api.ts only attaches a token when one exists in storage, public
+  // route or not, so an authenticated call is unaffected. A failure of any
+  // kind (old backend with no endpoint, offline, feature off) simply means
+  // no pass block, same as before.
   useEffect(() => {
-    if (!user) { setPassData(null); return; }
     let cancelled = false;
     API.get('/payment/pass/')
       .then(({ data }) => { if (!cancelled) setPassData(data); })
