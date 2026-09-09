@@ -125,6 +125,11 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   const [loading,       setLoading]      = useState(false);
   const [doctorSlots,   setDoctorSlots]  = useState<string[]>([]);
   const [slotsLoading,  setSlotsLoading] = useState(false);
+  // A ₹5 order that was paid but refused at verify time because the target
+  // slot was taken (409 retryable) — still redeemable against a different
+  // slot, no new charge. Mirrors MyBookings.js's `unusedOrderId` on the
+  // website; see confirmReschedule below.
+  const [unusedOrderId, setUnusedOrderId] = useState<string | null>(null);
   const payBtnDisabled = useRef(false);
 
   // Calendar navigation state — defaults to the current month
@@ -140,6 +145,10 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setSelectedSlot('');
     setWebviewHtml('');
     setDoctorSlots([]);
+    // The order's tags bind only the user and the plan, not this specific
+    // booking — nothing stops a stale unused order being redeemed against
+    // whatever the modal targets next. Drop it every time the modal opens.
+    setUnusedOrderId(null);
     payBtnDisabled.current = false;
     setCalYear(today.getFullYear());
     setCalMonth(today.getMonth());
@@ -204,9 +213,60 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setStep('slot');
   };
 
+  // Redeem a PAID ₹5 order against `date`/`slot`. Shared by the fresh-payment
+  // path (handleMessage's SUCCESS branch) and the retry path below (when
+  // unusedOrderId is set) so there is exactly one place that reads the
+  // verify response — mirrors confirmReschedule in the website's
+  // MyBookings.js. A 409 with retryable:true means the slot was taken and
+  // the server wrote no ReschedulePayment row, so the order is still
+  // redeemable; keep it for the next attempt instead of charging again.
+  const confirmReschedule = async (orderId: string, date: string, slot: string) => {
+    try {
+      const { data } = await API.post('/payment/verify/', {
+        order_id: orderId,
+        booking: {
+          booking_id: booking.id,
+          date,
+          slot,
+        },
+      });
+
+      if (data.success) {
+        setUnusedOrderId(null);
+        Alert.alert(
+          t('rs_done'),
+          t('rs_moved_to', { date, slot }),
+          [{ text: t('ok'), onPress: () => { onSuccess(); onClose(); } }],
+        );
+      } else {
+        Alert.alert(t('rs_failed'), data.message || t('rs_verify_failed'));
+        setStep('slot');
+      }
+    } catch (e: any) {
+      const res = e?.response;
+      if (res?.status === 409 && res?.data?.retryable) {
+        // Keep the modal on the slot picker: choosing another slot re-verifies
+        // this same order at no extra charge.
+        setUnusedOrderId(res.data.order_id || orderId);
+        Alert.alert(
+          t('rs_failed'),
+          `${res.data.message || 'That slot is no longer available.'} Pick another slot — you will not be charged again.`,
+        );
+        setStep('slot');
+        return;
+      }
+      const errMsg = res?.data?.message || e?.message || 'Verification error. Contact support.';
+      Alert.alert(t('error'), errMsg);
+      setStep('slot');
+    }
+  };
+
   // ── Step 2 → 3: slot selected ──
   // Free path (doctor-unavailable): reschedule directly, no payment.
-  // Paid path: create a Razorpay order and open the checkout WebView.
+  // Already-paid path: a previous attempt was refused for this slot being
+  //   full, so re-verify the same order against the new pick instead of
+  //   creating (and paying for) a second one.
+  // Fresh paid path: create a Razorpay order and open the checkout WebView.
   const handleSlotSelect = async (slot: string) => {
     if (payBtnDisabled.current) return;
     payBtnDisabled.current = true;
@@ -233,11 +293,30 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       return;
     }
 
+    if (unusedOrderId) {
+      setStep('verifying');
+      try {
+        await confirmReschedule(unusedOrderId, selectedDate, slot);
+      } finally {
+        setLoading(false);
+        payBtnDisabled.current = false;
+      }
+      return;
+    }
+
     try {
+      // booking_id/date/slot let the server reject a full or expired slot
+      // BEFORE taking the fee (see payments/views.py CreateOrderView on the
+      // backend) — without them a patient pays ₹5 and only then finds out the
+      // slot was refused, same as the website hit before it started sending
+      // these. Additive on the server, so this is safe to add on its own.
       const { data } = await API.post('/payment/create-order/', {
-        amount:   RESCHEDULE_FEE,
-        currency: 'INR',
-        notes:    { type: 'reschedule', booking_id: booking.id },
+        amount:     RESCHEDULE_FEE,
+        currency:   'INR',
+        booking_id: booking.id,
+        date:       selectedDate,
+        slot,
+        notes:      { type: 'reschedule', booking_id: booking.id },
       });
 
       if (!data.order_id) throw new Error('No order_id returned from server.');
@@ -381,35 +460,19 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     }
 
     if (msg.type === 'SUCCESS') {
-      setStep('verifying');
-      try {
-        const { data } = await API.post('/payment/verify/', {
-          // Razorpay contract: only the order_id we checked out with. The
-          // server confirms the payment with Razorpay itself.
-          order_id: msg.orderId,
-          // Backend _handle_reschedule reads from booking: {}
-          booking: {
-            booking_id: booking.id,
-            date:       selectedDate,
-            slot:       selectedSlot,
-          },
-        });
-
-        if (data.success) {
-          Alert.alert(
-            t('rs_done'),
-            t('rs_moved_to', { date: selectedDate, slot: selectedSlot }),
-            [{ text: t('ok'), onPress: () => { onSuccess(); onClose(); } }],
-          );
-        } else {
-          Alert.alert(t('rs_failed'), data.message || t('rs_verify_failed'));
-          setStep('slot');
-        }
-      } catch (e: any) {
-        const errMsg = e?.response?.data?.message || e?.message || 'Verification error. Contact support.';
-        Alert.alert(t('error'), errMsg);
+      // orderId is optional on the parsed type (defensive parsing of an
+      // untrusted WebView message) — a SUCCESS with none is malformed, not
+      // a verify failure the retry path should handle.
+      if (!msg.orderId) {
+        Alert.alert(t('error'), 'Payment confirmation was incomplete. Contact support.');
         setStep('slot');
+        return;
       }
+      setStep('verifying');
+      // Razorpay contract: only the order_id we checked out with. The server
+      // confirms the payment with Razorpay itself. Shared with the retry
+      // path — see confirmReschedule above.
+      await confirmReschedule(msg.orderId, selectedDate, selectedSlot);
     }
   };
 
