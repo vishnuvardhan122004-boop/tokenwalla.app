@@ -234,10 +234,18 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     }
 
     try {
+      // booking_id/date/slot let the server reject a full or expired slot
+      // BEFORE taking the fee (see payments/views.py CreateOrderView on the
+      // backend) — without them a patient pays ₹5 and only then finds out the
+      // slot was refused, same as the website hit before it started sending
+      // these. Additive on the server, so this is safe to add on its own.
       const { data } = await API.post('/payment/create-order/', {
-        amount:   RESCHEDULE_FEE,
-        currency: 'INR',
-        notes:    { type: 'reschedule', booking_id: booking.id },
+        amount:     RESCHEDULE_FEE,
+        currency:   'INR',
+        booking_id: booking.id,
+        date:       selectedDate,
+        slot,
+        notes:      { type: 'reschedule', booking_id: booking.id },
       });
 
       if (!data.order_id) throw new Error('No order_id returned from server.');
