@@ -81,7 +81,7 @@ export default function ContactScreen() {
           <Text style={styles.sectionTitle}>{t('ct_support_hours')}</Text>
           {[
             { day: t('ct_mon_fri'),  time: '9:00 AM – 6:00 PM' },
-            { day: t('ct_saturday'), time: '9:00 AM – 1:00 PM' },
+            { day: t('ct_saturday'), time: t('ct_closed')       },
             { day: t('ct_sunday'),   time: t('ct_closed')       },
           ].map(h => (
             <View key={h.day} style={styles.hoursRow}>
