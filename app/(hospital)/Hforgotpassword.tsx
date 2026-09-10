@@ -94,6 +94,7 @@ export default function HforgotPassword() {
   const [step,      setStep]      = useState(1);
   const [mobile,    setMobile]    = useState('');
   const [otp,       setOtp]       = useState('');
+  const [otpToken,  setOtpToken]  = useState('');
   const [password,  setPassword]  = useState('');
   const [confirm,   setConfirm]   = useState('');
   const [showPass,  setShowPass]  = useState(false);
@@ -169,6 +170,7 @@ export default function HforgotPassword() {
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });
       if (data.verified) {
+        setOtpToken(data.otp_token || '');
         setSuccess('OTP verified! Now set your new password.');
         setStep(3);
       } else {
@@ -195,7 +197,7 @@ export default function HforgotPassword() {
     setError('');
     setSuccess('');
     try {
-      await API.post('/hospitals/reset-password/', { mobile, otp, password });
+      await API.post('/hospitals/reset-password/', { mobile, otp, password, otp_token: otpToken });
       setDone(true);
       startProgressBar();
       setTimeout(() => {

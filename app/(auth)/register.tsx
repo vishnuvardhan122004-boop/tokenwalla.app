@@ -26,6 +26,7 @@ export default function RegisterScreen() {
   const [otp,         setOtp]         = useState('');
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpToken,    setOtpToken]    = useState('');
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [loading,     setLoading]     = useState(false);
   const [showPass,    setShowPass]    = useState(false);
@@ -50,7 +51,7 @@ export default function RegisterScreen() {
   const verifyOTP = async () => {
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });  // ← fixed endpoint
-      if (data.verified) setOtpVerified(true);
+      if (data.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); }
       else setError('Invalid OTP. Try again.');
     } catch {
       setError('Invalid OTP. Try again.');
@@ -64,7 +65,7 @@ export default function RegisterScreen() {
     if (!otpVerified)         { setError('Please verify your mobile first'); return; }
     setLoading(true); setError('');
     try {
-      const { data } = await API.post('/auth/register/', { name, mobile, password });
+      const { data } = await API.post('/auth/register/', { name, mobile, password, otp_token: otpToken });
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
