@@ -152,6 +152,7 @@ export default function HospitalProfile() {
   const [otp,         setOtp]         = useState('');
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpToken,    setOtpToken]    = useState('');
   const [otpLoading,  setOtpLoading]  = useState(false);
 
   useEffect(() => {
@@ -211,7 +212,7 @@ export default function HospitalProfile() {
     setOtpLoading(true);
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile: form.mobile.trim(), otp: otp.trim() });
-      if (data?.verified) { setOtpVerified(true); Alert.alert('Verified', 'New mobile number verified.'); }
+      if (data?.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); Alert.alert('Verified', 'New mobile number verified.'); }
       else Alert.alert('Invalid OTP', 'Please check and try again.');
     } catch (e: any) {
       Alert.alert('Invalid OTP', e?.response?.data?.message || 'Please try again.');
@@ -320,7 +321,7 @@ export default function HospitalProfile() {
         close_time:   form.close_time.trim(),
         services,
       };
-      if (mobileChanged) body.mobile = form.mobile.trim();
+      if (mobileChanged) { body.mobile = form.mobile.trim(); body.otp_token = otpToken; }
       const { data } = await API.patch(`/hospitals/${hospital.id}/`, body);
 
       // Upload banner / logo (multipart) if changed.

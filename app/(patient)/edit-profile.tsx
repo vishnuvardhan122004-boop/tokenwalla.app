@@ -48,6 +48,7 @@ export default function EditProfile() {
   const [otp,         setOtp]         = useState('');
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpToken,    setOtpToken]    = useState('');
   const [otpLoading,  setOtpLoading]  = useState(false);
 
   // Reloaded on every focus, not once on mount. This is a Tabs.Screen
@@ -68,7 +69,7 @@ export default function EditProfile() {
       // it checks a per-number `otp_verified:<mobile>` flag and consumes it,
       // so the only result was a confusing "verify the new mobile" 400 on a
       // screen that showed the number as already verified.
-      setOtp(''); setOtpSent(false); setOtpVerified(false);
+      setOtp(''); setOtpSent(false); setOtpVerified(false); setOtpToken('');
       setLoaded(true);
     })();
   // router is stable; refetching is driven by focus, not by deps.
@@ -97,7 +98,7 @@ export default function EditProfile() {
     setOtpLoading(true);
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile: mobile.trim(), otp: otp.trim() });
-      if (data?.verified) { setOtpVerified(true); Alert.alert(t('ep_verified_title'), t('ep_verified_msg')); }
+      if (data?.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); Alert.alert(t('ep_verified_title'), t('ep_verified_msg')); }
       else Alert.alert(t('ep_invalid_otp'), t('ep_check_try_again'));
     } catch (e: any) {
       Alert.alert(t('ep_invalid_otp'), e?.response?.data?.message || t('ep_try_again'));
@@ -113,7 +114,7 @@ export default function EditProfile() {
     setSaving(true);
     try {
       const body: Record<string, string> = { name: name.trim() };
-      if (mobileChanged) body.mobile = mobile.trim();
+      if (mobileChanged) { body.mobile = mobile.trim(); body.otp_token = otpToken; }
       const { data } = await API.patch('/auth/me/', body);
 
       // Persist updated user locally

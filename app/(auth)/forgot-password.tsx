@@ -21,6 +21,7 @@ export default function ForgotPasswordScreen() {
   const [step,     setStep]     = useState(1);
   const [mobile,   setMobile]   = useState('');
   const [otp,      setOtp]      = useState('');
+  const [otpToken, setOtpToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirm,  setConfirm]  = useState('');
   const [showPass,    setShowPass]    = useState(false);
@@ -44,7 +45,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true); setError(''); setSuccess('');
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });
-      if (data.verified) { setStep(3); setSuccess('OTP verified! Set new password.'); }
+      if (data.verified) { setOtpToken(data.otp_token || ''); setStep(3); setSuccess('OTP verified! Set new password.'); }
       else setError('Invalid OTP.');
     } catch { setError('Invalid OTP.'); }
     finally { setLoading(false); }
@@ -55,7 +56,7 @@ export default function ForgotPasswordScreen() {
     if (password !== confirm)   { setError('Passwords do not match'); return; }
     setLoading(true); setError('');
     try {
-      await API.post('/auth/reset-password/', { mobile, otp, password });
+      await API.post('/auth/reset-password/', { mobile, otp, password, otp_token: otpToken });
       setSuccess('Password reset! Redirecting…');
       setTimeout(() => router.replace('./login'), 1500);
     } catch (e) { setError((e as any)?.response?.data?.message || 'Reset failed.'); }

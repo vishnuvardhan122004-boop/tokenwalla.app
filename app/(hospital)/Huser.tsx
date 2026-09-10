@@ -97,6 +97,7 @@ export default function HospitalRegisterScreen() {
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
+  const [otpToken,    setOtpToken]    = useState('');
 
   const [pickerOpen,  setPickerOpen]  = useState(false);
 
@@ -166,6 +167,7 @@ export default function HospitalRegisterScreen() {
       });
       if (data.verified) {
         setOtpVerified(true);
+        setOtpToken(data.otp_token || '');
         setGlobalInfo('Mobile verified.');
       } else {
         setGlobalError('Invalid OTP. Please try again.');
@@ -196,6 +198,7 @@ export default function HospitalRegisterScreen() {
         longitude: form.longitude,
         mobile:    form.mobile.trim(),
         password:  form.password,
+        otp_token: otpToken,
       });
 
       setGlobalInfo('');
