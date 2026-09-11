@@ -229,7 +229,7 @@ export default function HospitalPayments() {
   const cards = [
     { label: 'Patients Paid',      val: totals.total_collected,       color: Colors.successText, hint: 'Consultation + TokenWalla charges, net of refunds' },
     { label: 'Doctor Fees',        val: totals.doctor_fees_collected, color: Colors.blue600,     hint: "Your doctors' fees, paid to them in full" },
-    { label: 'Pending Payout',     val: totals.pending_payout,        color: Colors.warningText, hint: 'Earned on completed visits, not yet transferred' },
+    { label: 'Pending Payout',     val: totals.pending_payout,        color: Colors.warningText, hint: 'Collected online, not yet transferred to the doctor' },
     { label: 'Paid Out',           val: totals.paid_amount,           color: Colors.blue400,     hint: 'Already transferred to doctor / hospital accounts' },
     { label: 'TokenWalla Charges', val: totals.service_total,         color: Colors.gray500,     hint: 'Paid by patients. Not deducted from you.' },
   ];
