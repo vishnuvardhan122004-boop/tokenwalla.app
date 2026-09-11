@@ -605,7 +605,7 @@ export default function PaymentScreen() {
               {Number(breakdown.offline_doctor_fee) > 0 ? (
                 <View style={styles.feeRow}>
                   <View style={styles.feeLabelRow}>
-                    <Text style={styles.feeLabel}>{t('pay_consultation_fee')}</Text>
+                    <Text style={styles.feeLabel}>{t(isScan ? 'pay_test_fee' : 'pay_consultation_fee')}</Text>
                     <View style={styles.clinicTag}>
                       <Text style={styles.clinicTagText}>{t('dr_pay_at_clinic_tag')}</Text>
                     </View>
@@ -614,7 +614,7 @@ export default function PaymentScreen() {
                 </View>
               ) : (
                 <View style={styles.feeRow}>
-                  <Text style={styles.feeLabel}>{t('pay_consultation_fee')}</Text>
+                  <Text style={styles.feeLabel}>{t(isScan ? 'pay_test_fee' : 'pay_consultation_fee')}</Text>
                   <Text style={styles.feeValue}>₹{money(breakdown.doctor_fee)}</Text>
                 </View>
               )}
