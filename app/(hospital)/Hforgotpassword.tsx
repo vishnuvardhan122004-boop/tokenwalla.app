@@ -35,7 +35,7 @@ const FEATURES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; 
   {
     icon: 'chatbox-ellipses-outline',
     title: 'SMS OTP',
-    desc: 'Answer the automated sms and note the OTP spoken to you',
+    desc: 'Check the text message and note the 6-digit code',
   },
   {
     icon: 'business-outline',
@@ -286,7 +286,7 @@ export default function HforgotPassword() {
               <Text style={s.accent}>Hospital Password</Text>
             </Text>
             <Text style={s.panelSub}>
-              Forgot your hospital login password? We'll verify your identity via a voice call and get you back in securely.
+              Forgot your hospital login password? We'll verify your identity via SMS and get you back in securely.
             </Text>
           </View>
 
@@ -340,7 +340,7 @@ export default function HforgotPassword() {
             <View style={s.card}>
               <Text style={s.formTitle}>Forgot Password?</Text>
               <Text style={s.formSub}>
-                Enter your hospital's registered mobile number. We'll call you with a one-time code.
+                Enter your hospital's registered mobile number. We'll text you a one-time code.
               </Text>
 
               {!!error && <Alert type="error" msg={error} />}
@@ -417,7 +417,7 @@ export default function HforgotPassword() {
               {!!error   && <Alert type="error"   msg={error}   />}
               {!!success && <Alert type="success" msg={success} />}
 
-              <Text style={s.fieldLabel}>OTP from Voice Call</Text>
+              <Text style={s.fieldLabel}>OTP from SMS</Text>
               <TextInput
                 style={s.otpInput}
                 placeholder="• • • •"
