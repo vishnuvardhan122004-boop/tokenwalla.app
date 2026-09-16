@@ -61,6 +61,13 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     if (!name.trim())        { setError('Enter your name'); return; }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    // Django's NumericPasswordValidator rejects this server-side regardless;
+    // catching it here saves the round trip for the one common case that's
+    // cheap and exact to check. CommonPasswordValidator (a large word list)
+    // and the mobile/name similarity check are NOT duplicated here — the
+    // server's rejection message is now actually shown below, so a round
+    // trip still ends with the real reason instead of a guess.
+    if (/^\d+$/.test(password)) { setError('Password cannot be entirely numbers'); return; }
     if (password !== confirm) { setError('Passwords do not match'); return; }
     if (!otpVerified)         { setError('Please verify your mobile first'); return; }
     setLoading(true); setError('');
@@ -71,8 +78,15 @@ export default function RegisterScreen() {
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(patient)/home');
     } catch (e: unknown) {  // ← fixed TS error
-      const err = e as { response?: { data?: { message?: string } } };
-      setError(err?.response?.data?.message || 'Registration failed. Try again.');
+      // RegisterSerializer.validate() raises a field-keyed DRF error
+      // ({password: [...]} or {mobile: [...]}) for a password-strength
+      // rejection or a duplicate mobile — not the {message} shape every
+      // other auth endpoint uses. Missing this meant the real reason the
+      // server already computed (too common / all-numeric / too similar to
+      // the mobile number) fell straight to the generic fallback below.
+      const err = e as { response?: { data?: { message?: string; password?: string[]; mobile?: string[] } } };
+      const data = err?.response?.data;
+      setError(data?.password?.[0] || data?.mobile?.[0] || data?.message || 'Registration failed. Try again.');
     } finally {
       setLoading(false);
     }
