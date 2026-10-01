@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import API from '../../services/api';
+import API, { apiMessage } from '../../services/api';
+import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -37,7 +38,7 @@ export default function ForgotPasswordScreen() {
       await API.post('/auth/otp/request/', { mobile, via: 'sms' });
       setSuccess(`SMS sent to ${mobile}. Note the OTP.`);
       setStep(2);
-    } catch { setError('Failed to send OTP. Try again.'); }
+    } catch (e) { setError(apiMessage(e, 'Failed to send OTP. Try again.')); }
     finally { setLoading(false); }
   };
 
@@ -47,19 +48,20 @@ export default function ForgotPasswordScreen() {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });
       if (data.verified) { setOtpToken(data.otp_token || ''); setStep(3); setSuccess('OTP verified! Set new password.'); }
       else setError('Invalid OTP.');
-    } catch { setError('Invalid OTP.'); }
+    } catch (e) { setError(apiMessage(e, 'Invalid OTP.')); }
     finally { setLoading(false); }
   };
 
   const resetPassword = async () => {
-    if (password.length < 6)   { setError('Min 6 characters'); return; }
+    const complaint = passwordComplaint(password);
+    if (complaint) { setError(complaint); return; }
     if (password !== confirm)   { setError('Passwords do not match'); return; }
     setLoading(true); setError('');
     try {
       await API.post('/auth/reset-password/', { mobile, otp, password, otp_token: otpToken });
       setSuccess('Password reset! Redirecting…');
       setTimeout(() => router.replace('./login'), 1500);
-    } catch (e) { setError((e as any)?.response?.data?.message || 'Reset failed.'); }
+    } catch (e) { setError(apiMessage(e, 'Reset failed.')); }
     finally { setLoading(false); }
   };
 
@@ -134,7 +136,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.label}>New Password</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="Min 6 characters" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
+              <TextInput style={styles.input} placeholder="6+ chars, a letter and a number" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
               <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
                 <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
               </TouchableOpacity>

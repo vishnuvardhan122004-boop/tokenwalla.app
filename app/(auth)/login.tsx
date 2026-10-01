@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isAxiosError } from 'axios';
 import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useState } from 'react';
 import {
@@ -13,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import API from '../../services/api';
+import API, { apiMessage } from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -76,12 +75,8 @@ export default function LoginScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
-    } catch (e: unknown) {
-      if (isAxiosError(e)) {
-        setError(e.response?.data?.message || 'OTP failed. Please try again.');
-      } else {
-        setError('OTP failed. Please try again.');
-      }
+    } catch (e) {
+      setError(apiMessage(e, 'OTP failed. Please try again.'));
     } finally {
       setOtpLoading(false);
     }
@@ -98,12 +93,8 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       if (data.user?.role === 'hospital') router.replace('/(hospital)/dashboard');
       else router.replace('/(patient)/home');
-    } catch (e: unknown) {
-      if (isAxiosError(e)) {
-        setError(e.response?.data?.message || 'Invalid credentials');
-      } else {
-        setError('Invalid credentials');
-      }
+    } catch (e) {
+      setError(apiMessage(e, 'Invalid credentials'));
     } finally {
       setLoading(false);
     }

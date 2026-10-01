@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import API from '../../services/api';
+import API, { apiMessage } from '../../services/api';
+import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -41,8 +42,8 @@ export default function RegisterScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });  // ← fixed endpoint
       setOtpSent(true);
-    } catch {
-      setError('OTP failed. Try again.');
+    } catch (e) {
+      setError(apiMessage(e, 'OTP failed. Try again.'));
     } finally {
       setOtpLoading(false);
     }
@@ -53,21 +54,19 @@ export default function RegisterScreen() {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });  // ← fixed endpoint
       if (data.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); }
       else setError('Invalid OTP. Try again.');
-    } catch {
-      setError('Invalid OTP. Try again.');
+    } catch (e) {
+      setError(apiMessage(e, 'Invalid OTP. Try again.'));
     }
   };
 
   const handleRegister = async () => {
     if (!name.trim())        { setError('Enter your name'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
-    // Django's NumericPasswordValidator rejects this server-side regardless;
-    // catching it here saves the round trip for the one common case that's
-    // cheap and exact to check. CommonPasswordValidator (a large word list)
-    // and the mobile/name similarity check are NOT duplicated here — the
-    // server's rejection message is now actually shown below, so a round
-    // trip still ends with the real reason instead of a guess.
-    if (/^\d+$/.test(password)) { setError('Password cannot be entirely numbers'); return; }
+    // All-numeric and the letter+digit minimum are checked here; the common-
+    // password list and the mobile/name similarity rule are NOT duplicated —
+    // the server owns those, and apiMessage now shows what it says. Same rule
+    // as the website's profilecreate.js, shared with the password reset.
+    const complaint = passwordComplaint(password);
+    if (complaint) { setError(complaint); return; }
     if (password !== confirm) { setError('Passwords do not match'); return; }
     if (!otpVerified)         { setError('Please verify your mobile first'); return; }
     setLoading(true); setError('');
@@ -77,16 +76,10 @@ export default function RegisterScreen() {
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(patient)/home');
-    } catch (e: unknown) {  // ← fixed TS error
-      // RegisterSerializer.validate() raises a field-keyed DRF error
-      // ({password: [...]} or {mobile: [...]}) for a password-strength
-      // rejection or a duplicate mobile — not the {message} shape every
-      // other auth endpoint uses. Missing this meant the real reason the
-      // server already computed (too common / all-numeric / too similar to
-      // the mobile number) fell straight to the generic fallback below.
-      const err = e as { response?: { data?: { message?: string; password?: string[]; mobile?: string[] } } };
-      const data = err?.response?.data;
-      setError(data?.password?.[0] || data?.mobile?.[0] || data?.message || 'Registration failed. Try again.');
+    } catch (e) {
+      // apiMessage reads the field-keyed {password:[...]}/{mobile:[...]} body
+      // RegisterSerializer returns, which carries no `message` key.
+      setError(apiMessage(e, 'Registration failed. Try again.'));
     } finally {
       setLoading(false);
     }
@@ -181,7 +174,7 @@ export default function RegisterScreen() {
               <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.fieldHint}>Use at least 6 characters.</Text>
+          <Text style={styles.fieldHint}>At least 6 characters, with a letter and a number.</Text>
 
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputRow}>
