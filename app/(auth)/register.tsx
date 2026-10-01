@@ -61,6 +61,10 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim())        { setError('Enter your name'); return; }
+    // All-numeric and the letter+digit minimum are checked here; the common-
+    // password list and the mobile/name similarity rule are NOT duplicated —
+    // the server owns those, and apiMessage now shows what it says. Same rule
+    // as the website's profilecreate.js, shared with the password reset.
     const complaint = passwordComplaint(password);
     if (complaint) { setError(complaint); return; }
     if (password !== confirm) { setError('Passwords do not match'); return; }
@@ -73,6 +77,8 @@ export default function RegisterScreen() {
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(patient)/home');
     } catch (e) {
+      // apiMessage reads the field-keyed {password:[...]}/{mobile:[...]} body
+      // RegisterSerializer returns, which carries no `message` key.
       setError(apiMessage(e, 'Registration failed. Try again.'));
     } finally {
       setLoading(false);
