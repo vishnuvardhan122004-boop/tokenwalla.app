@@ -538,7 +538,12 @@ export default function DoctorsScreen() {
               : t('search_placeholder')}
             placeholderTextColor={Colors.gray400}
             value={search}
-            onChangeText={setSearch}
+            // Scrolling the list clears searchFocused, but the input often
+            // keeps native focus — so onFocus never fires again and the
+            // typeahead stays hidden however many times it's tapped. Press and
+            // typing are the other two ways a patient says they want it back.
+            onChangeText={v => { setSearch(v); setSearchFocused(true); }}
+            onPressIn={() => setSearchFocused(true)}
             onFocus={() => setSearchFocused(true)}
             autoCorrect={false}
             returnKeyType="search"
