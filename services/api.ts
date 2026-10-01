@@ -115,15 +115,29 @@ export async function logoutUser() {
 /**
  * The reason the server gave, or `fallback` if it didn't give one.
  *
- * Every auth endpoint answers a refusal with `{message}` — the 60-second OTP
- * cooldown, the per-number and per-IP daily caps, an unverified mobile. A bare
- * `catch` drops all of that and leaves the patient (and us) with a generic
- * retry prompt that names no cause.
+ * Two shapes, and missing the second one is what made every rejected
+ * registration read as "Registration failed. Try again.":
+ *
+ *   {message}                      — what every auth VIEW returns (the OTP
+ *                                    cooldown, the daily caps, bad credentials)
+ *   {mobile: ["..."], password: …} — what a SERIALIZER returns. /auth/register/
+ *                                    rejects a duplicate mobile and a weak
+ *                                    password this way, with no `message` at all.
  */
 export function apiMessage(e: unknown, fallback: string): string {
   if (!axios.isAxiosError(e)) return fallback;
-  const data = e.response?.data as { message?: string; detail?: string } | undefined;
-  return data?.message || data?.detail || fallback;
+  const data = e.response?.data;
+  if (!data || typeof data !== 'object') return fallback;
+
+  const body = data as Record<string, unknown>;
+  if (typeof body.message === 'string' && body.message) return body.message;
+  if (typeof body.detail === 'string' && body.detail) return body.detail;
+
+  for (const value of Object.values(body)) {
+    if (typeof value === 'string' && value) return value;
+    if (Array.isArray(value) && typeof value[0] === 'string' && value[0]) return value[0];
+  }
+  return fallback;
 }
 
 export async function getUser() {

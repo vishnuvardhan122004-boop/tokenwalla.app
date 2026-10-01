@@ -38,8 +38,30 @@ describe('apiMessage', () => {
     expect(apiMessage(undefined, 'OTP failed.')).toBe('OTP failed.');
   });
 
-  it('ignores a field-keyed validation body — those are per-field, not global', () => {
-    const e = axiosErr(400, { password: ['This password is too common.'] });
-    expect(apiMessage(e, 'Registration failed.')).toBe('Registration failed.');
+  // /auth/register/ rejects through RegisterSerializer, which answers with
+  // field keys and no `message`. Reading only `message` is what made every
+  // rejected registration say "Registration failed. Try again." instead of
+  // naming the duplicate mobile or the weak password.
+  it('reads a field-keyed serializer body', () => {
+    const dup = axiosErr(400, { mobile: ['Mobile already registered.'] });
+    expect(apiMessage(dup, 'Registration failed.')).toBe('Mobile already registered.');
+
+    const weak = axiosErr(400, { password: ['This password is too common.'] });
+    expect(apiMessage(weak, 'Registration failed.')).toBe('This password is too common.');
+
+    const nonField = axiosErr(400, { non_field_errors: ['Something is off.'] });
+    expect(apiMessage(nonField, 'x')).toBe('Something is off.');
+  });
+
+  it('prefers message over a field key when both are present', () => {
+    const e = axiosErr(400, { password: ['too common'], message: 'Verify your mobile first.' });
+    expect(apiMessage(e, 'x')).toBe('Verify your mobile first.');
+  });
+
+  it('falls back rather than returning a non-string field value', () => {
+    expect(apiMessage(axiosErr(400, { count: 3, ok: false }), 'Registration failed.'))
+      .toBe('Registration failed.');
+    expect(apiMessage(axiosErr(400, 'plain text body'), 'Registration failed.'))
+      .toBe('Registration failed.');
   });
 });
