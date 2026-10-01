@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
+import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -52,7 +53,8 @@ export default function ForgotPasswordScreen() {
   };
 
   const resetPassword = async () => {
-    if (password.length < 6)   { setError('Min 6 characters'); return; }
+    const complaint = passwordComplaint(password);
+    if (complaint) { setError(complaint); return; }
     if (password !== confirm)   { setError('Passwords do not match'); return; }
     setLoading(true); setError('');
     try {
@@ -134,7 +136,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.label}>New Password</Text>
             <View style={styles.inputRow}>
               <Ionicons name="lock-closed-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="Min 6 characters" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
+              <TextInput style={styles.input} placeholder="6+ chars, a letter and a number" placeholderTextColor={Colors.gray400} secureTextEntry={!showPass} value={password} onChangeText={setPassword} />
               <TouchableOpacity onPress={() => setShowPass(v => !v)} hitSlop={8}>
                 <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
               </TouchableOpacity>

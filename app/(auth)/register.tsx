@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
+import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -60,7 +61,8 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!name.trim())        { setError('Enter your name'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    const complaint = passwordComplaint(password);
+    if (complaint) { setError(complaint); return; }
     if (password !== confirm) { setError('Passwords do not match'); return; }
     if (!otpVerified)         { setError('Please verify your mobile first'); return; }
     setLoading(true); setError('');
@@ -166,7 +168,7 @@ export default function RegisterScreen() {
               <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.fieldHint}>Use at least 6 characters.</Text>
+          <Text style={styles.fieldHint}>At least 6 characters, with a letter and a number.</Text>
 
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputRow}>
