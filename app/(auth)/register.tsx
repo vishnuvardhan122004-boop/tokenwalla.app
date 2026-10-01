@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import API from '../../services/api';
+import API, { apiMessage } from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 
@@ -41,8 +41,8 @@ export default function RegisterScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });  // ← fixed endpoint
       setOtpSent(true);
-    } catch {
-      setError('OTP failed. Try again.');
+    } catch (e) {
+      setError(apiMessage(e, 'OTP failed. Try again.'));
     } finally {
       setOtpLoading(false);
     }
@@ -53,8 +53,8 @@ export default function RegisterScreen() {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });  // ← fixed endpoint
       if (data.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); }
       else setError('Invalid OTP. Try again.');
-    } catch {
-      setError('Invalid OTP. Try again.');
+    } catch (e) {
+      setError(apiMessage(e, 'Invalid OTP. Try again.'));
     }
   };
 
@@ -70,9 +70,8 @@ export default function RegisterScreen() {
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(patient)/home');
-    } catch (e: unknown) {  // ← fixed TS error
-      const err = e as { response?: { data?: { message?: string } } };
-      setError(err?.response?.data?.message || 'Registration failed. Try again.');
+    } catch (e) {
+      setError(apiMessage(e, 'Registration failed. Try again.'));
     } finally {
       setLoading(false);
     }

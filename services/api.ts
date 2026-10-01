@@ -112,6 +112,20 @@ export async function logoutUser() {
     router.replace('/(auth)/login'); // adjust to your actual login route
   }
 };
+/**
+ * The reason the server gave, or `fallback` if it didn't give one.
+ *
+ * Every auth endpoint answers a refusal with `{message}` — the 60-second OTP
+ * cooldown, the per-number and per-IP daily caps, an unverified mobile. A bare
+ * `catch` drops all of that and leaves the patient (and us) with a generic
+ * retry prompt that names no cause.
+ */
+export function apiMessage(e: unknown, fallback: string): string {
+  if (!axios.isAxiosError(e)) return fallback;
+  const data = e.response?.data as { message?: string; detail?: string } | undefined;
+  return data?.message || data?.detail || fallback;
+}
+
 export async function getUser() {
   try {
     const raw = await AsyncStorage.getItem('user');
