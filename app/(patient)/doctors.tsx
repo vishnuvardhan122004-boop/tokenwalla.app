@@ -451,7 +451,7 @@ export default function DoctorsScreen() {
         ...(doc.keywords || '').split(','),
       );
     }
-    return suggestKeywords(search, fromData.filter(Boolean), 6);
+    return suggestKeywords(search, fromData.filter(Boolean), 4);
   }, [searchFocused, doctors, search]);
 
   const renderDoctor = useCallback(
@@ -799,11 +799,11 @@ const styles = StyleSheet.create({
 
   // Search typeahead
   suggestBox:        { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, overflow: 'hidden', marginBottom: 10 },
-  suggestHeading:    { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray400, textTransform: 'uppercase', paddingHorizontal: 14, paddingTop: 11, paddingBottom: 3 },
-  suggestItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14 },
+  suggestHeading:    { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray400, textTransform: 'uppercase', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 2 },
+  suggestItem:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
   suggestItemBorder: { borderTopWidth: 1, borderTopColor: Colors.blue50 },
-  suggestItemMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9, paddingVertical: 11 },
-  suggestItemText:   { flex: 1, fontSize: 14, color: Colors.gray800 },
+  suggestItemMain:   { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7 },
+  suggestItemText:   { flex: 1, fontSize: 13, color: Colors.gray800 },
   suggestFill:       { transform: [{ rotate: '-45deg' }] },
 
   keywordScroll:        { flexGrow: 0, marginBottom: 10 },
