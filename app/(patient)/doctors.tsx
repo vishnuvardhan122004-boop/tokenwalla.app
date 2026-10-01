@@ -461,9 +461,58 @@ export default function DoctorsScreen() {
     [city, t, router],
   );
 
-  return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+  const renderCentre = useCallback(
+    ({ item: c }: { item: any }) => {
+      const prices = c.scans.map((sc: any) => sc.price || 0);
+      const from   = prices.length ? Math.min(...prices) : null;
+      const mods   = [...new Set(c.scans.map((sc: any) => sc.modality).filter(Boolean))].slice(0, 3);
+      return (
+        <TouchableOpacity
+          style={styles.centreCard}
+          activeOpacity={0.85}
+          onPress={() => router.push(`/(patient)/scan-center/${c.id}` as never)}
+        >
+          <View style={styles.centreTop}>
+            <View style={styles.centreIcon}>
+              <Ionicons
+                name={mode === BLOOD_CENTER ? 'water' : 'pulse'}
+                size={20} color={Colors.blue600} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.centreName} numberOfLines={1}>{c.name}</Text>
+              <Text style={styles.centreMeta} numberOfLines={1}>
+                {[c.city, mods.join(' · ')].filter(Boolean).join('  •  ')}
+              </Text>
+            </View>
+          </View>
 
+          {c.scans.length > 0 && (
+            <View style={styles.centreChips}>
+              {c.scans.slice(0, 3).map((sc: any) => (
+                <Text key={sc.id} style={styles.centreChip} numberOfLines={1}>{sc.name}</Text>
+              ))}
+              {c.scans.length > 3 && (
+                <Text style={styles.centreChipMore}>+{c.scans.length - 3}</Text>
+              )}
+            </View>
+          )}
+
+          <View style={styles.centreFooter}>
+            <Text style={styles.centreCount}>
+              {c.scans.length > 0
+                ? t(mode === BLOOD_CENTER ? 'tests_count' : 'scans_count', { count: c.scans.length })
+                : t('contact_the_centre')}
+            </Text>
+            {from != null && <Text style={styles.centreFrom}>{t('from_price', { price: from })}</Text>}
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [mode, t, router],
+  );
+
+  const listHeader = (
+    <>
       {/* ── HEADER ── */}
       <View style={styles.header}>
         <Text style={styles.title}>
@@ -645,124 +694,78 @@ export default function DoctorsScreen() {
           </TouchableOpacity>
         )}
       </View>
+    </>
+  );
 
-      {/* ── SCAN CENTRE LIST ── */}
-      {isCentreMode ? (
-        centresLoading ? (
-          <SkeletonList count={4} />
-        ) : filteredCentres.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons
-              name={mode === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
-              size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
-            <Text style={styles.emptyTitle}>
-              {t(mode === BLOOD_CENTER ? 'no_blood_centres' : 'no_scan_centres')}
-            </Text>
-            <Text style={styles.emptySub}>
-              {t('onboarding_partners')}
-            </Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredCentres}
-            keyExtractor={(item: any) => String(item.id)}
-            contentContainerStyle={{ padding: 16, gap: 14 }}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            onScrollBeginDrag={() => setSearchFocused(false)}
-            initialNumToRender={6}
-            maxToRenderPerBatch={8}
-            windowSize={7}
-            removeClippedSubviews
-            renderItem={({ item: c }: { item: any }) => {
-              const prices = c.scans.map((sc: any) => sc.price || 0);
-              const from   = prices.length ? Math.min(...prices) : null;
-              const mods   = [...new Set(c.scans.map((sc: any) => sc.modality).filter(Boolean))].slice(0, 3);
-              return (
-                <TouchableOpacity
-                  style={styles.centreCard}
-                  activeOpacity={0.85}
-                  onPress={() => router.push(`/(patient)/scan-center/${c.id}` as never)}
-                >
-                  <View style={styles.centreTop}>
-                    <View style={styles.centreIcon}>
-                      <Ionicons
-                        name={mode === BLOOD_CENTER ? 'water' : 'pulse'}
-                        size={20} color={Colors.blue600} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={styles.centreName} numberOfLines={1}>{c.name}</Text>
-                      <Text style={styles.centreMeta} numberOfLines={1}>
-                        {[c.city, mods.join(' · ')].filter(Boolean).join('  •  ')}
-                      </Text>
-                    </View>
-                  </View>
+  const listEmpty = isCentreMode ? (
+    centresLoading ? (
+      <SkeletonList count={4} />
+    ) : (
+      <View style={styles.emptyState}>
+        <Ionicons
+          name={mode === BLOOD_CENTER ? 'water-outline' : 'pulse-outline'}
+          size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
+        <Text style={styles.emptyTitle}>
+          {t(mode === BLOOD_CENTER ? 'no_blood_centres' : 'no_scan_centres')}
+        </Text>
+        <Text style={styles.emptySub}>
+          {t('onboarding_partners')}
+        </Text>
+      </View>
+    )
+  ) : loading ? (
+    // Skeletons, not a spinner: this list paints from cache almost
+    // immediately, and a full-screen spinner made the fast path feel
+    // slower than it is. Lists get skeletons; one-off transitions (the
+    // detail screen, checkout) keep the spinner — there the shape of what
+    // is coming isn't predictable enough for a placeholder to help.
+    <SkeletonList count={5} />
+  ) : error ? (
+    <View style={styles.emptyState}>
+      <Ionicons name="cloud-offline-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
+      <Text style={styles.emptyTitle}>{t('cant_load_doctors')}</Text>
+      <Text style={styles.emptySub}>{t('connection_error')}</Text>
+      <TouchableOpacity style={styles.retryBtn} onPress={loadDoctors}>
+        <Text style={styles.retryBtnText}>{t('retry')}</Text>
+      </TouchableOpacity>
+    </View>
+  ) : (
+    <View style={styles.emptyState}>
+      <Ionicons name="search-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
+      <Text style={styles.emptyTitle}>{t('no_doctors_found')}</Text>
+      <Text style={styles.emptySub}>{t('adjust_search')}</Text>
+    </View>
+  );
 
-                  {c.scans.length > 0 && (
-                    <View style={styles.centreChips}>
-                      {c.scans.slice(0, 3).map((sc: any) => (
-                        <Text key={sc.id} style={styles.centreChip} numberOfLines={1}>{sc.name}</Text>
-                      ))}
-                      {c.scans.length > 3 && (
-                        <Text style={styles.centreChipMore}>+{c.scans.length - 3}</Text>
-                      )}
-                    </View>
-                  )}
+  const listData = isCentreMode
+    ? (centresLoading ? [] : filteredCentres)
+    : (loading || error ? [] : filtered);
 
-                  <View style={styles.centreFooter}>
-                    <Text style={styles.centreCount}>
-                      {c.scans.length > 0
-                        ? t(mode === BLOOD_CENTER ? 'tests_count' : 'scans_count', { count: c.scans.length })
-                        : t('contact_the_centre')}
-                    </Text>
-                    {from != null && <Text style={styles.centreFrom}>{t('from_price', { price: from })}</Text>}
-                  </View>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        )
-      ) : /* ── DOCTOR LIST ── */
-      loading ? (
-        // Skeletons, not a spinner: this list paints from cache almost
-        // immediately, and a full-screen spinner made the fast path feel
-        // slower than it is. Lists get skeletons; one-off transitions (the
-        // detail screen, checkout) keep the spinner — there the shape of what
-        // is coming isn't predictable enough for a placeholder to help.
-        <SkeletonList count={5} />
-      ) : error ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="cloud-offline-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
-          <Text style={styles.emptyTitle}>{t('cant_load_doctors')}</Text>
-          <Text style={styles.emptySub}>{t('connection_error')}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={loadDoctors}>
-            <Text style={styles.retryBtnText}>{t('retry')}</Text>
-          </TouchableOpacity>
-        </View>
-      ) : filtered.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="search-outline" size={46} color={Colors.gray400} style={{ marginBottom: 12 }} />
-          <Text style={styles.emptyTitle}>{t('no_doctors_found')}</Text>
-          <Text style={styles.emptySub}>{t('adjust_search')}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item: Doctor) => String(item.id)}
-          contentContainerStyle={{ padding: 16, gap: 14 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          // Scrolling the results means the user is done with the typeahead.
-          onScrollBeginDrag={() => setSearchFocused(false)}
-          renderItem={renderDoctor}
-          // Windowing: a city with a few hundred doctors used to mount every
-          // card up front. These keep the first paint to roughly a screenful.
-          initialNumToRender={6}
-          maxToRenderPerBatch={8}
-          windowSize={7}
-          removeClippedSubviews
-        />
-      )}
+  return (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {/* The header scrolls WITH the results. It used to sit outside the list,
+          which pinned ~340pt of a 812pt screen — title, search, tabs and count
+          — above the first card for the whole session. */}
+      <FlatList
+        data={listData}
+        keyExtractor={(item: any) => String(item.id)}
+        renderItem={isCentreMode ? renderCentre : renderDoctor}
+        ListHeaderComponent={listHeader}
+        ListEmptyComponent={listEmpty}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        // Scrolling the results means the user is done with the typeahead.
+        onScrollBeginDrag={() => setSearchFocused(false)}
+        // Windowing: a city with a few hundred doctors used to mount every
+        // card up front. These keep the first paint to roughly a screenful.
+        initialNumToRender={6}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        // No removeClippedSubviews: the search box and its typeahead now live
+        // inside the scrolled content, and on Android that flag unmounts
+        // clipped subviews — which drops focus mid-typing.
+      />
     </SafeAreaView>
   );
 }
@@ -854,7 +857,14 @@ const styles = StyleSheet.create({
   countRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8 },
   countText: { fontSize: 13, color: Colors.gray400 },
 
+  // No horizontal padding: the header is full-bleed (its own padding, its own
+  // bottom border), so the 16px gutter lives on the cards instead. flexGrow
+  // lets the empty state's flex:1 fill what's left below the header rather
+  // than collapsing to zero height.
+  listContent: { paddingBottom: 24, gap: 14, flexGrow: 1 },
+
   docCard: {
+    marginHorizontal: 16,
     backgroundColor: Colors.white,
     borderWidth: 1,
     borderColor: Colors.blue100,
@@ -958,6 +968,7 @@ const styles = StyleSheet.create({
   modeTextActive: { color: Colors.blue700 },
 
   centreCard: {
+    marginHorizontal: 16,
     backgroundColor: Colors.white, borderRadius: 16, padding: 14,
     borderWidth: 1, borderColor: Colors.gray200,
   },
