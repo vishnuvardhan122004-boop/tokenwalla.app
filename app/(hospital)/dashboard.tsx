@@ -52,6 +52,7 @@ import { providerLabel } from '../../utils/booking';
 import { usePolling } from '../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
+import { tenDigitMobile } from '../../utils/phone';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ interface ImageFile {
 // can reach; a landline is a call-us number for clinics that have nothing else.
 const MOBILE_RE   = /^[6-9][0-9]{9}$/;
 const LANDLINE_RE = /^0[1-9][0-9]{1,3}[- ]?[0-9]{6,8}$/;
+
 
 // The set-delay endpoint has always accepted 0|10|15|20|30|45|60
 // (backend/doctors/views.py DELAY_MINUTES_CHOICES) — only this list capped the
@@ -1113,7 +1115,7 @@ export default function HospitalDashboard() {
                 keyboardType="numeric"
                 maxLength={10}
                 value={form.mobile}
-                onChangeText={(v: string) => setField('mobile', v.replace(/\D/, ''))}
+                onChangeText={(v: string) => setField('mobile', tenDigitMobile(v))}
               />
               <FieldError msg={errors.mobile} />
 
@@ -1140,7 +1142,7 @@ export default function HospitalDashboard() {
                 keyboardType="numeric"
                 maxLength={10}
                 value={form.whatsapp_number}
-                onChangeText={(v: string) => setField('whatsapp_number', v.replace(/\D/, ''))}
+                onChangeText={(v: string) => setField('whatsapp_number', tenDigitMobile(v))}
               />
               <FieldError msg={errors.whatsapp_number} />
               <Text style={styles.imageHint}>
