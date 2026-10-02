@@ -37,6 +37,30 @@ export const PAYMENT_METHODS: { value: PayoutForm['payment_method']; label: stri
 const UPI_RE  = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
 const IFSC_RE = /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/;
 
+/**
+ * What an IFSC box should keep from what someone types or pastes.
+ *
+ * An IFSC is exactly eleven alphanumerics (four letters, a 0, then six more),
+ * so anything else in the string is packaging — the spaces in "HDFC 0001234",
+ * or the whitespace that comes with a copy out of a bank SMS or statement.
+ * Dropping it turns a paste that used to fail validation into one that works.
+ *
+ * The slice is also the length cap, and the reason the input must NOT set
+ * maxLength: React Native applies maxLength natively BEFORE onChangeText fires,
+ * so " HDFC0001234" arrived here already cut to " HDFC000123" — eleven
+ * characters of the wrong string, with the real last digit gone.
+ *
+ * Unlike a phone number, a clipped IFSC could never pass silently: IFSC_RE pins
+ * the fifth character to "0" and the length to eleven, so leading junk always
+ * failed the form loudly. This is a paste that starts working, not a wrong
+ * value that stops being saved.
+ *
+ * `utils/maxlength.test.ts` holds both IFSC boxes to the no-maxLength rule.
+ */
+export function normaliseIfsc(raw: string): string {
+  return (raw || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 11);
+}
+
 /** Field → message. Empty object means the form is good to send. */
 export function validatePayout(f: PayoutForm): Record<string, string> {
   const e: Record<string, string> = {};

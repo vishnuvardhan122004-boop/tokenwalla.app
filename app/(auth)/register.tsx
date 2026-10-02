@@ -16,6 +16,7 @@ import API, { apiMessage } from '../../services/api';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -135,7 +136,7 @@ export default function RegisterScreen() {
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1 }]}>
               <Ionicons name="call-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} editable={!otpVerified} />
+              <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => setMobile(tenDigitMobile(v))} editable={!otpVerified} />
             </View>
             {!otpVerified && (
               <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading}>
@@ -150,7 +151,7 @@ export default function RegisterScreen() {
               <Text style={styles.label}>Enter OTP</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="keypad-outline" size={17} color={Colors.gray400} />
-                <TextInput style={styles.input} placeholder="Enter the code you received" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={6} value={otp} onChangeText={setOtp} />
+                <TextInput style={styles.input} placeholder="Enter the code you received" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={otp} onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))} />
               </View>
               <TouchableOpacity style={styles.verifyBtn} onPress={verifyOTP}>
                 <Text style={styles.verifyBtnText}>Verify OTP →</Text>

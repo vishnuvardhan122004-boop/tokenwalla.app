@@ -16,6 +16,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function HospitalLoginScreen() {
   const router = useRouter();
@@ -209,9 +210,8 @@ export default function HospitalLoginScreen() {
               placeholder="Registered mobile number"
               placeholderTextColor={Colors.gray400}
               keyboardType="numeric"
-              maxLength={10}
               value={mobile}
-              onChangeText={t => { setMobile(t); setError(''); }}
+              onChangeText={t => { setMobile(tenDigitMobile(t)); setError(''); }}
             />
           </View>
 

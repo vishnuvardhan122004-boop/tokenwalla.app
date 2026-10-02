@@ -26,6 +26,7 @@ import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -754,9 +755,8 @@ export default function PaymentScreen() {
                 placeholder={t('mobile_placeholder')}
                 placeholderTextColor={Colors.gray400}
                 value={otherMobile}
-                onChangeText={(v) => setOtherMobile(v.replace(/\D/g, '').slice(0, 10))}
+                onChangeText={(v) => setOtherMobile(tenDigitMobile(v))}
                 keyboardType="number-pad"
-                maxLength={10}
               />
               <Text style={styles.otherNote}>
                 {t('pay_other_note')}

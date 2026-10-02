@@ -32,6 +32,7 @@ import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function EditProfile() {
   const router = useRouter();
@@ -163,11 +164,10 @@ export default function EditProfile() {
           <TextInput
             style={styles.input}
             value={mobile}
-            onChangeText={v => { setMobile(v.replace(/\D/g, '')); setOtpSent(false); setOtpVerified(false); }}
+            onChangeText={v => { setMobile(tenDigitMobile(v)); setOtpSent(false); setOtpVerified(false); }}
             placeholder={t('ep_mobile_ph')}
             placeholderTextColor={Colors.gray400}
             keyboardType="numeric"
-            maxLength={10}
           />
 
           {/* Mobile-change OTP flow */}
@@ -184,11 +184,10 @@ export default function EditProfile() {
                     <TextInput
                       style={[styles.input, { flex: 1, marginBottom: 0 }]}
                       value={otp}
-                      onChangeText={setOtp}
+                      onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))}
                       placeholder={t('ep_enter_otp_ph')}
                       placeholderTextColor={Colors.gray400}
                       keyboardType="numeric"
-                      maxLength={6}
                     />
                     <TouchableOpacity style={styles.verifyBtn} onPress={verifyOtp} disabled={otpLoading}>
                       {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.verifyBtnText}>{t('ep_verify')}</Text>}

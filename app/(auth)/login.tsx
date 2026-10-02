@@ -16,6 +16,7 @@ import API, { apiMessage } from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -158,9 +159,8 @@ export default function LoginScreen() {
               placeholder={t('mobile_placeholder')}
               placeholderTextColor={Colors.gray400}
               keyboardType="numeric"
-              maxLength={10}
               value={mobile}
-              onChangeText={v => { setMobile(v); setError(''); }}
+              onChangeText={v => { setMobile(tenDigitMobile(v)); setError(''); }}
             />
           </View>
 

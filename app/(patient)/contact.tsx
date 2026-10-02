@@ -15,6 +15,7 @@ import { Colors } from '../../constants/colors';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function ContactScreen() {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function ContactScreen() {
           <TextInput style={styles.input} placeholder={t('ct_full_name_ph')} placeholderTextColor={Colors.gray400} value={name} onChangeText={setName} />
 
           <Text style={styles.fieldLabel}>{t('ct_mobile_star')}</Text>
-          <TextInput style={styles.input} placeholder={t('ep_mobile_ph')} placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} />
+          <TextInput style={styles.input} placeholder={t('ep_mobile_ph')} placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => setMobile(tenDigitMobile(v))} />
 
           <Text style={styles.fieldLabel}>{t('ct_subject')}</Text>
           <TextInput style={styles.input} placeholder={t('ct_subject_ph')} placeholderTextColor={Colors.gray400} value={subject} onChangeText={setSubject} />

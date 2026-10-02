@@ -37,8 +37,9 @@ import LocationPickerModal from '../../components/LocationPickerModal';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 import {
-  EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
+  EMPTY_PAYOUT, PAYMENT_METHODS, normaliseIfsc, payoutFromApi, payoutPayload,
   validatePayout, type PayoutForm,
 } from '../../utils/payout';
 
@@ -556,11 +557,10 @@ export default function HospitalProfile() {
                 <TextInput
                   style={styles.input}
                   value={form.mobile}
-                  onChangeText={v => { setForm(p => ({ ...p, mobile: v.replace(/\D/g, '') })); setOtpSent(false); setOtpVerified(false); }}
+                  onChangeText={v => { setForm(p => ({ ...p, mobile: tenDigitMobile(v) })); setOtpSent(false); setOtpVerified(false); }}
                   placeholder="10-digit mobile"
                   placeholderTextColor={Colors.gray400}
                   keyboardType="numeric"
-                  maxLength={10}
                 />
 
                 {mobileChanged && !otpVerified && (
@@ -573,7 +573,7 @@ export default function HospitalProfile() {
                     ) : (
                       <>
                         <View style={styles.otpRow}>
-                          <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={otp} onChangeText={setOtp} placeholder="Enter OTP" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={6} />
+                          <TextInput style={[styles.input, { flex: 1, marginBottom: 0 }]} value={otp} onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))} placeholder="Enter OTP" placeholderTextColor={Colors.gray400} keyboardType="numeric" />
                           <TouchableOpacity style={styles.verifyBtn} onPress={verifyOtp} disabled={otpLoading}>
                             {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.verifyBtnText}>Verify</Text>}
                           </TouchableOpacity>
@@ -588,7 +588,7 @@ export default function HospitalProfile() {
                 {/* Landline — display only. The mobile above stays the login
                     identity and the number OTP and booking alerts go to. */}
                 <Text style={styles.label}>Landline (optional)</Text>
-                <TextInput style={styles.input} value={form.landline} onChangeText={v => setForm(p => ({ ...p, landline: v.replace(/[^\d\-\s]/g, '') }))} placeholder="08812-234567" placeholderTextColor={Colors.gray400} keyboardType="phone-pad" maxLength={15} />
+                <TextInput style={styles.input} value={form.landline} onChangeText={v => setForm(p => ({ ...p, landline: v.replace(/[^\d\-\s]/g, '').slice(0, 15) }))} placeholder="08812-234567" placeholderTextColor={Colors.gray400} keyboardType="phone-pad" />
                 <Text style={styles.hint}>Shown to patients as a call number.</Text>
 
                 {/* About / description */}
@@ -599,7 +599,7 @@ export default function HospitalProfile() {
                 <Text style={styles.label}>Announcement / Notice (shown to patients)</Text>
                 <TextInput style={[styles.input, { height: 70, textAlignVertical: 'top' }]} value={form.announcement} onChangeText={v => setForm(p => ({ ...p, announcement: v }))} placeholder="e.g. Closed for Sankranti 14–16 Jan · Free BP check this week" placeholderTextColor={Colors.gray400} multiline maxLength={300} />
                 <Text style={styles.label}>Show until (optional)</Text>
-                <TextInput style={styles.input} value={form.announcement_until} onChangeText={v => setForm(p => ({ ...p, announcement_until: v.replace(/[^\d-]/g, '').slice(0, 10) }))} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.gray400} keyboardType="numbers-and-punctuation" maxLength={10} />
+                <TextInput style={styles.input} value={form.announcement_until} onChangeText={v => setForm(p => ({ ...p, announcement_until: v.replace(/[^\d-]/g, '').slice(0, 10) }))} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.gray400} keyboardType="numbers-and-punctuation" />
                 <Text style={styles.hint}>Leave empty to show until you remove it. With a date, the notice disappears by itself the day after.</Text>
 
                 {/* Working hours */}
@@ -906,9 +906,8 @@ export default function HospitalProfile() {
                       placeholder="HDFC0001234"
                       placeholderTextColor={Colors.gray400}
                       autoCapitalize="characters"
-                      maxLength={11}
                       value={payout.ifsc_code}
-                      onChangeText={v => setPayout(p => ({ ...p, ifsc_code: v.toUpperCase() }))}
+                      onChangeText={v => setPayout(p => ({ ...p, ifsc_code: normaliseIfsc(v) }))}
                     />
                     {!!payoutErrors.ifsc_code && <Text style={styles.fieldError}>{payoutErrors.ifsc_code}</Text>}
                   </>
