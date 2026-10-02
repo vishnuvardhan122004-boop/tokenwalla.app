@@ -19,6 +19,7 @@ import {
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { Colors } from '../../constants/colors';
 import { tenDigitMobile } from '../../utils/phone';
 
@@ -103,6 +104,9 @@ export default function HforgotPassword() {
   const [error,     setError]     = useState('');
   const [success,   setSuccess]   = useState('');
   const [resending, setResending] = useState(false);
+  // Both send sites below hit the same endpoint for the same number, so they
+  // share one countdown rather than each keeping their own.
+  const [cooldown,  startCooldown] = useOtpCooldown();
   const [done,      setDone]      = useState(false);
 
   // Progress-bar animation for success state
@@ -133,9 +137,13 @@ export default function HforgotPassword() {
       await API.post('/auth/otp/request/', { mobile: cleaned, via: 'SMS' });
       setSuccess(`An SMS has been sent to ${cleaned}. Please check and note the OTP.`);
       setStep(2);
+      startCooldown();
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr?.response?.data?.message || 'Failed to initiate SMS. Please try again.');
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(err)) startCooldown();
     } finally {
       setLoading(false);
     }
@@ -150,9 +158,11 @@ export default function HforgotPassword() {
       await API.post('/auth/otp/request/', { mobile, via: 'SMS' });
       setSuccess(' A new SMS has been sent. Please check and note the OTP.');
       setOtp('');
+      startCooldown();
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr?.response?.data?.message || 'Could not resend OTP. Wait 60 seconds and try again.');
+      if (isCooldown429(err)) startCooldown();
     } finally {
       setResending(false);
     }
@@ -370,9 +380,9 @@ export default function HforgotPassword() {
 
               <SubmitButton
                 onPress={requestOTP}
-                disabled={loading || mobile.length !== 10}
-                label=" Send OTP →"
-                loadingLabel="Calling…"
+                disabled={loading || cooldown > 0 || mobile.length !== 10}
+                label={cooldown > 0 ? `Resend in ${cooldown}s` : ' Send OTP →'}
+                loadingLabel="Sending…"
               />
 
               <View style={s.dividerRow}>
@@ -431,9 +441,9 @@ export default function HforgotPassword() {
               <View style={s.resendRow}>
                 <Text style={s.resendLabel}>Didn't receive the OTP?</Text>
                 <Text style={s.resendSep}> · </Text>
-                <TouchableOpacity onPress={resendOTP} disabled={resending}>
-                  <Text style={[s.resendBtn, resending && { opacity: 0.5 }]}>
-                    {resending ? 'Calling…' : 'Call again'}
+                <TouchableOpacity onPress={resendOTP} disabled={resending || cooldown > 0}>
+                  <Text style={[s.resendBtn, (resending || cooldown > 0) && { opacity: 0.5 }]}>
+                    {resending ? 'Sending…' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Send again'}
                   </Text>
                 </TouchableOpacity>
               </View>

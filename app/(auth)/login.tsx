@@ -16,6 +16,7 @@ import API, { apiMessage } from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 export default function LoginScreen() {
@@ -27,6 +28,7 @@ export default function LoginScreen() {
   const [loading,    setLoading]    = useState(false);
   const [otpSent,    setOtpSent]    = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [cooldown,   startCooldown] = useOtpCooldown();
   const [showPass,   setShowPass]   = useState(false);
   const [error,      setError]      = useState('');
 
@@ -76,8 +78,12 @@ export default function LoginScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
+      startCooldown();
     } catch (e) {
       setError(apiMessage(e, 'OTP failed. Please try again.'));
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
     } finally {
       setOtpLoading(false);
     }
@@ -185,11 +191,13 @@ export default function LoginScreen() {
             <TouchableOpacity
               style={styles.otpBtn}
               onPress={requestOTP}
-              disabled={otpLoading}
+              disabled={otpLoading || cooldown > 0}
             >
               {otpLoading
                 ? <ActivityIndicator size="small" color={Colors.blue700} />
-                : <Text style={styles.otpBtnText}>{otpSent ? t('resend') : t('get_otp')}</Text>
+                : <Text style={styles.otpBtnText}>
+                    {cooldown > 0 ? t('resend_in', { seconds: cooldown }) : otpSent ? t('resend') : t('get_otp')}
+                  </Text>
               }
             </TouchableOpacity>
           </View>

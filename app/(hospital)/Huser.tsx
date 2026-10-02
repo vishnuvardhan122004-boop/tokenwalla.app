@@ -20,6 +20,7 @@ import LocationPickerModal from '../../components/LocationPickerModal';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 // A registration card is an IDENTITY; this is the segment it already implies,
@@ -97,6 +98,7 @@ export default function HospitalRegisterScreen() {
   const [otp,         setOtp]         = useState('');
   const [otpSent,     setOtpSent]     = useState(false);
   const [otpLoading,  setOtpLoading]  = useState(false);
+  const [cooldown,    startCooldown]  = useOtpCooldown();
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpToken,    setOtpToken]    = useState('');
 
@@ -143,12 +145,16 @@ export default function HospitalRegisterScreen() {
       await API.post('/auth/otp/request/', { mobile: form.mobile });
       setOtpSent(true);
       setGlobalInfo(`OTP sent to ${form.mobile}.`);
+      startCooldown();
     } catch (e: unknown) {
       if (isAxiosError(e)) {
         setGlobalError(e.response?.data?.message || 'OTP failed. Please try again.');
       } else {
         setGlobalError('OTP failed. Please try again.');
       }
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
     } finally {
       setOtpLoading(false);
     }
@@ -439,10 +445,12 @@ export default function HospitalRegisterScreen() {
               />
             </View>
             {!otpVerified && (
-              <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading}>
+              <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading || cooldown > 0}>
                 {otpLoading
                   ? <ActivityIndicator size="small" color={Colors.blue700} />
-                  : <Text style={styles.otpBtnText}>{otpSent ? 'Resend' : 'Get OTP'}</Text>
+                  : <Text style={styles.otpBtnText}>
+                      {cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend' : 'Get OTP'}
+                    </Text>
                 }
               </TouchableOpacity>
             )}
