@@ -20,6 +20,7 @@ import LocationPickerModal from '../../components/LocationPickerModal';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 // A registration card is an IDENTITY; this is the segment it already implies,
 // so "We also offer" never lists the thing they just picked.
@@ -432,9 +433,8 @@ export default function HospitalRegisterScreen() {
                 placeholder="10-digit mobile number"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="numeric"
-                maxLength={10}
                 value={form.mobile}
-                onChangeText={t => setField('mobile', t.replace(/\D/g, '').slice(0, 10))}
+                onChangeText={t => setField('mobile', tenDigitMobile(t))}
                 editable={!otpVerified}
               />
             </View>
@@ -460,7 +460,6 @@ export default function HospitalRegisterScreen() {
                     placeholder="4–6 digit OTP"
                     placeholderTextColor={Colors.gray400}
                     keyboardType="number-pad"
-                    maxLength={6}
                     value={otp}
                     onChangeText={t => setOtp(t.replace(/\D/g, '').slice(0, 6))}
                   />

@@ -1113,7 +1113,6 @@ export default function HospitalDashboard() {
                 placeholder="10-digit mobile"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="numeric"
-                maxLength={10}
                 value={form.mobile}
                 onChangeText={(v: string) => setField('mobile', tenDigitMobile(v))}
               />
@@ -1125,9 +1124,8 @@ export default function HospitalDashboard() {
                 placeholder="08812-234567"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="phone-pad"
-                maxLength={15}
                 value={form.landline}
-                onChangeText={(v: string) => setField('landline', v.replace(/[^\d\-\s]/g, ''))}
+                onChangeText={(v: string) => setField('landline', v.replace(/[^\d\-\s]/g, '').slice(0, 15))}
               />
               <FieldError msg={errors.landline} />
               <Text style={styles.imageHint}>
@@ -1140,7 +1138,6 @@ export default function HospitalDashboard() {
                 placeholder="10-digit mobile"
                 placeholderTextColor={Colors.gray400}
                 keyboardType="numeric"
-                maxLength={10}
                 value={form.whatsapp_number}
                 onChangeText={(v: string) => setField('whatsapp_number', tenDigitMobile(v))}
               />

@@ -15,6 +15,7 @@ import API, { apiMessage } from '../../services/api';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { tenDigitMobile } from '../../utils/phone';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -101,7 +102,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.label}>Mobile Number</Text>
             <View style={styles.inputRow}>
               <Ionicons name="call-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="10-digit mobile" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={10} value={mobile} onChangeText={setMobile} />
+              <TextInput style={styles.input} placeholder="10-digit mobile" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => setMobile(tenDigitMobile(v))} />
             </View>
             <View style={styles.infoBox}>
               <Ionicons name="chatbox-ellipses-outline" size={16} color={Colors.blue600} style={{ marginRight: 10, marginTop: 1 }} />
@@ -119,7 +120,7 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.label}>OTP</Text>
             <View style={styles.inputRow}>
               <Ionicons name="keypad-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="Enter OTP" placeholderTextColor={Colors.gray400} keyboardType="numeric" maxLength={6} value={otp} onChangeText={setOtp} />
+              <TextInput style={styles.input} placeholder="Enter OTP" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={otp} onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))} />
             </View>
             <TouchableOpacity style={styles.submitBtn} onPress={verifyOTP} disabled={loading}>
               {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitBtnText}>Verify OTP →</Text>}

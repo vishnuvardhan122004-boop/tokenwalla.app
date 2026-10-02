@@ -20,6 +20,7 @@ import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { Colors } from '../../constants/colors';
+import { tenDigitMobile } from '../../utils/phone';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -351,9 +352,8 @@ export default function HforgotPassword() {
                   placeholder="10-digit mobile number"
                   placeholderTextColor={C.gray300}
                   keyboardType="phone-pad"
-                  maxLength={10}
                   value={mobile}
-                  onChangeText={v => { setMobile(v.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                  onChangeText={v => { setMobile(tenDigitMobile(v)); setError(''); }}
                   autoFocus
                   returnKeyType="done"
                   onSubmitEditing={requestOTP}
@@ -421,7 +421,6 @@ export default function HforgotPassword() {
                 placeholder="• • • •"
                 placeholderTextColor={C.gray300}
                 keyboardType="number-pad"
-                maxLength={6}
                 value={otp}
                 onChangeText={v => { setOtp(v.replace(/\D/g, '').slice(0, 6)); setError(''); }}
                 autoFocus
