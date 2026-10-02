@@ -52,6 +52,7 @@ import { providerLabel } from '../../utils/booking';
 import { usePolling } from '../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
+import { tenDigitMobile } from '../../utils/phone';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -77,6 +78,10 @@ interface Doctor {
   keywords?: string;
   mobile: string;
   landline?: string;
+  // Served only to the owning hospital / admin — see
+  // DoctorSerializer.to_representation on the backend. Absent for anyone else,
+  // which is why it is optional here.
+  whatsapp_number?: string;
   experience: number | string;
   fee: number | string;
   max_per_slot: number | string;
@@ -113,6 +118,7 @@ interface FormState {
   keywords: string;
   mobile: string;
   landline: string;
+  whatsapp_number: string;
   experience: string;
   fee: string;
   max_per_slot: string;
@@ -136,12 +142,21 @@ const MOBILE_RE   = /^[6-9][0-9]{9}$/;
 const LANDLINE_RE = /^0[1-9][0-9]{1,3}[- ]?[0-9]{6,8}$/;
 
 
+// The set-delay endpoint has always accepted 0|10|15|20|30|45|60
+// (backend/doctors/views.py DELAY_MINUTES_CHOICES) — only this list capped the
+// UI at 30, on both repos. Mirrors src/hospital/Hdashboard.js on the website.
+const DELAY_PRESETS = [10, 15, 20, 30, 45, 60];
+// '+60m' is a worse read than '+1h' for the longest delay on a crowded row.
+const delayLabel = (m: number) => (m === 60 ? `+1h` : `+${m}m`);
+
+
 const EMPTY_FORM: FormState = {
   name:           '',
   specialization: '',
   keywords:       '',
   mobile:         '',
   landline:       '',
+  whatsapp_number: '',
   experience:     '',
   fee:            '',
   max_per_slot:   '10',
@@ -260,6 +275,12 @@ function validateDoctor(f: FormState): Record<string, string> {
     e.landline = 'Enter a valid landline with the STD code, e.g. 08812-234567.';
   if (!mobile && !landline)
     e.mobile = 'Enter a mobile number or a landline.';
+
+  // Optional — blank means this doctor isn't WhatsApped about bookings. A typo
+  // is silent in production (nothing ever arrives), so catch it at the form.
+  const whatsapp = f.whatsapp_number.trim();
+  if (whatsapp && !MOBILE_RE.test(whatsapp))
+    e.whatsapp_number = 'Enter a valid 10-digit Indian mobile number.';
 
   if (f.experience !== '' && (isNaN(num(f.experience)) || num(f.experience) < 0))
     e.experience = 'Experience must be a positive number.';
@@ -532,7 +553,7 @@ export default function HospitalDashboard() {
         d.id === doc.id ? { ...d, running_delay_minutes: data.running_delay_minutes } : d
       )));
       Alert.alert('Updated', minutes > 0
-        ? `${providerLabel(doc.name, 'DOCTOR')} marked ${minutes}m late. ${data.notified_count} patients notified.`
+        ? `${providerLabel(doc.name, 'DOCTOR')} marked ${minutes === 60 ? '1h' : `${minutes}m`} late. ${data.notified_count} patients notified.`
         : `${providerLabel(doc.name, 'DOCTOR')}'s delay cleared.`);
     } catch (e) {
       Alert.alert('Error', extractApiError(e, 'Failed to update delay.'));
@@ -655,6 +676,7 @@ export default function HospitalDashboard() {
       keywords:       doc.keywords        || '',
       mobile:         doc.mobile          || '',
       landline:       doc.landline        || '',
+      whatsapp_number: doc.whatsapp_number || '',
       experience:     String(doc.experience   || ''),
       fee:            String(doc.fee          || ''),
       max_per_slot:   String(doc.max_per_slot || 10),
@@ -736,6 +758,7 @@ export default function HospitalDashboard() {
       payload.append('keywords',       form.keywords.trim());
       payload.append('mobile',         form.mobile.trim());
       payload.append('landline',       form.landline.trim());
+      payload.append('whatsapp_number', form.whatsapp_number.trim());
       payload.append('experience',     form.experience   || '0');
       payload.append('fee',            form.fee          || '0');
       payload.append('max_per_slot',   form.max_per_slot || '10');
@@ -1092,7 +1115,7 @@ export default function HospitalDashboard() {
                 keyboardType="numeric"
                 maxLength={10}
                 value={form.mobile}
-                onChangeText={(v: string) => setField('mobile', v.replace(/\D/, ''))}
+                onChangeText={(v: string) => setField('mobile', tenDigitMobile(v))}
               />
               <FieldError msg={errors.mobile} />
 
@@ -1109,6 +1132,22 @@ export default function HospitalDashboard() {
               <FieldError msg={errors.landline} />
               <Text style={styles.imageHint}>
                 Mobile or landline — at least one. Only a mobile receives WhatsApp updates.
+              </Text>
+
+              <Text style={styles.fieldLabel}>Doctor's WhatsApp (optional)</Text>
+              <TextInput
+                style={[styles.fieldInput, errors.whatsapp_number && styles.fieldInputError]}
+                placeholder="10-digit mobile"
+                placeholderTextColor={Colors.gray400}
+                keyboardType="numeric"
+                maxLength={10}
+                value={form.whatsapp_number}
+                onChangeText={(v: string) => setField('whatsapp_number', tenDigitMobile(v))}
+              />
+              <FieldError msg={errors.whatsapp_number} />
+              <Text style={styles.imageHint}>
+                Add a number and the doctor gets a WhatsApp message each time a patient
+                books them. Leave it blank for no messages.
               </Text>
 
               <View style={styles.fieldRow}>
@@ -1870,10 +1909,10 @@ export default function HospitalDashboard() {
                     {/* ── Running Late ── */}
                     <View style={styles.delayRow}>
                       <Text style={styles.delayLabel}>
-                        Running Late{doc.running_delay_minutes ? ` · +${doc.running_delay_minutes}m` : ''}
+                        Running Late{doc.running_delay_minutes ? ` · ${delayLabel(doc.running_delay_minutes)}` : ''}
                       </Text>
                       <View style={styles.delayBtnRow}>
-                        {[10, 15, 20, 30].map(m => {
+                        {DELAY_PRESETS.map(m => {
                           const isOn = doc.running_delay_minutes === m;
                           const isBusy = settingDelay === doc.id;
                           return (
@@ -1883,7 +1922,7 @@ export default function HospitalDashboard() {
                               onPress={() => setDoctorDelay(doc, m)}
                               disabled={isBusy}
                             >
-                              <Text style={styles.delayBtnText}>+{m}m</Text>
+                              <Text style={styles.delayBtnText}>{delayLabel(m)}</Text>
                             </TouchableOpacity>
                           );
                         })}
