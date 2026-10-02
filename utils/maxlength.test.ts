@@ -26,7 +26,6 @@ const ALLOWED = [
   /value=\{form\.open_time\}/,             // "09:00"
   /value=\{form\.close_time\}/,            // "18:00"
   /value=\{otherName\}/,                   // the other patient's name
-  /ifsc_code/,                             // 11-char bank code, its own format
 ];
 
 const walk = (dir: string): string[] =>
@@ -65,29 +64,34 @@ const inputs = walk(APP).flatMap((file) =>
 // `password` and secureTextEntry. It is deliberately uncapped — a password has no
 // 6-digit limit — so it is not a phone/OTP input for this rule's purposes.
 const isPassword = (b: string) => /value=\{password\}|secureTextEntry/.test(b);
-const isPhoneish = (b: string) =>
-  !isPassword(b) && /mobile|otp|whatsapp|landline/i.test(b);
+/**
+ * Every input whose handler normalises its own value — so maxLength would clip
+ * the paste before that handler ever ran. IFSC is here too: it is not a phone
+ * number, but it is exactly the same trap.
+ */
+const isNormalised = (b: string) =>
+  !isPassword(b) && /mobile|otp|whatsapp|landline|ifsc/i.test(b);
 
 describe('maxLength on phone and OTP inputs', () => {
   it('finds the inputs at all (guards against the scan silently matching nothing)', () => {
     expect(inputs.length).toBeGreaterThan(20);
-    expect(inputs.filter((i) => isPhoneish(i.block)).length).toBeGreaterThanOrEqual(18);
+    expect(inputs.filter((i) => isNormalised(i.block)).length).toBeGreaterThanOrEqual(18);
   });
 
-  it('no phone or OTP input carries maxLength', () => {
+  it('no normalising input carries maxLength', () => {
     const offenders = inputs
-      .filter((i) => isPhoneish(i.block) && /maxLength=/.test(i.block))
+      .filter((i) => isNormalised(i.block) && /maxLength=/.test(i.block))
       .filter((i) => !ALLOWED.some((re) => re.test(i.block)))
       .map((i) => i.where);
     expect(offenders).toEqual([]);
   });
 
-  it('every phone or OTP input caps its own length instead', () => {
+  it('every normalising input caps its own length instead', () => {
     // Dropping maxLength without a cap in the handler leaves the box unbounded —
     // which is what tenDigitMobile() or an explicit .slice() is there for.
     const uncapped = inputs
-      .filter((i) => isPhoneish(i.block))
-      .filter((i) => !/tenDigitMobile|\.slice\(/.test(i.block))
+      .filter((i) => isNormalised(i.block))
+      .filter((i) => !/tenDigitMobile|normaliseIfsc|\.slice\(/.test(i.block))
       .map((i) => i.where);
     expect(uncapped).toEqual([]);
   });

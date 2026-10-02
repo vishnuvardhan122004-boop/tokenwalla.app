@@ -37,7 +37,7 @@ import { computeFeeBreakdown, money } from '../../utils/fees';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import {
-  EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
+  EMPTY_PAYOUT, PAYMENT_METHODS, normaliseIfsc, payoutFromApi, payoutPayload,
   validatePayout, type PayoutForm,
 } from '../../utils/payout';
 
@@ -421,9 +421,8 @@ export default function HospitalPayments() {
                           placeholder="HDFC0001234"
                           placeholderTextColor={Colors.gray400}
                           autoCapitalize="characters"
-                          maxLength={11}
                           value={form.ifsc_code}
-                          onChangeText={v => setField('ifsc_code', v.toUpperCase())}
+                          onChangeText={v => setField('ifsc_code', normaliseIfsc(v))}
                         />
                         <FieldError msg={errors.ifsc_code} />
                       </>

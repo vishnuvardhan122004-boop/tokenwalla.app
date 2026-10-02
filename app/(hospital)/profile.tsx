@@ -39,7 +39,7 @@ import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { tenDigitMobile } from '../../utils/phone';
 import {
-  EMPTY_PAYOUT, PAYMENT_METHODS, payoutFromApi, payoutPayload,
+  EMPTY_PAYOUT, PAYMENT_METHODS, normaliseIfsc, payoutFromApi, payoutPayload,
   validatePayout, type PayoutForm,
 } from '../../utils/payout';
 
@@ -906,9 +906,8 @@ export default function HospitalProfile() {
                       placeholder="HDFC0001234"
                       placeholderTextColor={Colors.gray400}
                       autoCapitalize="characters"
-                      maxLength={11}
                       value={payout.ifsc_code}
-                      onChangeText={v => setPayout(p => ({ ...p, ifsc_code: v.toUpperCase() }))}
+                      onChangeText={v => setPayout(p => ({ ...p, ifsc_code: normaliseIfsc(v) }))}
                     />
                     {!!payoutErrors.ifsc_code && <Text style={styles.fieldError}>{payoutErrors.ifsc_code}</Text>}
                   </>
