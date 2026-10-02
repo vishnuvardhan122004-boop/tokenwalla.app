@@ -13,6 +13,7 @@
  * "About" heading reads as something that failed to load.
  */
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
@@ -22,6 +23,7 @@ import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { Colors } from '../constants/colors';
 import { directionsUrl, isOpenNow } from '../utils/booking';
 import { useI18n } from '../services/i18n';
+import PhotoViewer from './PhotoViewer';
 
 // Official brand marks (simple-icons paths), not look-alike emoji. Exported
 // because the doctor screen's share sheet uses the same two.
@@ -78,6 +80,8 @@ export default function ProviderAboutPanel({
 }: Props) {
   // Above the early return — hooks must run on every render.
   const { t } = useI18n();
+  // Index of the photo the full-screen viewer is open on; -1 is closed.
+  const [viewerAt, setViewerAt] = useState(-1);
   if (!info) return null;
 
   const hasAnything = info.description || info.open_time || info.instagram || info.youtube
@@ -169,18 +173,33 @@ export default function ProviderAboutPanel({
         <>
           <Text style={st.sectionLabel}>{t('pa_photos')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-            {info.gallery.map(p => (
-              <Image
+            {info.gallery.map((p, i) => (
+              <TouchableOpacity
                 key={p.id}
-                source={{ uri: p.url }}
-                style={st.galleryImg}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={180}
-              />
+                activeOpacity={0.8}
+                onPress={() => setViewerAt(i)}
+                accessibilityRole="button"
+                accessibilityLabel={t('pa_view_photo')}
+              >
+                <Image
+                  source={{ uri: p.url }}
+                  style={st.galleryImg}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={180}
+                />
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </>
+      )}
+
+      {viewerAt >= 0 && info.gallery && (
+        <PhotoViewer
+          photos={info.gallery}
+          startAt={viewerAt}
+          onClose={() => setViewerAt(-1)}
+        />
       )}
     </View>
   );
