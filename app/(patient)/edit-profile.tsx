@@ -32,6 +32,7 @@ import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 export default function EditProfile() {
@@ -51,6 +52,7 @@ export default function EditProfile() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpToken,    setOtpToken]    = useState('');
   const [otpLoading,  setOtpLoading]  = useState(false);
+  const [cooldown,    startCooldown]  = useOtpCooldown();
 
   // Reloaded on every focus, not once on mount. This is a Tabs.Screen
   // (`href: null` in the patient _layout), so the instance is never unmounted
@@ -87,8 +89,12 @@ export default function EditProfile() {
       await API.post('/auth/otp/request/', { mobile: mobile.trim(), via: 'sms' });
       setOtpSent(true);
       setOtpVerified(false);
+      startCooldown();
     } catch (e: any) {
       Alert.alert(t('error'), e?.response?.data?.message || t('ep_otp_send_fail'));
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
     } finally {
       setOtpLoading(false);
     }
@@ -175,8 +181,11 @@ export default function EditProfile() {
             <View style={styles.otpBox}>
               <Text style={styles.otpHint}>{t('ep_change_needs_verify')}</Text>
               {!otpSent ? (
-                <TouchableOpacity style={styles.otpBtn} onPress={sendOtp} disabled={otpLoading}>
-                  {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.otpBtnText}>{t('ep_send_otp_new')}</Text>}
+                <TouchableOpacity style={styles.otpBtn} onPress={sendOtp} disabled={otpLoading || cooldown > 0}>
+                  {otpLoading ? <ActivityIndicator color={Colors.white} size="small" />
+                    : <Text style={styles.otpBtnText}>
+                        {cooldown > 0 ? t('resend_in', { seconds: cooldown }) : t('ep_send_otp_new')}
+                      </Text>}
                 </TouchableOpacity>
               ) : (
                 <>
@@ -193,7 +202,11 @@ export default function EditProfile() {
                       {otpLoading ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={styles.verifyBtnText}>{t('ep_verify')}</Text>}
                     </TouchableOpacity>
                   </View>
-                  <TouchableOpacity onPress={sendOtp}><Text style={styles.resendText}>{t('ep_resend_otp')}</Text></TouchableOpacity>
+                  <TouchableOpacity onPress={sendOtp} disabled={otpLoading || cooldown > 0}>
+                    <Text style={[styles.resendText, (otpLoading || cooldown > 0) && { opacity: 0.5 }]}>
+                      {cooldown > 0 ? t('resend_in', { seconds: cooldown }) : t('ep_resend_otp')}
+                    </Text>
+                  </TouchableOpacity>
                 </>
               )}
             </View>

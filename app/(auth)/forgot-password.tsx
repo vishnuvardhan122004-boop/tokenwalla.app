@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -31,6 +32,7 @@ export default function ForgotPasswordScreen() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
   const [success,  setSuccess]  = useState('');
+  const [cooldown, startCooldown] = useOtpCooldown();
 
   const requestOTP = async () => {
     if (mobile.length !== 10) { setError('Enter valid mobile'); return; }
@@ -39,7 +41,13 @@ export default function ForgotPasswordScreen() {
       await API.post('/auth/otp/request/', { mobile, via: 'sms' });
       setSuccess(`SMS sent to ${mobile}. Note the OTP.`);
       setStep(2);
-    } catch (e) { setError(apiMessage(e, 'Failed to send OTP. Try again.')); }
+      startCooldown();
+    } catch (e) {
+      setError(apiMessage(e, 'Failed to send OTP. Try again.'));
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
+    }
     finally { setLoading(false); }
   };
 
@@ -108,8 +116,11 @@ export default function ForgotPasswordScreen() {
               <Ionicons name="chatbox-ellipses-outline" size={16} color={Colors.blue600} style={{ marginRight: 10, marginTop: 1 }} />
               <Text style={{ fontSize: 13, color: Colors.blue600, flex: 1 }}>We&apos;ll send an SMS to your mobile with the OTP.</Text>
             </View>
-            <TouchableOpacity style={styles.submitBtn} onPress={requestOTP} disabled={loading}>
-              {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitBtnText}>Send SMS with OTP →</Text>}
+            <TouchableOpacity style={styles.submitBtn} onPress={requestOTP} disabled={loading || cooldown > 0}>
+              {loading ? <ActivityIndicator color={Colors.white} />
+                : <Text style={styles.submitBtnText}>
+                    {cooldown > 0 ? `Resend in ${cooldown}s` : 'Send SMS with OTP →'}
+                  </Text>}
             </TouchableOpacity>
           </>
         )}

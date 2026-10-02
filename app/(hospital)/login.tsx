@@ -16,6 +16,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 export default function HospitalLoginScreen() {
@@ -26,6 +27,7 @@ export default function HospitalLoginScreen() {
   const [loading,    setLoading]    = useState(false);
   const [otpSent,    setOtpSent]    = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [cooldown,   startCooldown] = useOtpCooldown();
   const [showPass,   setShowPass]   = useState(false);
   const [error,      setError]      = useState('');
 
@@ -103,12 +105,16 @@ export default function HospitalLoginScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
+      startCooldown();
     } catch (e: unknown) {
       if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'OTP failed. Please try again.');
       } else {
         setError('OTP failed. Please try again.');
       }
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
     } finally {
       setOtpLoading(false);
     }
@@ -237,11 +243,13 @@ export default function HospitalLoginScreen() {
             <TouchableOpacity
               style={styles.otpBtn}
               onPress={requestOTP}
-              disabled={otpLoading}
+              disabled={otpLoading || cooldown > 0}
             >
               {otpLoading
                 ? <ActivityIndicator size="small" color={Colors.blue700} />
-                : <Text style={styles.otpBtnText}>{otpSent ? 'Resend' : 'Get OTP'}</Text>
+                : <Text style={styles.otpBtnText}>
+                    {cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend' : 'Get OTP'}
+                  </Text>
               }
             </TouchableOpacity>
           </View>

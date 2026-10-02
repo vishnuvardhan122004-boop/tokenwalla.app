@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
+import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -30,6 +31,7 @@ export default function RegisterScreen() {
   const [otpVerified, setOtpVerified] = useState(false);
   const [otpToken,    setOtpToken]    = useState('');
   const [otpLoading,  setOtpLoading]  = useState(false);
+  const [cooldown,    startCooldown]  = useOtpCooldown();
   const [loading,     setLoading]     = useState(false);
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -43,8 +45,12 @@ export default function RegisterScreen() {
     try {
       await API.post('/auth/otp/request/', { mobile });  // ← fixed endpoint
       setOtpSent(true);
+      startCooldown();
     } catch (e) {
       setError(apiMessage(e, 'OTP failed. Try again.'));
+      // A 429 is the server's own 60s cooldown. Start the countdown anyway,
+      // or the button stays live and the next tap sends a real SMS.
+      if (isCooldown429(e)) startCooldown();
     } finally {
       setOtpLoading(false);
     }
@@ -139,8 +145,10 @@ export default function RegisterScreen() {
               <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => setMobile(tenDigitMobile(v))} editable={!otpVerified} />
             </View>
             {!otpVerified && (
-              <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading}>
-                <Text style={styles.otpBtnText}>{otpLoading ? '...' : otpSent ? 'Resend' : 'Get OTP'}</Text>
+              <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading || cooldown > 0}>
+                <Text style={styles.otpBtnText}>
+                  {otpLoading ? '...' : cooldown > 0 ? `Resend in ${cooldown}s` : otpSent ? 'Resend' : 'Get OTP'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
