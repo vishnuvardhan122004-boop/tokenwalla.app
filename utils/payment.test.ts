@@ -1,4 +1,4 @@
-import { parsePaymentMessage } from './payment';
+import { checkoutPayable, parsePaymentMessage } from './payment';
 
 describe('parsePaymentMessage', () => {
   it('parses a SUCCESS message and preserves the order/payment/signature fields', () => {
@@ -64,5 +64,40 @@ describe('parsePaymentMessage', () => {
 
   it('returns null for an array payload', () => {
     expect(parsePaymentMessage(JSON.stringify(['SUCCESS']))).toBeNull();
+  });
+});
+
+describe('checkoutPayable — what the patient is charged', () => {
+  const base = {
+    redeemIsFree: false, redeemNeedsPay: false, passSelected: false,
+    doctorFeeOnline: 0, passPrice: 35, total: 25.37,
+  };
+
+  it('a SERVICE_ONLY redemption is free', () => {
+    expect(checkoutPayable({ ...base, redeemIsFree: true })).toBe(0);
+  });
+
+  it('a FULL redemption charges the consultation fee alone', () => {
+    // The pass waived the service fee; the ₹200 consultation fee still stands.
+    expect(checkoutPayable({
+      ...base, redeemNeedsPay: true, doctorFeeOnline: 200, total: 225.37,
+    })).toBe(200);
+  });
+
+  it('buying a pass at a SERVICE_ONLY doctor costs the pass price', () => {
+    expect(checkoutPayable({ ...base, passSelected: true })).toBe(35);
+  });
+
+  it('buying a pass at a FULL doctor costs the pass price PLUS the fee', () => {
+    // The regression this helper exists for: 35 alone would have been shown,
+    // then Razorpay would have asked for 235.
+    expect(checkoutPayable({
+      ...base, passSelected: true, doctorFeeOnline: 200, total: 225.37,
+    })).toBe(235);
+  });
+
+  it('no pass in play just uses the server total', () => {
+    expect(checkoutPayable(base)).toBe(25.37);
+    expect(checkoutPayable({ ...base, total: null })).toBeNull();
   });
 });

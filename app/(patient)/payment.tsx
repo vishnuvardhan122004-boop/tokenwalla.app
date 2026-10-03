@@ -20,7 +20,7 @@ import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
-import { parsePaymentMessage } from '../../utils/payment';
+import { checkoutPayable, parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
@@ -127,21 +127,38 @@ export default function PaymentScreen() {
     return () => { cancelled = true; };
   }, [isScan]);
 
-  // A pass waives the SERVICE fee only, so it applies where nothing else is
-  // charged online. `collection_mode` is the server's verdict, not a guess.
-  const passOffered  = !!passData?.enabled && !isScan
-                       && breakdown?.collection_mode === 'SERVICE_ONLY';
+  // A pass waives the SERVICE fee only — never a consultation fee — and it is
+  // offered at EVERY doctor. This screen used to require SERVICE_ONLY, which
+  // was the v1 rule; the backend and the website moved on 2026-09-07 and this
+  // did not, so a patient holding a credit who booked a FULL doctor in the app
+  // was quietly charged the service fee again and kept a credit that could
+  // expire unused. `collection_mode` is the server's verdict, not a guess from
+  // the numbers, and it decides what is left to charge:
+  //   SERVICE_ONLY → nothing. ₹0, no gateway, POST /payment/pass/redeem/.
+  //   FULL         → the consultation fee, through the normal Razorpay
+  //                  checkout with redeemPass:true (RedeemPassView refuses a
+  //                  FULL doctor outright and points here).
+  const isFull         = breakdown?.collection_mode === 'FULL';
+  const doctorFeeOnline = Number(breakdown?.doctor_fee || 0);
+  const passOffered  = !!passData?.enabled && !isScan;
   const creditsLeft: number = passData?.pass?.remaining || 0;
   const canRedeem    = passOffered && creditsLeft > 0;   // holding one → spend it
+  const redeemIsFree   = canRedeem && !isFull;
+  const redeemNeedsPay = canRedeem && isFull;
   const canBuy       = passOffered && creditsLeft === 0; // otherwise → offer one
   const passSelected = canBuy && buyPass;
   const passExpiry   = passData?.pass?.expires_at
     ? new Date(passData.pass.expires_at).toLocaleDateString('en-IN',
         { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
-  // What is actually charged now: a redemption is free, a purchase is the
-  // server's quoted price, everything else is the usual bill.
-  const payable = canRedeem ? 0 : passSelected ? Number(passData.price) : total;
+  // What is actually charged now — see utils/payment.checkoutPayable, which
+  // holds the table so it can be unit tested without a React tree.
+  const payable = checkoutPayable({
+    redeemIsFree, redeemNeedsPay, passSelected,
+    doctorFeeOnline,
+    passPrice: Number(passData?.price || 0),
+    total,
+  });
 
   // Spending a credit: no order, no WebView, no Razorpay. The server re-checks
   // the pass, the doctor and the slot — this only asks.
@@ -361,6 +378,10 @@ export default function PaymentScreen() {
         // Opt-in per checkout. The server prices and tags the order — this flag
         // only asks for the upgrade, it never says what it costs.
         ...(passSelected ? { buyPass: true } : {}),
+        // A FULL-doctor redemption: the server prices this order as the
+        // consultation fee alone and tags it pass:'redeem', so /verify/ spends
+        // the credit against the order rather than trusting this flag.
+        ...(redeemNeedsPay ? { redeemPass: true } : {}),
         notes:    { providerId, providerName, hospital, date, slot },
       });
 
@@ -672,7 +693,14 @@ export default function PaymentScreen() {
             <View style={styles.passBadge}>
               <Text style={styles.passBadgeText}>{t('pay_pass_caps')}</Text>
             </View>
-            <Text style={styles.passTitle}>{t('pay_pass_covered')}</Text>
+            {/* "no payment needed" is only true at a SERVICE_ONLY doctor. At a
+                FULL one the pass still waives the service fee, but the
+                consultation fee is charged — saying otherwise next to a Pay
+                ₹200 button is the kind of contradiction a patient reads as a
+                bug in our favour. */}
+            <Text style={styles.passTitle}>
+              {t(redeemNeedsPay ? 'pay_pass_covered_fee_due' : 'pay_pass_covered')}
+            </Text>
             <Text style={styles.passDesc}>
               {creditsLeft === 1
                 ? t('pay_last_visit')
@@ -782,18 +810,18 @@ export default function PaymentScreen() {
 
         <TouchableOpacity
           style={[styles.payBtn, !breakdown && styles.payBtnDisabled]}
-          onPress={canRedeem ? redeemPass : createOrder}
+          onPress={redeemIsFree ? redeemPass : createOrder}
           disabled={!breakdown}
         >
           <Ionicons
-            name={canRedeem ? 'ticket-outline' : 'card-outline'}
+            name={redeemIsFree ? 'ticket-outline' : 'card-outline'}
             size={18}
             color={Colors.white}
           />
           <Text style={styles.payBtnText}>
             {!breakdown
               ? t(feeError ? 'pay_fee_unavailable' : 'loading_ellipsis')
-              : canRedeem
+              : redeemIsFree
                 ? t('pay_use_pass_btn')
                 : t('pay_pay_confirm', { amount: money(payable!) })}
           </Text>

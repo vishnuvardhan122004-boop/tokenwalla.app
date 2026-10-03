@@ -44,3 +44,33 @@ export function parsePaymentMessage(raw: unknown): PaymentWebViewMessage | null 
 
   return parsed as PaymentWebViewMessage;
 }
+
+/**
+ * What the patient is charged right now, given what the pass is doing.
+ *
+ * Extracted because this is the one line the FULL-doctor pass path got wrong:
+ * a pass PURCHASE replaces the service fee with ₹35, it does not replace the
+ * consultation fee, so at a FULL doctor the bill is ₹35 PLUS that fee. While
+ * the pass was only ever offered at SERVICE_ONLY doctors `doctorFeeOnline` was
+ * always 0 and the missing term was invisible — the moment the pass became
+ * universal it would have shown ₹35 and then opened Razorpay for ₹235.
+ *
+ * `total` is the server's own `final_amount` for an ordinary booking, so the
+ * no-pass case does no arithmetic at all. Returns null while the fee breakdown
+ * is still loading, which is what keeps the Pay button disabled.
+ */
+export function checkoutPayable(opts: {
+  redeemIsFree: boolean;     // SERVICE_ONLY redemption — nothing left to charge
+  redeemNeedsPay: boolean;   // FULL redemption — the consultation fee stands
+  passSelected: boolean;     // buying a pass with this booking
+  doctorFeeOnline: number;   // breakdown.doctor_fee (0 unless FULL)
+  passPrice: number;
+  total: number | null;
+}): number | null {
+  const { redeemIsFree, redeemNeedsPay, passSelected,
+          doctorFeeOnline, passPrice, total } = opts;
+  if (redeemIsFree)   return 0;
+  if (redeemNeedsPay) return doctorFeeOnline;
+  if (passSelected)   return doctorFeeOnline + passPrice;
+  return total;
+}
