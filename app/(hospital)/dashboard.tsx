@@ -758,7 +758,14 @@ export default function HospitalDashboard() {
       payload.append('keywords',       form.keywords.trim());
       payload.append('mobile',         form.mobile.trim());
       payload.append('landline',       form.landline.trim());
-      payload.append('whatsapp_number', form.whatsapp_number.trim());
+      // Belt and braces against the bug above: never blank a field we were
+      // not served. If the GET ever stops returning whatsapp_number again
+      // (a stale token, an older backend, a serializer change), the edit form
+      // must leave the stored number alone rather than overwrite it with ''.
+      const waTouched = form.whatsapp_number.trim() !== '' || editDoc?.whatsapp_number !== undefined;
+      if (waTouched) {
+        payload.append('whatsapp_number', form.whatsapp_number.trim());
+      }
       payload.append('experience',     form.experience   || '0');
       payload.append('fee',            form.fee          || '0');
       payload.append('max_per_slot',   form.max_per_slot || '10');

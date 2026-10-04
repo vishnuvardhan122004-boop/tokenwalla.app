@@ -46,7 +46,15 @@ function isPublicRoute(url = ''): boolean {
 // money and payout/KYC data (IsAuthenticated + IsHospitalStaff), so stripping
 // the token turns them into a 401 — which is exactly what the Doctor Payments
 // screen hit before this carve-out.
-const PRIVATE_DOCTOR_PATHS = ['payment-details', 'payment-summary'];
+// `?hospital=` is only ever sent by the three HOSPITAL screens (dashboard,
+// profile, analytics), never by a patient screen — and the doctor serializer
+// fails CLOSED on `whatsapp_number`, stripping it for any caller it cannot
+// prove owns the doctor. Sent unauthenticated, the owner hospital got a doctor
+// object with no `whatsapp_number`, its edit form prefilled '', and saving any
+// other field wiped the doctor's booking-alert number. Silently, with a
+// success toast. `payment-summary` already carries the token on the same
+// screens, so this adds no new refresh-retry exposure.
+const PRIVATE_DOCTOR_PATHS = ['payment-details', 'payment-summary', 'hospital='];
 
 export function isPublicRequest(config: { url?: string; method?: string }): boolean {
   const url = config.url || '';
