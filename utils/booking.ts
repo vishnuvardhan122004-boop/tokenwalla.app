@@ -35,6 +35,23 @@ export function toLocalISODate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/**
+ * The rows falling on one local calendar day (`ymd`, as YYYY-MM-DD).
+ *
+ * `/bookings/queue/<id>/` answers a 38-DAY window — today-7 through today+30
+ * (QUEUE_LOOKBACK_DAYS / QUEUE_LOOKAHEAD_DAYS) — because the query must stay
+ * bounded and the dashboard's Today/Tomorrow/All tabs need the span. Anything
+ * presenting those rows as "today" has to narrow them itself, which the
+ * analytics screen did not: every number on it counted the whole window.
+ *
+ * A row with no `date` is NOT today. The serializer always sends one
+ * (Booking.date is non-null), so this only drops genuinely malformed rows
+ * rather than silently hiding real bookings.
+ */
+export function rowsForDay<T extends { date?: string }>(rows: T[], ymd: string): T[] {
+  return rows.filter(r => r.date === ymd);
+}
+
 /** The next 7 days starting from `from` (default: today), as calendar cells. */
 export function getNext7Days(from: Date = new Date()): DayCell[] {
   return Array.from({ length: 7 }, (_, i) => {

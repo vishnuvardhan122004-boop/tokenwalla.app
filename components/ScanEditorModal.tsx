@@ -126,9 +126,16 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
 
   // Reset on every open. The modal instance outlives one edit, so without this
   // the previous scan's price is sitting in the form when "Add" is tapped.
+  //
+  // `picked` belongs in here for the same reason and was missed, which is the
+  // worse half of the same bug: a photo chosen for one scan survived the close
+  // and was uploaded onto the NEXT scan saved — and because `picked` is also
+  // what decides multipart-vs-JSON below, a save that touched no image at all
+  // still shipped the previous scan's file. ROADMAP 28, claim 9.
   useEffect(() => {
     if (!visible) return;
     setForm(scan ? fromRecord(scan) : EMPTY);
+    setPicked(null);
     setError('');
   }, [visible, scan]);
 

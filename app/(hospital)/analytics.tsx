@@ -22,19 +22,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
-import { providerLabel } from '../../utils/booking';
+import { providerLabel, rowsForDay, toLocalISODate } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import API from '../../services/api';
 
-interface Patient { doctor_name?: string; slot?: string; provider_kind?: string; }
+interface Patient { doctor_name?: string; slot?: string; provider_kind?: string; date?: string; }
 
 export default function HospitalAnalytics() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(hospital)/dashboard'));
 
   const [hospitalId, setHospitalId] = useState<string | number | null>(null);
-  const [queue, setQueue] = useState<{ waiting: Patient[]; inProgress: Patient[]; completed: Patient[] }>({ waiting: [], inProgress: [], completed: [] });
+  const [queue, setQueue] = useState<{ waiting: Patient[]; onHold: Patient[]; inProgress: Patient[]; completed: Patient[] }>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors, setDoctors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -48,6 +48,11 @@ export default function HospitalAnalytics() {
       ]);
       setQueue({
         waiting:    Array.isArray(q.data.waiting)    ? q.data.waiting    : [],
+        // Held patients were dropped on the floor here, so a number labelled
+        // "Today Total" left out people sitting in the waiting room and the
+        // six tiles did not add up. The dashboard has always counted them
+        // (dashboard.tsx:857).
+        onHold:     Array.isArray(q.data.onHold)     ? q.data.onHold     : [],
         inProgress: Array.isArray(q.data.inProgress) ? q.data.inProgress : [],
         completed:  Array.isArray(q.data.completed)  ? q.data.completed  : [],
       });
@@ -68,7 +73,23 @@ export default function HospitalAnalytics() {
     })();
   }, [router, load]);
 
-  const allToday = [...queue.waiting, ...queue.inProgress, ...queue.completed];
+  // `/bookings/queue/` returns a 38-DAY window — today-7 through today+30 —
+  // not today. HospitalQueueView bounds it that way on purpose: the query must
+  // not grow unbounded, and the web dashboard's Today/Tomorrow/All tabs need
+  // the span. Every number on THIS screen is labelled "Today", so it has to
+  // narrow the window itself. Without this filter "Today Total" counted a
+  // month of bookings, and the busiest-slot and per-doctor breakdowns under it
+  // were a month's totals wearing today's label. ROADMAP 28, claim 8.
+  //
+  // `date` is a local YYYY-MM-DD from the serializer; compare it with the
+  // device's LOCAL date, never toISOString(), which would shift the day for
+  // every user after 18:30 IST.
+  const todayISO = toLocalISODate(new Date());
+  const todayIn = (rows: Patient[]) => rowsForDay(rows, todayISO).length;
+  const allToday = rowsForDay(
+    [...queue.waiting, ...queue.onHold, ...queue.inProgress, ...queue.completed],
+    todayISO,
+  );
   const total = allToday.length;
 
   // Per-doctor patient counts (today)
@@ -90,17 +111,25 @@ export default function HospitalAnalytics() {
   ).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
   const availableDocs = doctors.filter(d => d.available).length;
-  const completionRate = total > 0 ? Math.round((queue.completed.length / total) * 100) : 0;
+  // Both halves must span the same day, or the rate is a month of completions
+  // over one day of bookings — which could read over 100%.
+  const completionRate = total > 0
+    ? Math.round((todayIn(queue.completed) / total) * 100)
+    : 0;
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color={Colors.blue600} /></View>;
   }
 
   const STATS = [
+    // Each bucket is counted for TODAY, like the total above it. These read
+    // off `queue.*` unfiltered before, so a tile could exceed the total it was
+    // meant to break down.
     { label: 'Today Total',  val: total,                   color: Colors.blue600     },
-    { label: 'Waiting',      val: queue.waiting.length,    color: Colors.warningText  },
-    { label: 'In Progress',  val: queue.inProgress.length, color: Colors.blue400      },
-    { label: 'Completed',    val: queue.completed.length,  color: Colors.successText  },
+    { label: 'Waiting',      val: todayIn(queue.waiting),    color: Colors.warningText },
+    { label: 'On Hold',      val: todayIn(queue.onHold),     color: Colors.gray600     },
+    { label: 'In Progress',  val: todayIn(queue.inProgress), color: Colors.blue400     },
+    { label: 'Completed',    val: todayIn(queue.completed),  color: Colors.successText },
     { label: 'Doctors',      val: doctors.length,          color: Colors.gray800      },
     { label: 'Available',    val: availableDocs,           color: Colors.successText  },
   ];
