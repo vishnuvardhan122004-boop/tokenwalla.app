@@ -134,9 +134,17 @@ export default function ProfileScreen() {
             ...(user.role === 'hospital'
               ? [{ icon: 'grid-outline' as IconName, label: t('menu_dashboard'), onPress: () => router.push('/(hospital)/dashboard') }]
               : []),
-            { icon: 'ticket-outline',            label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
+            // Patient-only: a hospital account does not book, so My Bookings
+            // and Find Doctors are hidden for it here, the same two entries
+            // hidden from the tab bar in _layout.tsx. Leaving them here would
+            // just route around that.
+            ...(user.role === 'hospital'
+              ? []
+              : [
+                  { icon: 'ticket-outline' as IconName, label: t('menu_my_bookings'),  onPress: () => router.push('/(patient)/my-bookings') },
+                  { icon: 'medkit-outline' as IconName, label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
+                ]),
             { icon: 'document-text-outline',     label: t('menu_my_documents'), onPress: () => router.push('/(patient)/my-documents') },
-            { icon: 'medkit-outline',            label: t('menu_find_doctors'), onPress: () => router.push('/(patient)/doctors')     },
             { icon: 'information-circle-outline', label: t('menu_about'),        onPress: () => router.push('/(patient)/about')       },
             { icon: 'call-outline',              label: t('menu_contact'),      onPress: () => router.push('/(patient)/contact')     },
             { icon: 'document-text-outline',     label: t('menu_terms'),        onPress: () => router.push('/(patient)/terms')       },
