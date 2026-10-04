@@ -250,12 +250,17 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
         setUnusedOrderId(res.data.order_id || orderId);
         Alert.alert(
           t('rs_failed'),
-          `${res.data.message || 'That slot is no longer available.'} Pick another slot — you will not be charged again.`,
+          // `res.data.message` is the server's own English text; only the
+          // strings this app owns can be translated here. The reassurance is
+          // the half that matters — a patient who has just been charged and
+          // told the slot failed pays twice out of fear if they cannot read it.
+          `${res.data.message || t('rs_slot_unavailable')} ${t('rs_not_charged_again')}`,
         );
         setStep('slot');
         return;
       }
-      const errMsg = res?.data?.message || e?.message || 'Verification error. Contact support.';
+      // pay_verify_error already says exactly this, in all four languages.
+      const errMsg = res?.data?.message || e?.message || t('pay_verify_error');
       Alert.alert(t('error'), errMsg);
       setStep('slot');
     }
@@ -464,7 +469,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
       // untrusted WebView message) — a SUCCESS with none is malformed, not
       // a verify failure the retry path should handle.
       if (!msg.orderId) {
-        Alert.alert(t('error'), 'Payment confirmation was incomplete. Contact support.');
+        Alert.alert(t('error'), t('rs_payment_incomplete'));
         setStep('slot');
         return;
       }

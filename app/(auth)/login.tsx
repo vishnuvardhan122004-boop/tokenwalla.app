@@ -45,8 +45,8 @@ export default function LoginScreen() {
   const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
 
   const requestOTP = async () => {
-    if (!mobile) { setError('Enter your mobile number first'); return; }
-    if (!isValidMobile(mobile)) { setError('Enter a valid 10-digit mobile number'); return; }
+    if (!mobile) { setError(t('lg_enter_mobile_first')); return; }
+    if (!isValidMobile(mobile)) { setError(t('lg_invalid_mobile')); return; }
 
     setOtpLoading(true);
     setError('');
@@ -62,12 +62,12 @@ export default function LoginScreen() {
       });
 
       if (check?.exists === false) {
-        setError('This mobile number is not registered. Please create an account first.');
+        setError(t('lg_not_registered'));
         setOtpLoading(false);
         return;
       }
       if (check?.status === 'blocked') {
-        setError('This account has been blocked. Please contact support.');
+        setError(t('lg_blocked'));
         setOtpLoading(false);
         return;
       }
@@ -80,7 +80,7 @@ export default function LoginScreen() {
       setOtpSent(true);
       startCooldown();
     } catch (e) {
-      setError(apiMessage(e, 'OTP failed. Please try again.'));
+      setError(apiMessage(e, t('lg_otp_failed')));
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
       if (isCooldown429(e)) startCooldown();
@@ -90,7 +90,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
-    if (!mobile || !password) { setError('Enter mobile and password / OTP'); return; }
+    if (!mobile || !password) { setError(t('lg_enter_mobile_password')); return; }
     setLoading(true);
     setError('');
     try {
@@ -101,7 +101,7 @@ export default function LoginScreen() {
       if (data.user?.role === 'hospital') router.replace('/(hospital)/dashboard');
       else router.replace('/(patient)/home');
     } catch (e) {
-      setError(apiMessage(e, 'Invalid credentials'));
+      setError(apiMessage(e, t('lg_invalid_credentials')));
     } finally {
       setLoading(false);
     }

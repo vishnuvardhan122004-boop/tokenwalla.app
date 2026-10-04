@@ -351,11 +351,13 @@ export default function DoctorDetails() {
   // The sticky CTA's icon + label together, so the two can never disagree about
   // which state the button is in. `icon: null` means text alone.
   const cta: { icon: ComponentProps<typeof Ionicons>['name'] | null; label: string } =
-    !doctor.available            ? { icon: 'close-circle-outline', label: 'Doctor Unavailable' }
-    : !selectedSlot              ? { icon: null, label: 'Select a Slot First' }
-    : slotAvail[selectedSlot]?.full ? { icon: 'close-circle-outline', label: 'Slot is Full' }
-    : user                       ? { icon: 'card-outline', label: `Pay ₹${money(fees.final_amount)} & Book Appointment` }
-    :                              { icon: 'lock-closed-outline', label: 'Login to Book' };
+    !doctor.available            ? { icon: 'close-circle-outline', label: t('dr_cta_unavailable') }
+    // dr_select_slot / dr_slot_full already say these, in all four languages
+    // — reused rather than adding a near-duplicate key per screen.
+    : !selectedSlot              ? { icon: null, label: t('dr_select_slot') }
+    : slotAvail[selectedSlot]?.full ? { icon: 'close-circle-outline', label: t('dr_slot_full') }
+    : user                       ? { icon: 'card-outline', label: t('dr_cta_pay_book', { amount: money(fees.final_amount) }) }
+    :                              { icon: 'lock-closed-outline', label: t('dr_cta_login') };
 
   // Walk-in: the hospital publishes no slot times, so there is nothing to book
   // online. We still list the doctor — patients get the hours, the days and a
@@ -746,18 +748,22 @@ export default function DoctorDetails() {
         <View style={styles.block}>
           <BlockTitle icon="receipt-outline">{t('dr_booking_summary')}</BlockTitle>
 
+          {/* `id` is the React key, not `label`: two labels could translate to
+              the same string in some language and silently collide. The labels
+              themselves reuse bt_* / dr_hospital, which already carry this
+              exact vocabulary. ROADMAP 28, claim 12. */}
           {[
-            { label: 'Doctor',   value: providerLabel(doctor.name)                                              },
-            { label: 'Hospital', value: doctor.hospital_name                                              },
+            { id: 'doctor',   label: t('bt_doctor'),   value: providerLabel(doctor.name) },
+            { id: 'hospital', label: t('dr_hospital'), value: doctor.hospital_name       },
             walkIn
-              ? { label: 'Hours', value: (hospitalInfo?.open_time || hospitalInfo?.close_time)
-                  ? `${hospitalInfo?.open_time || '—'} – ${hospitalInfo?.close_time || '—'}` : 'Call to confirm' }
-              : { label: 'Date',  value: dateLabel ? `${dateLabel.label}, ${dateLabel.num} ${dateLabel.month}` : '—' },
+              ? { id: 'hours', label: t('dr_label_hours'), value: (hospitalInfo?.open_time || hospitalInfo?.close_time)
+                  ? `${hospitalInfo?.open_time || '—'} – ${hospitalInfo?.close_time || '—'}` : t('dr_call_to_confirm') }
+              : { id: 'date',  label: t('bt_date'),  value: dateLabel ? `${dateLabel.label}, ${dateLabel.num} ${dateLabel.month}` : '—' },
             walkIn
-              ? { label: 'Booking', value: 'Walk-in — no token', dim: true }
-              : { label: 'Slot',    value: selectedSlot || 'Not selected yet', dim: !selectedSlot },
-          ].map(({ label, value, dim }) => (
-            <View key={label} style={styles.summaryRow}>
+              ? { id: 'booking', label: t('dr_label_booking'), value: t('dr_walkin_no_token'), dim: true }
+              : { id: 'slot',    label: t('bt_slot'),          value: selectedSlot || t('dr_not_selected_yet'), dim: !selectedSlot },
+          ].map(({ id, label, value, dim }) => (
+            <View key={id} style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{label}</Text>
               <Text style={[styles.summaryValue, dim && styles.summaryValueDim]}>{value}</Text>
             </View>
@@ -837,8 +843,8 @@ export default function DoctorDetails() {
         )}
         <Text style={styles.bookNote}>
           {walkIn
-            ? 'Walk in during the hospital\u2019s opening hours'
-            : 'Secured by Razorpay · Refundable if cancelled 2hrs before slot'}
+            ? t('dr_note_walkin_hours')
+            : t('dr_note_secured_refund')}
         </Text>
       </View>
 
