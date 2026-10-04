@@ -44,7 +44,7 @@ export default function BookingTokenScreen() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(shareUri, {
           mimeType: 'image/png',
-          dialogTitle: 'Save your appointment ticket',
+          dialogTitle: t('mb_save_ticket'),
           UTI: 'public.png',
         });
       } else {

@@ -50,7 +50,7 @@ export default function PaymentScreen() {
   // SERVICE_ONLY doctors wrong (their consultation fee is paid at the clinic,
   // not online). Until it loads, the pay button stays disabled.
   const [breakdown, setBreakdown] = useState<FeeBreakdown | null>(null);
-  const [feeError,  setFeeError]  = useState('');
+  const [feeError,  setFeeError]  = useState(false);
   const [feeReload, setFeeReload] = useState(0);
   const total = breakdown ? Number(breakdown.final_amount) : null;
 
@@ -99,7 +99,7 @@ export default function PaymentScreen() {
     // Drop the previous provider's figures first — otherwise a slow or failed
     // load leaves the last one's price on screen as if it were this one's.
     setBreakdown(null);
-    setFeeError('');
+    setFeeError(false);
     API.get(isScan ? `/scans/${scanId}/` : `/doctors/${doctorId}/`)
       .then(({ data }) => {
         if (cancelled) return;
@@ -110,7 +110,7 @@ export default function PaymentScreen() {
           || computeFeeBreakdown(isScan ? data.price : data.fee, data.payment_collection_mode));
       })
       .catch(() => {
-        if (!cancelled) setFeeError('Could not load the fee details. Check your connection and try again.');
+        if (!cancelled) setFeeError(true);
       });
     return () => { cancelled = true; };
   }, [providerId, isScan, scanId, doctorId, feeReload]);
@@ -607,7 +607,7 @@ export default function PaymentScreen() {
             <View style={styles.feeBox}>
               {feeError ? (
                 <View style={styles.feeErrorBox}>
-                  <Text style={styles.feeErrorText}>{feeError}</Text>
+                  <Text style={styles.feeErrorText}>{t('pay_fee_load_failed')}</Text>
                   <TouchableOpacity style={styles.retryBtn} onPress={() => setFeeReload(n => n + 1)}>
                     <Ionicons name="refresh" size={14} color={Colors.blue600} />
                     <Text style={styles.retryText}>{t('retry')}</Text>

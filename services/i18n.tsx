@@ -536,6 +536,29 @@ const en: Dict = {
   price_or: 'or',
   price_pass_offer: '{visits} visits · {days} days · save ₹{save}',
   price_pass_held: '{count} left · valid to {date}',
+  // Login errors + money-path errors (ROADMAP 28, claims 11 and 13).
+  lg_enter_mobile_first: 'Enter your mobile number first',
+  lg_invalid_mobile: 'Enter a valid 10-digit mobile number',
+  lg_not_registered: 'This mobile number is not registered. Please create an account first.',
+  lg_blocked: 'This account has been blocked. Please contact support.',
+  lg_otp_failed: 'OTP failed. Please try again.',
+  lg_enter_mobile_password: 'Enter mobile and password / OTP',
+  lg_invalid_credentials: 'Invalid credentials',
+  rs_slot_unavailable: 'That slot is no longer available.',
+  rs_not_charged_again: 'Pick another slot — you will not be charged again.',
+  rs_payment_incomplete: 'Payment confirmation was incomplete. Contact support.',
+  pay_fee_load_failed: 'Could not load the fee details. Check your connection and try again.',
+  // The pay-commit screen (ROADMAP 28, claim 12).
+  dr_cta_unavailable: 'Doctor Unavailable',
+  dr_cta_pay_book: 'Pay ₹{amount} & Book Appointment',
+  dr_cta_login: 'Login to Book',
+  dr_label_hours: 'Hours',
+  dr_label_booking: 'Booking',
+  dr_call_to_confirm: 'Call to confirm',
+  dr_walkin_no_token: 'Walk-in — no token',
+  dr_not_selected_yet: 'Not selected yet',
+  dr_note_walkin_hours: "Walk in during the hospital's opening hours",
+  dr_note_secured_refund: 'Secured by Razorpay · Refundable if cancelled 2hrs before slot',
 };
 
 const hi: Dict = {
@@ -1045,6 +1068,29 @@ const hi: Dict = {
   price_or: 'या',
   price_pass_offer: '{visits} विज़िट · {days} दिन · ₹{save} बचाएँ',
   price_pass_held: '{count} बची · {date} तक वैध',
+  // Login errors + money-path errors (ROADMAP 28, claims 11 and 13).
+  lg_enter_mobile_first: 'पहले अपना मोबाइल नंबर दर्ज करें',
+  lg_invalid_mobile: 'मान्य 10 अंकों का मोबाइल नंबर दर्ज करें',
+  lg_not_registered: 'यह मोबाइल नंबर रजिस्टर्ड नहीं है। पहले खाता बनाएँ।',
+  lg_blocked: 'यह खाता ब्लॉक कर दिया गया है। कृपया सहायता से संपर्क करें।',
+  lg_otp_failed: 'OTP विफल। कृपया फिर से प्रयास करें।',
+  lg_enter_mobile_password: 'मोबाइल और पासवर्ड / OTP दर्ज करें',
+  lg_invalid_credentials: 'अमान्य क्रेडेंशियल',
+  rs_slot_unavailable: 'वह स्लॉट अब उपलब्ध नहीं है।',
+  rs_not_charged_again: 'दूसरा स्लॉट चुनें — आपसे दोबारा शुल्क नहीं लिया जाएगा।',
+  rs_payment_incomplete: 'भुगतान की पुष्टि अधूरी रही। सहायता से संपर्क करें।',
+  pay_fee_load_failed: 'शुल्क विवरण लोड नहीं हो सका। अपना कनेक्शन जांचें और फिर से प्रयास करें।',
+  // The pay-commit screen (ROADMAP 28, claim 12).
+  dr_cta_unavailable: 'डॉक्टर उपलब्ध नहीं',
+  dr_cta_pay_book: '₹{amount} दें और अपॉइंटमेंट बुक करें',
+  dr_cta_login: 'बुक करने के लिए लॉगिन करें',
+  dr_label_hours: 'समय',
+  dr_label_booking: 'बुकिंग',
+  dr_call_to_confirm: 'पक्का करने के लिए कॉल करें',
+  dr_walkin_no_token: 'वॉक-इन — कोई टोकन नहीं',
+  dr_not_selected_yet: 'अभी चुना नहीं गया',
+  dr_note_walkin_hours: 'अस्पताल के खुलने के समय में आएँ',
+  dr_note_secured_refund: 'Razorpay द्वारा सुरक्षित · स्लॉट से 2 घंटे पहले रद्द करने पर रिफंड योग्य',
 };
 
 const te: Dict = {
@@ -1554,6 +1600,29 @@ const te: Dict = {
   price_or: 'లేదా',
   price_pass_offer: '{visits} సందర్శనలు · {days} రోజులు · ₹{save} ఆదా',
   price_pass_held: '{count} మిగిలాయి · {date} వరకు చెల్లుబాటు',
+  // Login errors + money-path errors (ROADMAP 28, claims 11 and 13).
+  lg_enter_mobile_first: 'ముందుగా మీ మొబైల్ నంబర్ నమోదు చేయండి',
+  lg_invalid_mobile: 'చెల్లుబాటు అయ్యే 10 అంకెల మొబైల్ నంబర్ నమోదు చేయండి',
+  lg_not_registered: 'ఈ మొబైల్ నంబర్ నమోదు కాలేదు. ముందుగా ఖాతా సృష్టించండి.',
+  lg_blocked: 'ఈ ఖాతా బ్లాక్ చేయబడింది. సపోర్ట్‌ను సంప్రదించండి.',
+  lg_otp_failed: 'OTP విఫలమైంది. మళ్లీ ప్రయత్నించండి.',
+  lg_enter_mobile_password: 'మొబైల్ మరియు పాస్‌వర్డ్ / OTP నమోదు చేయండి',
+  lg_invalid_credentials: 'చెల్లని ఆధారాలు',
+  rs_slot_unavailable: 'ఆ స్లాట్ ఇప్పుడు అందుబాటులో లేదు.',
+  rs_not_charged_again: 'మరో స్లాట్ ఎంచుకోండి — మీకు మళ్లీ ఛార్జ్ చేయబడదు.',
+  rs_payment_incomplete: 'చెల్లింపు ధృవీకరణ అసంపూర్ణంగా ఉంది. సపోర్ట్‌ను సంప్రదించండి.',
+  pay_fee_load_failed: 'ఫీజు వివరాలు లోడ్ చేయలేకపోయాము. మీ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.',
+  // The pay-commit screen (ROADMAP 28, claim 12).
+  dr_cta_unavailable: 'డాక్టర్ అందుబాటులో లేరు',
+  dr_cta_pay_book: '₹{amount} చెల్లించి అపాయింట్‌మెంట్ బుక్ చేయండి',
+  dr_cta_login: 'బుక్ చేయడానికి లాగిన్ అవ్వండి',
+  dr_label_hours: 'వేళలు',
+  dr_label_booking: 'బుకింగ్',
+  dr_call_to_confirm: 'నిర్ధారించడానికి కాల్ చేయండి',
+  dr_walkin_no_token: 'వాక్-ఇన్ — టోకెన్ లేదు',
+  dr_not_selected_yet: 'ఇంకా ఎంచుకోలేదు',
+  dr_note_walkin_hours: 'ఆసుపత్రి తెరిచి ఉన్న వేళల్లో రండి',
+  dr_note_secured_refund: 'Razorpay ద్వారా సురక్షితం · స్లాట్‌కు 2 గంటల ముందు రద్దు చేస్తే రీఫండ్',
 };
 
 const kn: Dict = {
@@ -2063,6 +2132,29 @@ const kn: Dict = {
   price_or: 'ಅಥವಾ',
   price_pass_offer: '{visits} ಭೇಟಿಗಳು · {days} ದಿನಗಳು · ₹{save} ಉಳಿತಾಯ',
   price_pass_held: '{count} ಬಾಕಿ · {date} ವರೆಗೆ ಮಾನ್ಯ',
+  // Login errors + money-path errors (ROADMAP 28, claims 11 and 13).
+  lg_enter_mobile_first: 'ಮೊದಲು ನಿಮ್ಮ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ',
+  lg_invalid_mobile: 'ಮಾನ್ಯ 10 ಅಂಕಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ',
+  lg_not_registered: 'ಈ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನೋಂದಣಿಯಾಗಿಲ್ಲ. ಮೊದಲು ಖಾತೆ ರಚಿಸಿ.',
+  lg_blocked: 'ಈ ಖಾತೆಯನ್ನು ನಿರ್ಬಂಧಿಸಲಾಗಿದೆ. ಬೆಂಬಲವನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+  lg_otp_failed: 'OTP ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  lg_enter_mobile_password: 'ಮೊಬೈಲ್ ಮತ್ತು ಪಾಸ್‌ವರ್ಡ್ / OTP ನಮೂದಿಸಿ',
+  lg_invalid_credentials: 'ಅಮಾನ್ಯ ರುಜುವಾತುಗಳು',
+  rs_slot_unavailable: 'ಆ ಸ್ಲಾಟ್ ಈಗ ಲಭ್ಯವಿಲ್ಲ.',
+  rs_not_charged_again: 'ಇನ್ನೊಂದು ಸ್ಲಾಟ್ ಆಯ್ಕೆಮಾಡಿ — ನಿಮಗೆ ಮತ್ತೆ ಶುಲ್ಕ ವಿಧಿಸಲಾಗುವುದಿಲ್ಲ.',
+  rs_payment_incomplete: 'ಪಾವತಿ ದೃಢೀಕರಣ ಅಪೂರ್ಣವಾಗಿತ್ತು. ಬೆಂಬಲವನ್ನು ಸಂಪರ್ಕಿಸಿ.',
+  pay_fee_load_failed: 'ಶುಲ್ಕ ವಿವರಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ. ನಿಮ್ಮ ಸಂಪರ್ಕ ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+  // The pay-commit screen (ROADMAP 28, claim 12).
+  dr_cta_unavailable: 'ವೈದ್ಯರು ಲಭ್ಯವಿಲ್ಲ',
+  dr_cta_pay_book: '₹{amount} ಪಾವತಿಸಿ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬುಕ್ ಮಾಡಿ',
+  dr_cta_login: 'ಬುಕ್ ಮಾಡಲು ಲಾಗಿನ್ ಆಗಿ',
+  dr_label_hours: 'ಸಮಯ',
+  dr_label_booking: 'ಬುಕಿಂಗ್',
+  dr_call_to_confirm: 'ದೃಢೀಕರಿಸಲು ಕರೆ ಮಾಡಿ',
+  dr_walkin_no_token: 'ವಾಕ್-ಇನ್ — ಟೋಕನ್ ಇಲ್ಲ',
+  dr_not_selected_yet: 'ಇನ್ನೂ ಆಯ್ಕೆ ಮಾಡಿಲ್ಲ',
+  dr_note_walkin_hours: 'ಆಸ್ಪತ್ರೆ ತೆರೆದಿರುವ ಸಮಯದಲ್ಲಿ ಬನ್ನಿ',
+  dr_note_secured_refund: 'Razorpay ಮೂಲಕ ಸುರಕ್ಷಿತ · ಸ್ಲಾಟ್‌ಗಿಂತ 2 ಗಂಟೆ ಮೊದಲು ರದ್ದುಗೊಳಿಸಿದರೆ ಮರುಪಾವತಿ',
 };
 
 const TRANSLATIONS: Record<LangCode, Dict> = { en, hi, te, kn };
