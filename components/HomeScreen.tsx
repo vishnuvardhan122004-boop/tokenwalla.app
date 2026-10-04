@@ -113,9 +113,16 @@ export default function HomeScreen() {
   const { t, lang } = useI18n();
 
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [user,    setUser]    = useState<{ name?: string; username?: string } | null>(null);
+  const [user,    setUser]    = useState<{ name?: string; username?: string; role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
+  // A hospital reaches this screen through the patient tab bar (its dashboard's
+  // back button lands here). The booking routes are unregistered for it in
+  // app/(patient)/_layout.tsx, so every booking control below would be a dead
+  // tap — and in a dev build an unhandled navigation shows an error box. They
+  // are hidden instead. `user` is re-read on focus (below), so this is never
+  // stale after a login.
+  const isHospital = user?.role === 'hospital';
   const [langOpen, setLangOpen] = useState(false);
   // The Appointment Pass offer + whatever this patient already holds.
   const [passData, setPassData] = useState<any>(null);
@@ -264,15 +271,18 @@ export default function HomeScreen() {
 
           <Text style={styles.heroSub}>{t('hero_sub')}</Text>
 
-          <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => router.push('/(patient)/doctors')}
-          >
-            <Text style={styles.primaryBtnText}>{t('book_appointment')}</Text>
-          </TouchableOpacity>
+          {!isHospital && (
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => router.push('/(patient)/doctors')}
+            >
+              <Text style={styles.primaryBtnText}>{t('book_appointment')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── Browse by specialty ── */}
+        {!isHospital && (
         <View style={styles.specSection}>
           <Text style={styles.specLabel}>{t('browse_by_specialty')}</Text>
           <View style={styles.specRow}>
@@ -289,6 +299,7 @@ export default function HomeScreen() {
             ))}
           </View>
         </View>
+        )}
 
         {/* ── Stats ── */}
         <View style={styles.statsRow}>
@@ -301,6 +312,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── How it Works ── */}
+        {!isHospital && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('how_it_works')}</Text>
           <Text style={styles.sectionTitle}>{t('book_4_steps')}</Text>
@@ -335,9 +347,10 @@ export default function HomeScreen() {
             </View>
           ))}
         </View>
+        )}
 
         {/* ── Doctor Cards ── */}
-        {!loading && doctors.length > 0 && (
+        {!isHospital && !loading && doctors.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>{t('doctors_near_you')}</Text>
@@ -411,6 +424,7 @@ export default function HomeScreen() {
         </View>
 
         {/* ── Price Card ── */}
+        {!isHospital && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('pricing')}</Text>
           <Text style={styles.sectionTitle}>{t('simple_transparent')}</Text>
@@ -498,15 +512,18 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+        )}
 
         {/* ── CTA Banner ── */}
-        <View style={styles.ctaBanner}>
-          <Text style={styles.ctaTitle}>{t('cta_title')}</Text>
-          <Text style={styles.ctaSub}>{t('cta_sub')}</Text>
-          <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/(patient)/doctors')}>
-            <Text style={styles.ctaBtnText}>{t('cta_btn')}</Text>
-          </TouchableOpacity>
-        </View>
+        {!isHospital && (
+          <View style={styles.ctaBanner}>
+            <Text style={styles.ctaTitle}>{t('cta_title')}</Text>
+            <Text style={styles.ctaSub}>{t('cta_sub')}</Text>
+            <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/(patient)/doctors')}>
+              <Text style={styles.ctaBtnText}>{t('cta_btn')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── Footer ── */}
         <View style={styles.footer}>

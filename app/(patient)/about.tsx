@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 const STATS = [
   { num: '2,400+', label: 'Tokens Issued'  },
   { num: '18',     label: 'Hospitals'      },
@@ -23,6 +24,8 @@ const VALUES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; de
 export default function AboutScreen() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(patient)/home'));
+  const { user } = useCurrentUser<{ role?: string }>({ refetchOnFocus: true });
+  const isHospital = user?.role === 'hospital';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -84,14 +87,18 @@ export default function AboutScreen() {
           </View>
         </View>
 
-        {/* CTA */}
-        <View style={styles.ctaBanner}>
-          <Text style={styles.ctaTitle}>Ready to try TokenWalla?</Text>
-          <Text style={styles.ctaSub}>Book your first appointment in under 2 minutes.</Text>
-          <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/(patient)/doctors')}>
-            <Text style={styles.ctaBtnText}>Find a Doctor →</Text>
-          </TouchableOpacity>
-        </View>
+        {/* CTA — patients only. A hospital cannot book (the route is
+            unregistered for it in app/(patient)/_layout.tsx), so this would be
+            a dead "Find a Doctor" button inviting it to try. */}
+        {!isHospital && (
+          <View style={styles.ctaBanner}>
+            <Text style={styles.ctaTitle}>Ready to try TokenWalla?</Text>
+            <Text style={styles.ctaSub}>Book your first appointment in under 2 minutes.</Text>
+            <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/(patient)/doctors')}>
+              <Text style={styles.ctaBtnText}>Find a Doctor →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={{ height: 30 }} />
       </ScrollView>
