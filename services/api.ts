@@ -107,7 +107,37 @@ API.interceptors.response.use(
   }
 );
 
+// ── Things that must be undone on logout ──────────────────────────────────
+// Registered by the modules that own them, rather than imported here: both
+// services/notifications.ts and services/notificationStore.ts import API from
+// this module, so a static import back would be a cycle — and a dynamic
+// `import()` is worse, because it throws under jest and the surrounding
+// try/catch swallowed it, leaving the cleanup silently dead in exactly the
+// path being fixed. Same shape as notificationStore's setBadgeSync.
+type LogoutTask = { label: string; run: () => Promise<void> };
+const _logoutTasks: LogoutTask[] = [];
+
+export function onLogout(label: string, run: () => Promise<void>): void {
+  if (!_logoutTasks.some(t => t.label === label)) _logoutTasks.push({ label, run });
+}
+
+export function _logoutTaskLabels(): string[] {
+  return _logoutTasks.map(t => t.label);
+}
+
 export async function logoutUser() {
+  // Run these FIRST: handing the push token back is an authenticated request,
+  // so it has to happen while the access token is still in storage. Without
+  // it the DeviceToken row outlives the session and this account's booking
+  // pushes — which carry the patient's name — keep arriving on this handset
+  // for whoever holds it next.
+  for (const task of _logoutTasks) {
+    try {
+      await task.run();
+    } catch {
+      // best-effort, per task — one failure must not trap the user logged in
+    }
+  }
   try {
     const refresh = await AsyncStorage.getItem('refresh');
     if (refresh) {

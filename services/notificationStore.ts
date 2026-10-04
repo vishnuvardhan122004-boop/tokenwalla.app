@@ -16,6 +16,7 @@
  * (e.g. once at fire-time and once via the OS "received" listener) is safe.
  */
 
+import { onLogout } from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -190,3 +191,8 @@ export function useNotificationCenter(audience: NotificationAudience) {
     clearAll: useCallback(() => clearNotifications(audience), [audience]),
   };
 }
+
+// This cache is the account's own history — booking tokens, patient names,
+// cancellation notices — and it is keyed by audience, not by user, so leaving
+// it behind shows it to whoever logs in next.
+onLogout('notification-history', () => clearNotifications());
