@@ -25,7 +25,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import type * as NotificationsModule from 'expo-notifications';
 import { recordNotification, setBadgeSync, type NotificationAudience } from './notificationStore';
-import API from './api';
+import API, { onLogout } from './api';
 import { normalizeBookingStatus, providerLabel } from '../utils/booking';
 
 /**
@@ -151,6 +151,46 @@ export async function registerPushToken(role: NotificationAudience): Promise<voi
     _registeredKey = key;
   } catch {
     // best-effort — never block the UI on push registration
+  }
+}
+
+/**
+ * Hand the token back on logout, so the next person holding this handset does
+ * not receive the previous account's notifications.
+ *
+ * The backend has always had the DELETE for this ("Unregister a token (e.g. on
+ * logout). Best-effort." — notifications/views.py); nothing called it. Without
+ * it the DeviceToken row survives logout still pointing at the old user, and
+ * `update_or_create(expo_token, role)` only reassigns it if the next login uses
+ * the SAME role. A patient logging out and hospital staff logging in leaves the
+ * patient row intact, and that account's booking pushes — which carry the
+ * patient's name and token — keep arriving on this device. If nobody logs in
+ * again, they arrive forever.
+ *
+ * The server filters by token AND user, so this clears every role this user
+ * registered on this handset in one call, and cannot touch anyone else's row.
+ *
+ * Must run BEFORE the access token is cleared: it is an authenticated request.
+ * Best-effort by design — a failure here must never block logout.
+ */
+export async function unregisterPushToken(): Promise<void> {
+  const N = getNotifications();
+  if (!N) return;
+  try {
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      (Constants as any).easConfig?.projectId;
+    const resp = await N.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
+    const token = resp.data;
+    if (!token) return;
+    await API.delete('/notifications/register-device/', { data: { token } });
+  } catch {
+    // best-effort — never block logout on push cleanup
+  } finally {
+    // Whatever happened on the server, this session no longer holds a
+    // registration, so the next login must re-register rather than
+    // short-circuit on _registeredKey.
+    _registeredKey = null;
   }
 }
 
@@ -422,3 +462,7 @@ export async function notifyHospitalNewBooking(opts: {
     trigger: immediateTrigger(),
   });
 }
+
+// Self-registering, so logoutUser never has to import this module (which would
+// be a cycle — this one imports API). See api.onLogout.
+onLogout('push-token', unregisterPushToken);
