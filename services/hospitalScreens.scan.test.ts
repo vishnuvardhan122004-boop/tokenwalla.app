@@ -18,20 +18,31 @@
  * pure logic and has no react-native renderer, so neither a modal's effect nor
  * a 10-second poll can be driven here. A scan still fails if the line is
  * removed, which is the regression worth catching.
+ *
+ * NOT colocated with the screens it reads, and that is load-bearing. This file
+ * first shipped as `app/(hospital)/queueState.test.ts` and **broke the
+ * production build**: everything under `app/` is an expo-router route, picked
+ * up by its `require.context`, so Metro tried to bundle this test into the app
+ * and died on `import fs` — which React Native does not have. jest, `tsc` and
+ * `expo lint` were all green; only `expo export` or an EAS build shows it.
+ * Every other suite in this repo lives in utils/, services/, hooks/,
+ * constants/ or plugins/ for exactly this reason. The last test here enforces
+ * it so nobody repeats it.
  */
 import fs from 'fs';
 import path from 'path';
 
-const read = (p: string) => fs.readFileSync(path.join(__dirname, p), 'utf8');
+const ROOT = path.join(__dirname, '..');
+const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 /** Source with comments removed — a scan asserting something is ABSENT has to
  *  look at code, or a comment explaining the fix fails the test for it. */
 const codeOnly = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
-const MODAL     = read('../../components/ScanEditorModal.tsx');
-const DASHBOARD = read('dashboard.tsx');
-const ANALYTICS = read('analytics.tsx');
+const MODAL     = read('components/ScanEditorModal.tsx');
+const DASHBOARD = read('app/(hospital)/dashboard.tsx');
+const ANALYTICS = read('app/(hospital)/analytics.tsx');
 
 /** The body of the `if (!visible) return;` reset effect. */
 function openResetEffect(src: string): string {
@@ -73,6 +84,32 @@ describe('the dashboard counts held patients as already seen (claim 10)', () => 
 
   it('reads onHold off the queue response in the first place', () => {
     expect(DASHBOARD).toMatch(/const onHold\s+= Array\.isArray\(data\.onHold\)/);
+  });
+});
+
+describe('no test file lives under app/ (this file broke the build once)', () => {
+  // The guard for the mistake above. `app/` is expo-router's route directory:
+  // its require.context pulls in every file, so a test placed there is bundled
+  // into the shipped app. This one imported `fs` and took the whole production
+  // bundle down while jest, tsc and expo lint all stayed green.
+  //
+  // Cheap to assert, and the only check in this repo that would have caught it
+  // short of a full `expo export`.
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? walk(full) : [full];
+    });
+
+  it('finds no .test.* or .spec.* file anywhere under app/', () => {
+    const offenders = walk(path.join(ROOT, 'app'))
+      .filter(f => /\.(test|spec)\.[jt]sx?$/.test(f))
+      .map(f => path.relative(ROOT, f));
+    expect(offenders).toEqual([]);
+  });
+
+  it('walks a real tree, so the assertion above cannot pass vacuously', () => {
+    expect(walk(path.join(ROOT, 'app')).length).toBeGreaterThan(20);
   });
 });
 
