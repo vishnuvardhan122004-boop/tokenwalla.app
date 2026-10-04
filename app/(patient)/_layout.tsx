@@ -1,7 +1,9 @@
 import { Tabs } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
+import { getUser } from '../../services/api';
 
 // ── SVG Icon Components ──────────────────────────────────────────────────────
 
@@ -99,6 +101,25 @@ function TabIcon({ icon, focused }: TabIconProps) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function PatientLayout() {
+  // A hospital account has no business browsing or booking, and it lands here
+  // for real: the dashboard's back button goes to /(patient)/home
+  // (dashboard.tsx), which drops a logged-in hospital straight into this tab
+  // bar. Doctors and My Bookings are hidden for that role.
+  //
+  // Read directly rather than through useCurrentUser: that hook calls
+  // useFocusEffect, and this component IS the navigator those tabs live in.
+  // Four lines here avoids depending on the navigation context being ready.
+  //
+  // ponytail: one AsyncStorage read per mount, so a hospital user may see the
+  // two tabs for a frame before they vanish. Cache the role in a module-level
+  // variable if that flash is ever visible on a real device.
+  const [isHospital, setIsHospital] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getUser().then((u) => { if (alive) setIsHospital(u?.role === 'hospital'); });
+    return () => { alive = false; };
+  }, []);
+
   return (
     <Tabs
       // Back returns to the screen the patient was actually on, not Home.
@@ -115,7 +136,7 @@ export default function PatientLayout() {
         tabBarInactiveTintColor: Colors.gray400,
       }}
     >
-      {/* ── Visible tabs (exactly 4) ───────────────────────────────────────── */}
+      {/* ── Visible tabs: 4 for a patient, 2 for a hospital ─────────────────── */}
       <Tabs.Screen
         name="home"
         options={{
@@ -131,6 +152,7 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="doctors"
         options={{
+          href: isHospital ? null : undefined,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
@@ -143,6 +165,7 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="my-bookings"
         options={{
+          href: isHospital ? null : undefined,
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
