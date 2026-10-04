@@ -368,7 +368,14 @@ export default function HospitalDashboard() {
       setQueue({ waiting, onHold, inProgress, completed });
 
       // ── Notify hospital of newly-booked (waiting) patients ──
-      const allIds = [...waiting, ...inProgress, ...completed].map((p: Patient) => String(p.id));
+      // `onHold` belongs in this baseline and was missing. The set means "every
+      // booking id already seen", so leaving a bucket out makes those ids look
+      // new again the moment they come back: hold a waiting patient and they
+      // leave `known`, resume them and the poll announces "New Appointment
+      // Booked" for someone who has been at the desk all along. ROADMAP 28,
+      // claim 10.
+      const allIds = [...waiting, ...onHold, ...inProgress, ...completed]
+        .map((p: Patient) => String(p.id));
       if (knownIdsRef.current === null) {
         // First load — seed the baseline, don't notify.
         knownIdsRef.current = new Set(allIds);

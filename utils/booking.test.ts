@@ -8,9 +8,52 @@ import {
   normalizeBookingStatus,
   providerLabel,
   resolveSelectedDate,
+  rowsForDay,
   slotDateTime,
   toLocalISODate,
 } from './booking';
+
+describe('rowsForDay', () => {
+  // The queue endpoint answers a 38-day window, so a screen labelled "Today"
+  // has to narrow it. Dates are computed from the clock, never hard-coded:
+  // a literal would rot into the past and start passing for the wrong reason.
+  const today    = toLocalISODate(new Date());
+  const tomorrow = toLocalISODate(new Date(Date.now() + 86400000));
+  const lastWeek = toLocalISODate(new Date(Date.now() - 7 * 86400000));
+
+  it('keeps only the rows on the given day', () => {
+    const rows = [
+      { id: 1, date: today },
+      { id: 2, date: tomorrow },
+      { id: 3, date: lastWeek },
+      { id: 4, date: today },
+    ];
+    expect(rowsForDay(rows, today).map(r => r.id)).toEqual([1, 4]);
+  });
+
+  it('drops the look-ahead and look-back the queue window includes', () => {
+    // The exact edges of QUEUE_LOOKAHEAD_DAYS / QUEUE_LOOKBACK_DAYS: these are
+    // real rows the endpoint returns, and counting them is the bug.
+    const edges = [
+      { date: toLocalISODate(new Date(Date.now() + 30 * 86400000)) },
+      { date: toLocalISODate(new Date(Date.now() - 7 * 86400000)) },
+    ];
+    expect(rowsForDay(edges, today)).toEqual([]);
+  });
+
+  it('treats a row with no date as not today, rather than as today', () => {
+    expect(rowsForDay([{ date: undefined }, { date: today }], today))
+      .toEqual([{ date: today }]);
+  });
+
+  it('returns an empty list, not everything, when nothing matches', () => {
+    expect(rowsForDay([{ date: tomorrow }], today)).toEqual([]);
+  });
+
+  it('is empty for an empty queue', () => {
+    expect(rowsForDay([], today)).toEqual([]);
+  });
+});
 
 describe('toLocalISODate', () => {
   it('formats a date as local YYYY-MM-DD', () => {
