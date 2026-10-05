@@ -68,12 +68,15 @@ export function isPublicRequest(config: { url?: string; method?: string }): bool
 
 // ── Logout state ──────────────────────────────────────────────────────────
 // _epoch moves when a logout STARTS and again when it ENDS, so every request
-// is stamped (below) with the stretch of session it was sent in. A request
-// whose stamp is no longer current, or one sent while a logout runs, belongs to
-// a session that is over: the 401 handler neither refreshes it nor logs out
-// over it. That is the item-30 fix — the logout's own authenticated DELETE
-// 401'd, the handler called logoutUser() again, which sent the DELETE again…
-// and storage, cleared only at the end of the outermost call, never was.
+// is stamped (below) with the stretch of session it was sent in. In the 401
+// handler:
+//   - a stamp that is no longer current: that session is over — no refresh,
+//     no logout, and no tokens written back;
+//   - a request the running logout sent itself (the push-token DELETE): may
+//     refresh, but never starts a logout.
+// That is the item-30 fix. The logout's own authenticated DELETE 401'd, the
+// handler called logoutUser() again, which sent the DELETE again… and storage,
+// cleared only at the end of the outermost call, never was.
 let _logout: Promise<void> | null = null;
 let _loggingOut = false;
 let _epoch = 0;
@@ -102,30 +105,38 @@ API.interceptors.response.use(
     if (isPublicRequest(original || {})) {
       return Promise.reject(err);
     }
-    // Sent during a logout, or before one: that session is over (see above).
-    const current = () => !_loggingOut && original?._epoch === _epoch;
-    if (!current()) return Promise.reject(err);
+    // Sent before a logout started or ended: that session is over (see above).
+    const sameSession = () => original?._epoch === _epoch;
+    if (!sameSession()) return Promise.reject(err);
+    // A request the running logout sent itself (the push-token DELETE) may
+    // still refresh — an expired access token must not leave the DeviceToken
+    // row behind — but it must never start a logout: that call is the loop.
+    const mayLogOut = !_loggingOut;
 
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true;
       const refresh = await AsyncStorage.getItem('refresh');
-      if (!refresh) { if (current()) await logoutUser(); return Promise.reject(err); }
+      if (!refresh) { if (mayLogOut && sameSession()) await logoutUser(); return Promise.reject(err); }
       try {
         const { data } = await axios.post(
           `${BASE}/auth/token/refresh/`,
           { refresh },
           { timeout: 25000 }
         );
-        // A logout began while the refresh was out: don't write the old
-        // session's rotated tokens back into a storage that logout cleared.
-        if (!current()) return Promise.reject(err);
-        await AsyncStorage.setItem('access', data.access);
-        if (data.refresh) await AsyncStorage.setItem('refresh', data.refresh);
+        // A logout started or ended while the refresh was out: don't write
+        // that session's rotated tokens into storage logout has cleared.
+        if (!sameSession()) return Promise.reject(err);
+        // One write, not two: a second awaited setItem could land after a
+        // logout's clear and put the refresh token back on its own.
+        const pairs: [string, string][] = [['access', data.access]];
+        if (data.refresh) pairs.push(['refresh', data.refresh]);
+        await AsyncStorage.multiSet(pairs);
         original.headers.Authorization = `Bearer ${data.access}`;
         return API(original);
       } catch {
-        // Only for the session that is still current — never over a NEW login.
-        if (current()) await logoutUser();
+        // Never from inside a logout, and never over a session that has
+        // since changed (a NEW login).
+        if (mayLogOut && sameSession()) await logoutUser();
       }
     }
     return Promise.reject(err);
@@ -206,6 +217,10 @@ async function logoutOnce() {
   } catch {
     // ignore server errors — clear session locally regardless
   } finally {
+    // Close the session to the 401 handler BEFORE clearing it: a refresh that
+    // lands from here on fails sameSession() and writes nothing back. (The
+    // epoch moves again when the logout ends.)
+    _epoch += 1;
     await AsyncStorage.multiRemove(['access', 'refresh', 'user']);
     router.replace('/(auth)/login'); // adjust to your actual login route
   }
