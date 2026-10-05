@@ -12,7 +12,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,11 +26,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
-import API from '../../services/api';
-import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
-import { safeBack } from '../../utils/navigation';
-import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { Colors } from '../../../constants/colors';
+import API from '../../../services/api';
+import { normalizeBookingStatus, providerLabel } from '../../../utils/booking';
+import { safeBack } from '../../../utils/navigation';
+import { useAndroidBack } from '../../../hooks/useAndroidBack';
 
 // ── Extract token from QR data ──────────────────────────────────────────────
 function extractToken(raw: string): string {
@@ -90,9 +90,14 @@ export default function HospitalScanner() {
 
   const lastScannedRef = useRef('');
   const scanCooldown   = useRef(false);
+  // Bumped by anything that starts over — a new verify, Start Scanner, Cancel /
+  // Scan Next, leaving the tab. A verify or confirm still in flight then drops
+  // its answer instead of writing it onto the NEXT patient's card.
+  const visitRef       = useRef(0);
 
   // ── Verify a token against the backend ────────────────────────────────────
   const handleTokenFound = useCallback(async (rawToken: string) => {
+    const visit = ++visitRef.current;
     const token = extractToken(rawToken);
     if (!token) {
       setErrorMsg('Invalid QR code — no token found.');
@@ -106,11 +111,13 @@ export default function HospitalScanner() {
 
     try {
       const { data } = await API.get(`/bookings/scan/${token}/`);
+      if (visit !== visitRef.current) return;
       setScanResult(data);
       setScanState(
         data.already_done || normalizeBookingStatus(data.booking?.status) === 'completed' ? 'already_done' : 'found',
       );
     } catch (e: unknown) {
+      if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
       const status = err?.response?.status;
       if (status === 409) {
@@ -154,6 +161,7 @@ export default function HospitalScanner() {
       const res = await requestPermission();
       if (!res.granted) return;
     }
+    visitRef.current += 1;
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');
@@ -163,6 +171,24 @@ export default function HospitalScanner() {
   };
 
   const stopCamera = () => setScanning(false);
+
+  // This is a tab now, and a tab stays mounted when you switch away. So on
+  // blur: stop the camera (it would stay on, privacy light and all, behind
+  // Dashboard), and clear the last result — the same clean slate a fresh mount
+  // gave. Otherwise "Scan QR" for the next patient reopened the previous one's
+  // card with a live "Mark as In Consultation" that posts THEIR token. The
+  // visitRef bump matters as much as the resets: a verify still in flight would
+  // otherwise land after them and put that card straight back.
+  useFocusEffect(useCallback(() => () => {
+    visitRef.current += 1;
+    setScanning(false);
+    setScanResult(null);
+    setScanState('idle');
+    setErrorMsg('');
+    setManualToken('');
+    lastScannedRef.current = '';
+    scanCooldown.current   = false;
+  }, []));
 
   const handleManualSubmit = () => {
     const t = manualToken.trim();
@@ -176,14 +202,17 @@ export default function HospitalScanner() {
     const token = scanResult?.booking?.token;
     if (!token) return;
     setConfirming(true);
+    const visit = visitRef.current;
     try {
       await API.post(`/bookings/scan/${token}/`);
+      if (visit !== visitRef.current) return;
       setScanState('confirmed');
       setScanResult(prev => ({
         ...prev,
         booking: { ...((prev?.booking || prev) as Booking), status: 'in_progress' },
       }));
     } catch (e: unknown) {
+      if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
       if (err?.response?.status === 409) { setScanState('already_done'); }
       else {
@@ -196,6 +225,7 @@ export default function HospitalScanner() {
   };
 
   const resetScanner = () => {
+    visitRef.current += 1;
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');

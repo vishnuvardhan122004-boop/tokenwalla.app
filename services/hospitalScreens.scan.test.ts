@@ -41,7 +41,7 @@ const codeOnly = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 
 const MODAL     = read('components/ScanEditorModal.tsx');
-const DASHBOARD = read('app/(hospital)/dashboard.tsx');
+const DASHBOARD = read('app/(hospital)/(tabs)/dashboard.tsx');
 const ANALYTICS = read('app/(hospital)/analytics.tsx');
 
 /** The body of the `if (!visible) return;` reset effect. */

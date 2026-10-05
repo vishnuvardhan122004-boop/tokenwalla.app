@@ -65,7 +65,7 @@ doesn't, add them rather than flipping this to Yes.
 | **Health info** | **Yes** | No | Required (for the scan feature) | App functionality |
 
 What makes it health info, concretely:
-- **Scan reports** — `ScanReport.file`, uploaded by a centre (`app/(hospital)/dashboard.tsx`)
+- **Scan reports** — `ScanReport.file`, uploaded by a centre (`app/(hospital)/(tabs)/dashboard.tsx`)
   and downloaded by the patient (`app/(patient)/my-bookings.tsx`). Medical documents,
   transmitted off-device to the backend and Cloudinary.
 - **The scan or doctor booked** — modality (MRI, CT, blood work) and specialisation

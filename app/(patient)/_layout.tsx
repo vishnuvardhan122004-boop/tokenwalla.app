@@ -1,9 +1,8 @@
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { getUser } from '../../services/api';
+import { useCurrentUser } from '../../hooks/useCurrentUser';
 
 // ── SVG Icon Components ──────────────────────────────────────────────────────
 
@@ -101,24 +100,35 @@ function TabIcon({ icon, focused }: TabIconProps) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function PatientLayout() {
-  // A hospital account has no business browsing or booking, and it lands here
-  // for real: the dashboard's back button goes to /(patient)/home
-  // (dashboard.tsx), which drops a logged-in hospital straight into this tab
-  // bar. Doctors and My Bookings are hidden for that role.
+  // A hospital account has no business browsing or booking, and it still lands
+  // here: app launch boots into Home, and it opens notifications from its
+  // dashboard bell. HomeScreen redirects it to its own Dashboard | Scanner bar
+  // (app/(hospital)/(tabs)/_layout.tsx), and this bar is hidden for it, so it
+  // never sees a Home or Profile tab.
   //
-  // Read directly rather than through useCurrentUser: that hook calls
-  // useFocusEffect, and this component IS the navigator those tabs live in.
-  // Four lines here avoids depending on the navigation context being ready.
+  // The role is re-read on FOCUS, not on mount, and that is the whole fix.
+  // This layout mounts at app launch, before anyone logs in (app/index.tsx
+  // redirects to /(patient)/home), and hospital login is pushed ON TOP of it.
+  // A mount-only read therefore answered "not a hospital" once and kept that
+  // answer all session, so after login + back the four tabs were still there
+  // — exactly what a device showed while every test was green. Every login
+  // and logout navigates out of (patient) and back, so a focus re-read catches
+  // a role change in both directions (a hospital logging out and a patient
+  // logging in no longer inherits hidden tabs either).
   //
-  // ponytail: one AsyncStorage read per mount, so a hospital user may see the
-  // two tabs for a frame before they vanish. Cache the role in a module-level
-  // variable if that flash is ever visible on a real device.
-  const [isHospital, setIsHospital] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    getUser().then((u) => { if (alive) setIsHospital(u?.role === 'hospital'); });
-    return () => { alive = false; };
-  }, []);
+  // useCurrentUser is safe here: this layout is the root Stack's (patient)
+  // screen, so useFocusEffect has a route to listen to — HomeScreen uses it
+  // the same way.
+  //
+  // ponytail: on a fresh mount the role arrives after one AsyncStorage read,
+  // so a hospital with a saved session can see the guarded tabs for a frame
+  // on cold start. Cache the role at module level if that is ever visible.
+  const { user } = useCurrentUser<{ role?: string; hospital?: unknown }>({ refetchOnFocus: true });
+  const isHospital = user?.role === 'hospital';
+  // The bar is hidden only for a hospital Home actually sends to its dashboard
+  // (HomeScreen: role AND user.hospital). One whose hospital object failed to
+  // attach stays on Home, and keeps Profile -> Logout as its way out.
+  const hasHospitalBar = isHospital && !!user?.hospital;
 
   return (
     <Tabs
@@ -131,12 +141,12 @@ export default function PatientLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: hasHospitalBar ? { display: 'none' } : styles.tabBar,
         tabBarActiveTintColor: Colors.blue600,
         tabBarInactiveTintColor: Colors.gray400,
       }}
     >
-      {/* ── Visible tabs: 4 for a patient, 2 for a hospital ─────────────────── */}
+      {/* ── Visible tabs: 4 for a patient; the bar is hidden for a hospital ── */}
       <Tabs.Screen
         name="home"
         options={{
@@ -149,31 +159,37 @@ export default function PatientLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="doctors"
-        options={{
-          href: isHospital ? null : undefined,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={<DoctorIcon color={focused ? Colors.blue600 : Colors.gray400} />}
-            />
-          ),
-        }}
-      />
+      {/* Protected, not href:null. href:null only hides a tab's BUTTON — the
+          route stays registered, and Home alone pushes into these from seven
+          places. A false guard removes the routes from the navigator outright
+          (expo-router useScreens.js filters protectedScreens), so a push from
+          anywhere — Home, About, a notification, a deep link — has nowhere to
+          go, and a hospital already on one of them falls back to Home. */}
+      <Tabs.Protected guard={!isHospital}>
+        <Tabs.Screen
+          name="doctors"
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <TabIcon
+                focused={focused}
+                icon={<DoctorIcon color={focused ? Colors.blue600 : Colors.gray400} />}
+              />
+            ),
+          }}
+        />
 
-      <Tabs.Screen
-        name="my-bookings"
-        options={{
-          href: isHospital ? null : undefined,
-          tabBarIcon: ({ focused }) => (
-            <TabIcon
-              focused={focused}
-              icon={<TicketIcon color={focused ? Colors.blue600 : Colors.gray400} />}
-            />
-          ),
-        }}
-      />
+        <Tabs.Screen
+          name="my-bookings"
+          options={{
+            tabBarIcon: ({ focused }) => (
+              <TabIcon
+                focused={focused}
+                icon={<TicketIcon color={focused ? Colors.blue600 : Colors.gray400} />}
+              />
+            ),
+          }}
+        />
+      </Tabs.Protected>
 
       <Tabs.Screen
         name="profile"
@@ -188,14 +204,21 @@ export default function PatientLayout() {
       />
 
       {/* ── Hidden screens — NOT shown as tabs ────────────────────────────── */}
-      <Tabs.Screen name="doctor/[id]"    options={{ href: null }} />
-      <Tabs.Screen name="scan-center/[id]" options={{ href: null }} />
+      {/* The booking flow behind the two tabs above, under the same guard:
+          hiding the tabs while leaving these registered is the gap that let
+          Home's "Book appointment" reach payment. */}
+      <Tabs.Protected guard={!isHospital}>
+        <Tabs.Screen name="doctor/[id]"      options={{ href: null }} />
+        <Tabs.Screen name="scan-center/[id]" options={{ href: null }} />
+        <Tabs.Screen name="my-qr"            options={{ href: null }} />
+        <Tabs.Screen name="payment"          options={{ href: null }} />
+        <Tabs.Screen name="booking-token"    options={{ href: null }} />
+      </Tabs.Protected>
+      {/* notifications stays OUTSIDE the guard: the hospital dashboard opens
+          it as /(patient)/notifications?audience=hospital. */}
       <Tabs.Screen name="notifications"  options={{ href: null }} />
-      <Tabs.Screen name="my-qr"          options={{ href: null }} />
       <Tabs.Screen name="my-documents"   options={{ href: null }} />
       <Tabs.Screen name="edit-profile"   options={{ href: null }} />
-      <Tabs.Screen name="payment"        options={{ href: null }} />
-      <Tabs.Screen name="booking-token"  options={{ href: null }} />
       <Tabs.Screen name="about"          options={{ href: null }} />
       <Tabs.Screen name="contact"        options={{ href: null }} />
       <Tabs.Screen name="terms"          options={{ href: null }} />

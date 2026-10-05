@@ -45,7 +45,10 @@ export default function HospitalLoginScreen() {
         ]);
         if (raw && access) {
           const u = JSON.parse(raw);
-          if (u?.role === 'hospital') {
+          // Same test as the dashboard's (role AND user.hospital). On role alone,
+          // a login whose hospital object failed to attach (best-effort on the
+          // backend) bounced dashboard -> here -> dashboard forever.
+          if (u?.role === 'hospital' && u?.hospital) {
             router.replace('/(hospital)/dashboard');
             return;
           }

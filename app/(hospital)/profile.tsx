@@ -961,11 +961,14 @@ export default function HospitalProfile() {
           {/* Operations */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Operations</Text>
+            {/* dismissTo, not push/replace: Dashboard and Scanner are tabs under this
+                screen, so go BACK to them. A push here stacked a second tab bar
+                with a second, separately-polling dashboard behind it. */}
             {([
-              { icon: 'grid-outline',        label: 'Queue & Doctors Dashboard', onPress: () => router.replace('/(hospital)/dashboard') },
+              { icon: 'grid-outline',        label: 'Queue & Doctors Dashboard', onPress: () => router.dismissTo('/(hospital)/dashboard') },
               { icon: 'card-outline',        label: 'Doctor Payments',           onPress: () => router.push('/(hospital)/payments')     },
               { icon: 'stats-chart-outline', label: 'Analytics',                 onPress: () => router.push('/(hospital)/analytics')    },
-              { icon: 'qr-code-outline',     label: 'Scan Patient QR',           onPress: () => router.push('/(hospital)/scanner')      },
+              { icon: 'qr-code-outline',     label: 'Scan Patient QR',           onPress: () => router.dismissTo('/(hospital)/scanner') },
               { icon: 'key-outline',         label: 'Change Password',           onPress: () => router.push('/(hospital)/Hforgotpassword') },
               { icon: 'call-outline',        label: 'Contact Support',           onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
             ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; onPress: () => void }[]).map(({ icon, label, onPress }) => (
