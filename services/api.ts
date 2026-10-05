@@ -125,19 +125,52 @@ export function _logoutTaskLabels(): string[] {
   return _logoutTasks.map(t => t.label);
 }
 
+// Set while a logout is running. The push-token task's DELETE is
+// authenticated, so on a dead session it 401s, and the response interceptor
+// above calls logoutUser() again — which sent the DELETE again, which 401'd
+// again… Storage is cleared only at the end of the OUTERMOST call, so that was
+// never reached: Logout did nothing, and the app kept calling production
+// (ROADMAP 30). A nested call is now a no-op. NOT the in-flight promise: the
+// outer call is itself waiting on that DELETE, so returning it deadlocks.
+let _loggingOut = false;
+
+// ponytail: a fixed deadline for the cleanup tasks. If it fires, the server's
+// DeviceToken row can outlive the session (#38's original leak) — acceptable
+// for a best-effort unregister; trapping the user logged in is not. Raise it
+// if unregisters are seen timing out on slow networks.
+const LOGOUT_TASKS_DEADLINE_MS = 8000;
+
 export async function logoutUser() {
+  if (_loggingOut) return;
+  _loggingOut = true;
+  try {
+    await logoutOnce();
+  } finally {
+    _loggingOut = false;
+  }
+}
+
+async function logoutOnce() {
   // Run these FIRST: handing the push token back is an authenticated request,
   // so it has to happen while the access token is still in storage. Without
   // it the DeviceToken row outlives the session and this account's booking
   // pushes — which carry the patient's name — keep arriving on this handset
-  // for whoever holds it next.
-  for (const task of _logoutTasks) {
-    try {
-      await task.run();
-    } catch {
-      // best-effort, per task — one failure must not trap the user logged in
-    }
-  }
+  // for whoever holds it next. Bounded by a deadline: getExpoPushTokenAsync
+  // waits on APNs with none of its own, outside the axios timeout.
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    (async () => {
+      for (const task of _logoutTasks) {
+        try {
+          await task.run();
+        } catch {
+          // best-effort, per task — one failure must not trap the user logged in
+        }
+      }
+    })(),
+    new Promise<void>((resolve) => { deadline = setTimeout(resolve, LOGOUT_TASKS_DEADLINE_MS); }),
+  ]);
+  clearTimeout(deadline);
   try {
     const refresh = await AsyncStorage.getItem('refresh');
     if (refresh) {
