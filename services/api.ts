@@ -126,8 +126,11 @@ API.interceptors.response.use(
         // A logout started or ended while the refresh was out: don't write
         // that session's rotated tokens into storage logout has cleared.
         if (!sameSession()) return Promise.reject(err);
-        await AsyncStorage.setItem('access', data.access);
-        if (data.refresh) await AsyncStorage.setItem('refresh', data.refresh);
+        // One write, not two: a second awaited setItem could land after a
+        // logout's clear and put the refresh token back on its own.
+        const pairs: [string, string][] = [['access', data.access]];
+        if (data.refresh) pairs.push(['refresh', data.refresh]);
+        await AsyncStorage.multiSet(pairs);
         original.headers.Authorization = `Bearer ${data.access}`;
         return API(original);
       } catch {
@@ -214,6 +217,10 @@ async function logoutOnce() {
   } catch {
     // ignore server errors — clear session locally regardless
   } finally {
+    // Close the session to the 401 handler BEFORE clearing it: a refresh that
+    // lands from here on fails sameSession() and writes nothing back. (The
+    // epoch moves again when the logout ends.)
+    _epoch += 1;
     await AsyncStorage.multiRemove(['access', 'refresh', 'user']);
     router.replace('/(auth)/login'); // adjust to your actual login route
   }

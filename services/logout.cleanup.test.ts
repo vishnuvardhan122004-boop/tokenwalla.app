@@ -38,11 +38,19 @@ const calls: string[] = [];
 // Stateful, so a cleared session reads as cleared. The old mock returned a
 // refresh token for every read, which hid the "no refresh left" path.
 const mockStore = new Map<string, string>();
+let mockOnMultiRemove: (() => void) | null = null;  // fires as the clear starts
+let mockMultiRemoveDelayMs = 0;                      // how long the clear takes
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(async (k: string) => mockStore.get(k) ?? null),
   setItem: jest.fn(async (k: string, v: string) => { mockStore.set(k, v); }),
+  multiSet: jest.fn(async (kvs: [string, string][]) => { kvs.forEach(([k, v]) => mockStore.set(k, v)); }),
   removeItem: jest.fn(async (k: string) => { mockStore.delete(k); }),
-  multiRemove: jest.fn(async (ks: string[]) => { ks.forEach(k => mockStore.delete(k)); calls.push('multiRemove'); }),
+  multiRemove: jest.fn(async (ks: string[]) => {
+    ks.forEach(k => mockStore.delete(k));
+    calls.push('multiRemove');
+    mockOnMultiRemove?.();
+    if (mockMultiRemoveDelayMs) await new Promise(r => setTimeout(r, mockMultiRemoveDelayMs));
+  }),
 }));
 
 // The real unregister task, with the push-token fetch under the test's control.
@@ -304,6 +312,39 @@ describe('logoutUser cleanup', () => {
       expect(router.replace).not.toHaveBeenCalled();
     } finally {
       refresh.mockRestore();
+    }
+  });
+
+  // Third review: the session was only closed AFTER storage was cleared, so a
+  // refresh (here a dashboard poll's, sent during the logout) that landed
+  // while the clear ran wrote the old account's live tokens back.
+  it('a refresh that lands while logout clears storage writes nothing back', async () => {
+    jest.useFakeTimers();
+    let releaseRefresh: ((v: unknown) => void) | undefined;
+    const refresh = jest.spyOn(axios, 'post').mockImplementation(
+      () => new Promise(r => { releaseRefresh = r; }),
+    );
+    mockOnMultiRemove = () => releaseRefresh?.({ data: { access: 'A2', refresh: 'R2' } });
+    mockMultiRemoveDelayMs = 20;
+    let slow = true;
+    onLogout('slow-task-2', () => (slow ? new Promise<void>(r => setTimeout(r, 1_000)) : Promise.resolve()));
+    expiredAuth = 'Bearer A1';
+    try {
+      const done = logoutUser();
+      await jest.advanceTimersByTimeAsync(100);
+      const poll = API.get('/bookings/queue/1/').catch(() => undefined); // sent DURING the logout
+      await jest.advanceTimersByTimeAsync(2_000);
+      await done;
+      await poll;
+      expect(refresh).toHaveBeenCalled();          // the race really happened
+      expect(mockStore.get('access')).toBeUndefined();
+      expect(mockStore.get('refresh')).toBeUndefined();
+    } finally {
+      slow = false;
+      mockOnMultiRemove = null;
+      mockMultiRemoveDelayMs = 0;
+      refresh.mockRestore();
+      jest.useRealTimers();
     }
   });
 
