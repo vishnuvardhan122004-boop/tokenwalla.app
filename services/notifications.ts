@@ -25,7 +25,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 import type * as NotificationsModule from 'expo-notifications';
 import { recordNotification, setBadgeSync, type NotificationAudience } from './notificationStore';
-import API, { onLogout } from './api';
+import API, { logoutInProgress, onLogout } from './api';
 import { normalizeBookingStatus, providerLabel } from '../utils/booking';
 
 /**
@@ -183,6 +183,11 @@ export async function unregisterPushToken(): Promise<void> {
     const resp = await N.getExpoPushTokenAsync(projectId ? { projectId } : undefined);
     const token = resp.data;
     if (!token) return;
+    // That fetch has no deadline of its own (APNs / FCM). If logout gave up on
+    // it and finished, the session is gone — maybe already replaced by the
+    // next login, whose token this DELETE would carry, deleting THAT account's
+    // row. Leave the row instead (the cost logout's deadline already accepts).
+    if (!logoutInProgress()) return;
     await API.delete('/notifications/register-device/', { data: { token } });
   } catch {
     // best-effort — never block logout on push cleanup

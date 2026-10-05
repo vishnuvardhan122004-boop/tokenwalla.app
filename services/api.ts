@@ -66,8 +66,26 @@ export function isPublicRequest(config: { url?: string; method?: string }): bool
   return false;
 }
 
+// ── Logout state ──────────────────────────────────────────────────────────
+// _epoch moves when a logout STARTS and again when it ENDS, so every request
+// is stamped (below) with the stretch of session it was sent in. A request
+// whose stamp is no longer current, or one sent while a logout runs, belongs to
+// a session that is over: the 401 handler neither refreshes it nor logs out
+// over it. That is the item-30 fix — the logout's own authenticated DELETE
+// 401'd, the handler called logoutUser() again, which sent the DELETE again…
+// and storage, cleared only at the end of the outermost call, never was.
+let _logout: Promise<void> | null = null;
+let _loggingOut = false;
+let _epoch = 0;
+
+/** True while a logout is running — a cleanup task checks it before acting. */
+export function logoutInProgress(): boolean {
+  return _loggingOut;
+}
+
 // ── Attach access token to every request EXCEPT public ones ────────────────
 API.interceptors.request.use(async (config) => {
+  (config as { _epoch?: number })._epoch = _epoch;
   if (!isPublicRequest(config)) {
     const token = await AsyncStorage.getItem('access');
     if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -84,23 +102,30 @@ API.interceptors.response.use(
     if (isPublicRequest(original || {})) {
       return Promise.reject(err);
     }
+    // Sent during a logout, or before one: that session is over (see above).
+    const current = () => !_loggingOut && original?._epoch === _epoch;
+    if (!current()) return Promise.reject(err);
 
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true;
       const refresh = await AsyncStorage.getItem('refresh');
-      if (!refresh) { await logoutUser(); return Promise.reject(err); }
+      if (!refresh) { if (current()) await logoutUser(); return Promise.reject(err); }
       try {
         const { data } = await axios.post(
           `${BASE}/auth/token/refresh/`,
           { refresh },
           { timeout: 25000 }
         );
+        // A logout began while the refresh was out: don't write the old
+        // session's rotated tokens back into a storage that logout cleared.
+        if (!current()) return Promise.reject(err);
         await AsyncStorage.setItem('access', data.access);
         if (data.refresh) await AsyncStorage.setItem('refresh', data.refresh);
         original.headers.Authorization = `Bearer ${data.access}`;
         return API(original);
       } catch {
-        await logoutUser();
+        // Only for the session that is still current — never over a NEW login.
+        if (current()) await logoutUser();
       }
     }
     return Promise.reject(err);
@@ -125,29 +150,31 @@ export function _logoutTaskLabels(): string[] {
   return _logoutTasks.map(t => t.label);
 }
 
-// Set while a logout is running. The push-token task's DELETE is
-// authenticated, so on a dead session it 401s, and the response interceptor
-// above calls logoutUser() again — which sent the DELETE again, which 401'd
-// again… Storage is cleared only at the end of the OUTERMOST call, so that was
-// never reached: Logout did nothing, and the app kept calling production
-// (ROADMAP 30). A nested call is now a no-op. NOT the in-flight promise: the
-// outer call is itself waiting on that DELETE, so returning it deadlocks.
-let _loggingOut = false;
-
 // ponytail: a fixed deadline for the cleanup tasks. If it fires, the server's
 // DeviceToken row can outlive the session (#38's original leak) — acceptable
-// for a best-effort unregister; trapping the user logged in is not. Raise it
-// if unregisters are seen timing out on slow networks.
+// for a best-effort unregister; trapping the user logged in is not. A task
+// still running past it must not act on whatever comes next: unregister checks
+// logoutInProgress(), and its late 401 is stale (see Logout state). Raise the
+// deadline if unregisters are seen timing out on slow networks.
 const LOGOUT_TASKS_DEADLINE_MS = 8000;
 
-export async function logoutUser() {
-  if (_loggingOut) return;
-  _loggingOut = true;
-  try {
-    await logoutOnce();
-  } finally {
-    _loggingOut = false;
+/**
+ * One logout at a time: a second call — a second tap, a poll's 401 — gets the
+ * logout already running and resolves when IT finishes. Safe from deadlock
+ * because nothing the logout itself sends can call back in here (the 401
+ * handler refuses while _loggingOut).
+ */
+export function logoutUser(): Promise<void> {
+  if (!_logout) {
+    _loggingOut = true;
+    _epoch += 1;
+    _logout = logoutOnce().finally(() => {
+      _loggingOut = false;
+      _epoch += 1;
+      _logout = null;
+    });
   }
+  return _logout;
 }
 
 async function logoutOnce() {
