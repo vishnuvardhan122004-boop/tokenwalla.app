@@ -113,7 +113,7 @@ export default function HomeScreen() {
   const { t, lang } = useI18n();
 
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [user,    setUser]    = useState<{ name?: string; username?: string; role?: string } | null>(null);
+  const [user,    setUser]    = useState<{ name?: string; username?: string; role?: string; hospital?: unknown } | null>(null);
   const [loading, setLoading] = useState(true);
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
   // A hospital still lands here: app launch boots into this tab (app/index.tsx),
@@ -124,6 +124,11 @@ export default function HomeScreen() {
   // and the booking controls below stay hidden for it as a second line, in
   // case the redirect ever doesn't fire.
   const isHospital = user?.role === 'hospital';
+  // Same test the dashboard applies (dashboard.tsx: role AND user.hospital).
+  // A hospital login whose hospital object failed to attach (the backend does
+  // it best-effort) would bounce dashboard -> login -> dashboard forever, so it
+  // stays here instead, where Profile -> Logout still gets it out.
+  const opensDashboard = isHospital && !!user?.hospital;
   const [langOpen, setLangOpen] = useState(false);
   // The Appointment Pass offer + whatever this patient already holds.
   const [passData, setPassData] = useState<any>(null);
@@ -215,7 +220,7 @@ export default function HomeScreen() {
   // Dashboard can't return to it.
   // ponytail: a hospital sees this screen for one AsyncStorage read on cold
   // start. Decide in app/index.tsx before routing if that flash ever matters.
-  if (isHospital) return <Redirect href="/(hospital)/dashboard" />;
+  if (opensDashboard) return <Redirect href="/(hospital)/dashboard" />;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

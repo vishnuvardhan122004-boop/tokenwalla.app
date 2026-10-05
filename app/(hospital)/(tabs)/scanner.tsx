@@ -164,9 +164,20 @@ export default function HospitalScanner() {
 
   const stopCamera = () => setScanning(false);
 
-  // This is a tab now, and a tab stays mounted when you switch away — so a
-  // running camera would stay on (privacy light and all) behind Dashboard.
-  useFocusEffect(useCallback(() => () => setScanning(false), []));
+  // This is a tab now, and a tab stays mounted when you switch away. So on
+  // blur: stop the camera (it would stay on, privacy light and all, behind
+  // Dashboard), and clear the last result — the same clean slate a fresh mount
+  // gave. Otherwise "Scan QR" for the next patient reopened the previous one's
+  // card with a live "Mark as In Consultation" that posts THEIR token.
+  useFocusEffect(useCallback(() => () => {
+    setScanning(false);
+    setScanResult(null);
+    setScanState('idle');
+    setErrorMsg('');
+    setManualToken('');
+    lastScannedRef.current = '';
+    scanCooldown.current   = false;
+  }, []));
 
   const handleManualSubmit = () => {
     const t = manualToken.trim();

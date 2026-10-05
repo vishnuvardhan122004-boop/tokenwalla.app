@@ -123,8 +123,12 @@ export default function PatientLayout() {
   // ponytail: on a fresh mount the role arrives after one AsyncStorage read,
   // so a hospital with a saved session can see the guarded tabs for a frame
   // on cold start. Cache the role at module level if that is ever visible.
-  const { user } = useCurrentUser<{ role?: string }>({ refetchOnFocus: true });
+  const { user } = useCurrentUser<{ role?: string; hospital?: unknown }>({ refetchOnFocus: true });
   const isHospital = user?.role === 'hospital';
+  // The bar is hidden only for a hospital Home actually sends to its dashboard
+  // (HomeScreen: role AND user.hospital). One whose hospital object failed to
+  // attach stays on Home, and keeps Profile -> Logout as its way out.
+  const hasHospitalBar = isHospital && !!user?.hospital;
 
   return (
     <Tabs
@@ -137,7 +141,7 @@ export default function PatientLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: isHospital ? { display: 'none' } : styles.tabBar,
+        tabBarStyle: hasHospitalBar ? { display: 'none' } : styles.tabBar,
         tabBarActiveTintColor: Colors.blue600,
         tabBarInactiveTintColor: Colors.gray400,
       }}

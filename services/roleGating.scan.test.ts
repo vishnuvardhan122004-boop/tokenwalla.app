@@ -129,22 +129,40 @@ describe('no dead booking buttons are shown to a hospital', () => {
 describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile', () => {
   const TABS    = codeOnly(read('app/(hospital)/(tabs)/_layout.tsx'));
   const SCANNER = codeOnly(read('app/(hospital)/(tabs)/scanner.tsx'));
+  const HPROF   = codeOnly(read('app/(hospital)/profile.tsx'));
 
-  it('Home sends a hospital to its dashboard, with replace (Redirect)', () => {
-    expect(HOME).toMatch(/if \(isHospital\) return <Redirect href="\/\(hospital\)\/dashboard" \/>;/);
+  it('Home sends a hospital to its dashboard (Redirect = replace) only when the dashboard can open', () => {
+    // The dashboard bounces to login without user.hospital, and login bounces
+    // back — so redirecting on role alone could loop forever.
+    expect(HOME).toMatch(/const opensDashboard = isHospital && !!user\?\.hospital;/);
+    expect(HOME).toMatch(/if \(opensDashboard\) return <Redirect href="\/\(hospital\)\/dashboard" \/>;/);
   });
 
-  it('hides the patient bar for a hospital', () => {
-    expect(LAYOUT).toMatch(/tabBarStyle:\s*isHospital \? \{ display: 'none' \} : styles\.tabBar/);
+  it('hides the patient bar for exactly the hospitals Home redirects', () => {
+    expect(LAYOUT).toMatch(/const hasHospitalBar = isHospital && !!user\?\.hospital;/);
+    expect(LAYOUT).toMatch(/tabBarStyle:\s*hasHospitalBar \? \{ display: 'none' \} : styles\.tabBar/);
   });
 
-  it('the hospital bar is exactly Dashboard then Scanner', () => {
+  it('the hospital bar is exactly Dashboard then Scanner, and back is not history-based', () => {
     const names = [...TABS.matchAll(/<Tabs\.Screen\s+name="([^"]+)"/g)].map(m => m[1]);
     expect(names).toEqual(['dashboard', 'scanner']);
+    // 'history' made Android back ping-pong Dashboard <-> Scanner forever.
+    expect(TABS).toMatch(/backBehavior="firstRoute"/);
   });
 
-  it('stops the camera when the Scanner tab loses focus', () => {
-    // A tab stays mounted, so without this the camera runs behind Dashboard.
-    expect(SCANNER).toMatch(/useFocusEffect\(useCallback\(\(\) => \(\) => setScanning\(false\), \[\]\)\)/);
+  it('leaving the Scanner tab stops the camera AND clears the last patient', () => {
+    // A tab stays mounted: without the reset, "Scan QR" for the next patient
+    // showed the previous one's live "Mark as In Consultation".
+    const blur = SCANNER.match(/useFocusEffect\(useCallback\(\(\) => \(\) => \{([\s\S]*?)\}, \[\]\)\)/);
+    expect(blur).not.toBeNull();
+    for (const call of ['setScanning(false)', 'setScanResult(null)', "setScanState('idle')", "setManualToken('')"]) {
+      expect(blur![1]).toContain(call);
+    }
+  });
+
+  it('Profile goes BACK to the tabs instead of stacking a second bar', () => {
+    expect(HPROF).toContain("router.dismissTo('/(hospital)/dashboard')");
+    expect(HPROF).toContain("router.dismissTo('/(hospital)/scanner')");
+    expect(HPROF).not.toMatch(/router\.(push|replace)\('\/\(hospital\)\/(dashboard|scanner)'\)/);
   });
 });

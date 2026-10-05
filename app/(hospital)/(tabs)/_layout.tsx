@@ -15,8 +15,11 @@ import { Colors } from '../../../constants/colors';
 export default function HospitalTabsLayout() {
   return (
     <Tabs
-      // Scanner -> back returns to Dashboard, not out of the hospital area.
-      backBehavior="history"
+      // Back from Scanner is Dashboard; back from Dashboard leaves. NOT
+      // 'history': Dashboard -> Scanner -> Dashboard leaves [scanner, dashboard],
+      // so back on Dashboard opened Scanner, whose safeBack fallback jumped to
+      // Dashboard again — an Android back button that never let you out.
+      backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
