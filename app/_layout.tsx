@@ -12,9 +12,15 @@ import {
 } from '../services/notifications';
 import { initSentry, wrapWithSentry } from '../services/sentry';
 import { checkForUpdate } from '../services/appUpdate';
+import { installWebAlert } from '../utils/webAlert';
 
 // Initialise crash reporting as early as possible so launch-time errors are caught.
 initSentry();
+
+// On the web, react-native-web's Alert.alert is an empty function, so every
+// dialog — including all three logout confirmations — silently did nothing.
+// Before any screen renders. No-op on iOS and Android. See utils/webAlert.ts.
+installWebAlert();
 
 function RootLayout() {
   useEffect(() => {
