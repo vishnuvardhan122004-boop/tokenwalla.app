@@ -1,10 +1,12 @@
 /**
  * A hospital login must not be offered — or be able to reach — patient booking.
  *
- * A logged-in hospital reaches the patient area for real: the dashboard's back
- * button goes to `/(patient)/home` (app/(hospital)/dashboard.tsx), dropping it
- * into the patient Tabs navigator. From there it could browse and book, and
+ * A logged-in hospital reaches the patient area for real: app launch boots into
+ * `/(patient)/home`, and Android back from its dashboard pops to whatever
+ * patient screen it logged in from. From there it could browse and book, and
  * `CreateOrderView` is `IsAuthenticated` only, so the booking would go through.
+ * Home now redirects it to its own Dashboard | Scanner bar (pinned at the
+ * bottom of this file); the gates below stay as the second line.
  *
  * THE FIRST VERSION OF THIS FIX DID NOT WORK, AND THIS SUITE WAS GREEN WHILE A
  * DEVICE SHOWED ALL FOUR TABS. It asserted `href: isHospital ? null` — true of
@@ -18,7 +20,8 @@
  *      href:null hides a button and leaves the route reachable;
  *   3. screens a hospital legitimately uses stay OUTSIDE the guard.
  * A source scan still cannot prove focus fires at runtime; that was checked on
- * an emulator (log in as a hospital, dashboard back → Home shows two tabs).
+ * an emulator (log in as a hospital, dashboard back → Home showed two tabs,
+ * before the hospital got its own bar).
  *
  * Lives in services/, not under app/: everything under app/ is an expo-router
  * route, and a test file there breaks the production bundle.
@@ -120,5 +123,69 @@ describe('no dead booking buttons are shown to a hospital', () => {
       .map(m => m[1]).join('\n');
     expect(arms).toContain("'/(patient)/my-bookings'");
     expect(arms).toContain("'/(patient)/doctors'");
+  });
+});
+
+describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile', () => {
+  const TABS    = codeOnly(read('app/(hospital)/(tabs)/_layout.tsx'));
+  const SCANNER = codeOnly(read('app/(hospital)/(tabs)/scanner.tsx'));
+  const HPROF   = codeOnly(read('app/(hospital)/profile.tsx'));
+
+  it('Home sends a hospital to its dashboard (Redirect = replace) only when the dashboard can open', () => {
+    // The dashboard bounces to login without user.hospital, and login bounces
+    // back — so redirecting on role alone could loop forever.
+    expect(HOME).toMatch(/const opensDashboard = isHospital && !!user\?\.hospital;/);
+    expect(HOME).toMatch(/if \(opensDashboard\) return <Redirect href="\/\(hospital\)\/dashboard" \/>;/);
+  });
+
+  it('hides the patient bar for exactly the hospitals Home redirects', () => {
+    expect(LAYOUT).toMatch(/const hasHospitalBar = isHospital && !!user\?\.hospital;/);
+    expect(LAYOUT).toMatch(/tabBarStyle:\s*hasHospitalBar \? \{ display: 'none' \} : styles\.tabBar/);
+  });
+
+  it('the hospital bar is exactly Dashboard then Scanner, and back is not history-based', () => {
+    const names = [...TABS.matchAll(/<Tabs\.Screen\s+name="([^"]+)"/g)].map(m => m[1]);
+    expect(names).toEqual(['dashboard', 'scanner']);
+    // 'history' made Android back ping-pong Dashboard <-> Scanner forever.
+    expect(TABS).toMatch(/backBehavior="firstRoute"/);
+  });
+
+  it('leaving the Scanner tab stops the camera AND clears the last patient', () => {
+    // A tab stays mounted: without the reset, "Scan QR" for the next patient
+    // showed the previous one's live "Mark as In Consultation".
+    const blur = SCANNER.match(/useFocusEffect\(useCallback\(\(\) => \(\) => \{([\s\S]*?)\}, \[\]\)\)/);
+    expect(blur).not.toBeNull();
+    for (const call of ['setScanning(false)', 'setScanResult(null)', "setScanState('idle')", "setManualToken('')"]) {
+      expect(blur![1]).toContain(call);
+    }
+  });
+
+  it('a verify/confirm still in flight cannot land on the next patient\'s card', () => {
+    // Everything that starts over retires older answers: leaving the tab,
+    // Start Scanner, Cancel / Scan Next, and a new verify. Blur alone was not
+    // enough — Cancel + rescan inside the tab let A's late answer hit B's card.
+    expect(SCANNER).toMatch(/useFocusEffect\(useCallback\(\(\) => \(\) => \{\s*visitRef\.current \+= 1;/);
+    expect(SCANNER).toMatch(/const startCamera = async \(\) => \{[\s\S]*?visitRef\.current \+= 1;[\s\S]*?setScanning\(true\);/);
+    expect(SCANNER).toMatch(/const resetScanner = \(\) => \{\s*visitRef\.current \+= 1;/);
+    expect(SCANNER).toMatch(/const handleTokenFound = useCallback\(async \(rawToken: string\) => \{\s*const visit = \+\+visitRef\.current;/);
+    // handleTokenFound and markAttended: after each await, on success and on error.
+    expect(SCANNER.match(/if \(visit !== visitRef\.current\) return;/g)?.length).toBe(4);
+  });
+
+  it('the patient login screen sends a hospital to the dashboard only when it will open', () => {
+    const AUTH_LOGIN = codeOnly(read('app/(auth)/login.tsx'));
+    expect(AUTH_LOGIN).toMatch(/if \(data\.user\?\.role === 'hospital' && data\.user\?\.hospital\) router\.replace\('\/\(hospital\)\/dashboard'\);/);
+  });
+
+  it('hospital login only auto-opens the dashboard when the dashboard will open', () => {
+    // Role alone looped login <-> dashboard for a user with no hospital object.
+    const LOGIN = codeOnly(read('app/(hospital)/login.tsx'));
+    expect(LOGIN).toMatch(/if \(u\?\.role === 'hospital' && u\?\.hospital\) \{\s*router\.replace\('\/\(hospital\)\/dashboard'\)/);
+  });
+
+  it('Profile goes BACK to the tabs instead of stacking a second bar', () => {
+    expect(HPROF).toContain("router.dismissTo('/(hospital)/dashboard')");
+    expect(HPROF).toContain("router.dismissTo('/(hospital)/scanner')");
+    expect(HPROF).not.toMatch(/router\.(push|replace)\('\/\(hospital\)\/(dashboard|scanner)'\)/);
   });
 });
