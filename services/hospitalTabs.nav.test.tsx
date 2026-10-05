@@ -1,9 +1,15 @@
 /**
  * Drives the REAL app/(hospital)/(tabs)/_layout.tsx through a navigator, with
  * stub screens. A source scan can be green while navigation does the opposite
- * (ROADMAP 29); these four go red on the first version of the hospital bar:
- *   - backBehavior 'history' made Android back ping-pong Dashboard <-> Scanner;
- *   - Profile's push/replace to a tab stacked a second (tabs) navigator.
+ * (ROADMAP 29).
+ *   - The two back tests go red on the first version of the hospital bar,
+ *     whose backBehavior 'history' made Android back ping-pong
+ *     Dashboard <-> Scanner.
+ *   - The two dismissTo tests prove the MECHANISM Profile's rows rely on (from
+ *     a screen pushed over the tabs, dismissTo returns to them, leaving one
+ *     bar). They call dismissTo themselves, against a stub Profile, so they
+ *     cannot see profile.tsx; roleGating.scan.test.ts pins that its rows use
+ *     dismissTo and not push/replace.
  *
  * Uses expo-router's own test harness (ExpoRoot + mock context), the parts
  * that need no @testing-library/react-native. Those are build/ internals: if
@@ -70,7 +76,7 @@ test('Dashboard -> Scanner -> Dashboard: Android back leaves, it does not reopen
   expect(path()).toBe('/dashboard');                    // nothing to go back to: the app exits
 });
 
-test('Profile -> Scan Patient QR returns to the existing tabs, not a second bar', () => {
+test('dismissTo a tab from a screen over the tabs returns to them: one bar (Scan Patient QR)', () => {
   act(() => router.push('/(hospital)/profile'));
   expect(path()).toBe('/profile');
   act(() => router.dismissTo('/(hospital)/scanner'));
@@ -81,7 +87,7 @@ test('Profile -> Scan Patient QR returns to the existing tabs, not a second bar'
   expect(store.navigationRef.canGoBack()).toBe(false);
 });
 
-test('Profile -> Queue & Doctors Dashboard returns to the existing tabs too', () => {
+test('dismissTo a tab from a screen over the tabs returns to them: one bar (Queue & Doctors Dashboard)', () => {
   act(() => router.push('/(hospital)/scanner'));
   act(() => router.push('/(hospital)/profile'));
   act(() => router.dismissTo('/(hospital)/dashboard'));

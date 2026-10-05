@@ -90,6 +90,9 @@ export default function HospitalScanner() {
 
   const lastScannedRef = useRef('');
   const scanCooldown   = useRef(false);
+  // Bumped each time the tab is left. A verify/confirm still in flight then
+  // drops its answer instead of writing it into the next visit (see blur below).
+  const visitRef       = useRef(0);
 
   // ── Verify a token against the backend ────────────────────────────────────
   const handleTokenFound = useCallback(async (rawToken: string) => {
@@ -104,13 +107,16 @@ export default function HospitalScanner() {
     setErrorMsg('');
     setScanState('fetching');
 
+    const visit = visitRef.current;
     try {
       const { data } = await API.get(`/bookings/scan/${token}/`);
+      if (visit !== visitRef.current) return;
       setScanResult(data);
       setScanState(
         data.already_done || normalizeBookingStatus(data.booking?.status) === 'completed' ? 'already_done' : 'found',
       );
     } catch (e: unknown) {
+      if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
       const status = err?.response?.status;
       if (status === 409) {
@@ -168,8 +174,11 @@ export default function HospitalScanner() {
   // blur: stop the camera (it would stay on, privacy light and all, behind
   // Dashboard), and clear the last result — the same clean slate a fresh mount
   // gave. Otherwise "Scan QR" for the next patient reopened the previous one's
-  // card with a live "Mark as In Consultation" that posts THEIR token.
+  // card with a live "Mark as In Consultation" that posts THEIR token. The
+  // visitRef bump matters as much as the resets: a verify still in flight would
+  // otherwise land after them and put that card straight back.
   useFocusEffect(useCallback(() => () => {
+    visitRef.current += 1;
     setScanning(false);
     setScanResult(null);
     setScanState('idle');
@@ -191,14 +200,17 @@ export default function HospitalScanner() {
     const token = scanResult?.booking?.token;
     if (!token) return;
     setConfirming(true);
+    const visit = visitRef.current;
     try {
       await API.post(`/bookings/scan/${token}/`);
+      if (visit !== visitRef.current) return;
       setScanState('confirmed');
       setScanResult(prev => ({
         ...prev,
         booking: { ...((prev?.booking || prev) as Booking), status: 'in_progress' },
       }));
     } catch (e: unknown) {
+      if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
       if (err?.response?.status === 409) { setScanState('already_done'); }
       else {

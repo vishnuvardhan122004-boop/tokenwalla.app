@@ -160,6 +160,19 @@ describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile'
     }
   });
 
+  it('a verify/confirm still in flight when the tab is left cannot repaint the old card', () => {
+    // The blur reset alone lost the race: a late answer landed after it.
+    expect(SCANNER).toMatch(/useFocusEffect\(useCallback\(\(\) => \(\) => \{\s*visitRef\.current \+= 1;/);
+    // handleTokenFound and markAttended: after each await, on success and on error.
+    expect(SCANNER.match(/if \(visit !== visitRef\.current\) return;/g)?.length).toBe(4);
+  });
+
+  it('hospital login only auto-opens the dashboard when the dashboard will open', () => {
+    // Role alone looped login <-> dashboard for a user with no hospital object.
+    const LOGIN = codeOnly(read('app/(hospital)/login.tsx'));
+    expect(LOGIN).toMatch(/if \(u\?\.role === 'hospital' && u\?\.hospital\) \{\s*router\.replace\('\/\(hospital\)\/dashboard'\)/);
+  });
+
   it('Profile goes BACK to the tabs instead of stacking a second bar', () => {
     expect(HPROF).toContain("router.dismissTo('/(hospital)/dashboard')");
     expect(HPROF).toContain("router.dismissTo('/(hospital)/scanner')");
