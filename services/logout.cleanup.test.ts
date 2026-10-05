@@ -65,6 +65,8 @@ const deleteAuth: string[] = [];
 let deleteAnswers401 = false;
 let deleteDelayMs = 0;
 let queueAnswers401 = false;
+// 401 only a request carrying this (expired) token; the refreshed one passes.
+let expiredAuth: string | null = null;
 const ok = (config: InternalAxiosRequestConfig) =>
   ({ data: {}, status: 200, statusText: 'OK', headers: {}, config });
 const unauthorized = (config: InternalAxiosRequestConfig) =>
@@ -75,12 +77,16 @@ API.defaults.adapter = async (config) => {
     deletes += 1;
     deleteAuth.push(String(config.headers?.Authorization ?? ''));
     if (deleteDelayMs) await new Promise(r => setTimeout(r, deleteDelayMs));
+    if (expiredAuth && config.headers?.Authorization === expiredAuth) throw unauthorized(config);
     // Past 3, answer 200: on the pre-fix code this ends the loop so the test
     // FAILS on the count instead of hanging.
     if (deleteAnswers401 && deletes <= 3) throw unauthorized(config);
   }
   if (queueAnswers401 && config.url?.includes('/bookings/queue/')) {
     queueAnswers401 = false;
+    throw unauthorized(config);
+  }
+  if (expiredAuth && config.method === 'get' && config.headers?.Authorization === expiredAuth) {
     throw unauthorized(config);
   }
   return ok(config);
@@ -101,6 +107,7 @@ describe('logoutUser cleanup', () => {
     deleteAnswers401 = false;
     deleteDelayMs = 0;
     queueAnswers401 = false;
+    expiredAuth = null;
     mockTokenDelayMs = -1;
     (router.replace as jest.Mock).mockClear();
     signedIn();
@@ -259,6 +266,44 @@ describe('logoutUser cleanup', () => {
     } finally {
       slow = false;
       jest.useRealTimers();
+    }
+  });
+
+  // Review of the second item-30 fix: refusing ALL refreshes during a logout
+  // meant an expired access token (it lives a day) with a live refresh token
+  // failed the unregister — the DeviceToken row outlived the session, #38's
+  // leak. A logout's own request may refresh; it just may never log out.
+  it('logout with an expired access token still refreshes and unregisters', async () => {
+    require('./notifications'); // the real 'push-token' task
+    mockTokenDelayMs = 0;
+    expiredAuth = 'Bearer A1';
+    const refresh = jest.spyOn(axios, 'post').mockResolvedValue({ data: { access: 'A2', refresh: 'R2' } });
+    try {
+      await logoutUser();
+      expect(refresh).toHaveBeenCalledTimes(1);
+      expect(deleteAuth).toEqual(['Bearer A1', 'Bearer A2']);  // 401, then the retry
+      expect(router.replace).toHaveBeenCalledTimes(1);
+      expect(mockStore.get('access')).toBeUndefined();
+    } finally {
+      refresh.mockRestore();
+    }
+  });
+
+  // The ordinary path the epoch logic must not break: after earlier logouts
+  // in this file have moved the epoch, an expired token still refreshes,
+  // stores the new pair, and retries with it — no logout.
+  it('an ordinary expired token still refreshes and retries', async () => {
+    expiredAuth = 'Bearer A1';
+    const refresh = jest.spyOn(axios, 'post').mockResolvedValue({ data: { access: 'A2', refresh: 'R2' } });
+    try {
+      const res = await API.get('/bookings/queue/1/');
+      expect(res.status).toBe(200);
+      expect(res.config.headers?.Authorization).toBe('Bearer A2');
+      expect(mockStore.get('access')).toBe('A2');
+      expect(mockStore.get('refresh')).toBe('R2');
+      expect(router.replace).not.toHaveBeenCalled();
+    } finally {
+      refresh.mockRestore();
     }
   });
 
