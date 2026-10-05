@@ -90,12 +90,14 @@ export default function HospitalScanner() {
 
   const lastScannedRef = useRef('');
   const scanCooldown   = useRef(false);
-  // Bumped each time the tab is left. A verify/confirm still in flight then
-  // drops its answer instead of writing it into the next visit (see blur below).
+  // Bumped by anything that starts over — a new verify, Start Scanner, Cancel /
+  // Scan Next, leaving the tab. A verify or confirm still in flight then drops
+  // its answer instead of writing it onto the NEXT patient's card.
   const visitRef       = useRef(0);
 
   // ── Verify a token against the backend ────────────────────────────────────
   const handleTokenFound = useCallback(async (rawToken: string) => {
+    const visit = ++visitRef.current;
     const token = extractToken(rawToken);
     if (!token) {
       setErrorMsg('Invalid QR code — no token found.');
@@ -107,7 +109,6 @@ export default function HospitalScanner() {
     setErrorMsg('');
     setScanState('fetching');
 
-    const visit = visitRef.current;
     try {
       const { data } = await API.get(`/bookings/scan/${token}/`);
       if (visit !== visitRef.current) return;
@@ -160,6 +161,7 @@ export default function HospitalScanner() {
       const res = await requestPermission();
       if (!res.granted) return;
     }
+    visitRef.current += 1;
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');
@@ -223,6 +225,7 @@ export default function HospitalScanner() {
   };
 
   const resetScanner = () => {
+    visitRef.current += 1;
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');

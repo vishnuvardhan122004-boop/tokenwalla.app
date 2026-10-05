@@ -98,7 +98,11 @@ export default function LoginScreen() {
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
-      if (data.user?.role === 'hospital') router.replace('/(hospital)/dashboard');
+      // Same test as the dashboard's. A hospital whose hospital object failed to
+      // attach (best-effort on the backend) goes Home instead, which keeps it
+      // signed in with Profile -> Logout — the dashboard would bounce it to the
+      // hospital login, which clears the session it was just given.
+      if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
       else router.replace('/(patient)/home');
     } catch (e) {
       setError(apiMessage(e, t('lg_invalid_credentials')));

@@ -160,11 +160,21 @@ describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile'
     }
   });
 
-  it('a verify/confirm still in flight when the tab is left cannot repaint the old card', () => {
-    // The blur reset alone lost the race: a late answer landed after it.
+  it('a verify/confirm still in flight cannot land on the next patient\'s card', () => {
+    // Everything that starts over retires older answers: leaving the tab,
+    // Start Scanner, Cancel / Scan Next, and a new verify. Blur alone was not
+    // enough — Cancel + rescan inside the tab let A's late answer hit B's card.
     expect(SCANNER).toMatch(/useFocusEffect\(useCallback\(\(\) => \(\) => \{\s*visitRef\.current \+= 1;/);
+    expect(SCANNER).toMatch(/const startCamera = async \(\) => \{[\s\S]*?visitRef\.current \+= 1;[\s\S]*?setScanning\(true\);/);
+    expect(SCANNER).toMatch(/const resetScanner = \(\) => \{\s*visitRef\.current \+= 1;/);
+    expect(SCANNER).toMatch(/const handleTokenFound = useCallback\(async \(rawToken: string\) => \{\s*const visit = \+\+visitRef\.current;/);
     // handleTokenFound and markAttended: after each await, on success and on error.
     expect(SCANNER.match(/if \(visit !== visitRef\.current\) return;/g)?.length).toBe(4);
+  });
+
+  it('the patient login screen sends a hospital to the dashboard only when it will open', () => {
+    const AUTH_LOGIN = codeOnly(read('app/(auth)/login.tsx'));
+    expect(AUTH_LOGIN).toMatch(/if \(data\.user\?\.role === 'hospital' && data\.user\?\.hospital\) router\.replace\('\/\(hospital\)\/dashboard'\);/);
   });
 
   it('hospital login only auto-opens the dashboard when the dashboard will open', () => {
