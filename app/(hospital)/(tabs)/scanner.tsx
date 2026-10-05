@@ -12,7 +12,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -26,11 +26,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
-import API from '../../services/api';
-import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
-import { safeBack } from '../../utils/navigation';
-import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { Colors } from '../../../constants/colors';
+import API from '../../../services/api';
+import { normalizeBookingStatus, providerLabel } from '../../../utils/booking';
+import { safeBack } from '../../../utils/navigation';
+import { useAndroidBack } from '../../../hooks/useAndroidBack';
 
 // ── Extract token from QR data ──────────────────────────────────────────────
 function extractToken(raw: string): string {
@@ -163,6 +163,10 @@ export default function HospitalScanner() {
   };
 
   const stopCamera = () => setScanning(false);
+
+  // This is a tab now, and a tab stays mounted when you switch away — so a
+  // running camera would stay on (privacy light and all) behind Dashboard.
+  useFocusEffect(useCallback(() => () => setScanning(false), []));
 
   const handleManualSubmit = () => {
     const t = manualToken.trim();

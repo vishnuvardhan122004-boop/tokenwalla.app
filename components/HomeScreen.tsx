@@ -8,7 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -116,12 +116,13 @@ export default function HomeScreen() {
   const [user,    setUser]    = useState<{ name?: string; username?: string; role?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
-  // A hospital reaches this screen through the patient tab bar (its dashboard's
-  // back button lands here). The booking routes are unregistered for it in
-  // app/(patient)/_layout.tsx, so every booking control below would be a dead
-  // tap — and in a dev build an unhandled navigation shows an error box. They
-  // are hidden instead. `user` is re-read on focus (below), so this is never
-  // stale after a login.
+  // A hospital still lands here: app launch boots into this tab (app/index.tsx),
+  // and Android back from its dashboard pops to whatever patient screen it
+  // logged in from. It is redirected to its own Dashboard | Scanner bar below,
+  // once `user` is read (re-read on focus, so never stale after a login).
+  // The booking routes are also unregistered for it in app/(patient)/_layout.tsx,
+  // and the booking controls below stay hidden for it as a second line, in
+  // case the redirect ever doesn't fire.
   const isHospital = user?.role === 'hospital';
   const [langOpen, setLangOpen] = useState(false);
   // The Appointment Pass offer + whatever this patient already holds.
@@ -209,6 +210,12 @@ export default function HomeScreen() {
     }
     router.push('/(auth)/login');
   };
+
+  // replace(), so this patient screen leaves the history and back from the
+  // Dashboard can't return to it.
+  // ponytail: a hospital sees this screen for one AsyncStorage read on cold
+  // start. Decide in app/index.tsx before routing if that flash ever matters.
+  if (isHospital) return <Redirect href="/(hospital)/dashboard" />;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

@@ -1,10 +1,12 @@
 /**
  * A hospital login must not be offered — or be able to reach — patient booking.
  *
- * A logged-in hospital reaches the patient area for real: the dashboard's back
- * button goes to `/(patient)/home` (app/(hospital)/dashboard.tsx), dropping it
- * into the patient Tabs navigator. From there it could browse and book, and
+ * A logged-in hospital reaches the patient area for real: app launch boots into
+ * `/(patient)/home`, and Android back from its dashboard pops to whatever
+ * patient screen it logged in from. From there it could browse and book, and
  * `CreateOrderView` is `IsAuthenticated` only, so the booking would go through.
+ * Home now redirects it to its own Dashboard | Scanner bar (pinned at the
+ * bottom of this file); the gates below stay as the second line.
  *
  * THE FIRST VERSION OF THIS FIX DID NOT WORK, AND THIS SUITE WAS GREEN WHILE A
  * DEVICE SHOWED ALL FOUR TABS. It asserted `href: isHospital ? null` — true of
@@ -18,7 +20,8 @@
  *      href:null hides a button and leaves the route reachable;
  *   3. screens a hospital legitimately uses stay OUTSIDE the guard.
  * A source scan still cannot prove focus fires at runtime; that was checked on
- * an emulator (log in as a hospital, dashboard back → Home shows two tabs).
+ * an emulator (log in as a hospital, dashboard back → Home showed two tabs,
+ * before the hospital got its own bar).
  *
  * Lives in services/, not under app/: everything under app/ is an expo-router
  * route, and a test file there breaks the production bundle.
@@ -120,5 +123,28 @@ describe('no dead booking buttons are shown to a hospital', () => {
       .map(m => m[1]).join('\n');
     expect(arms).toContain("'/(patient)/my-bookings'");
     expect(arms).toContain("'/(patient)/doctors'");
+  });
+});
+
+describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile', () => {
+  const TABS    = codeOnly(read('app/(hospital)/(tabs)/_layout.tsx'));
+  const SCANNER = codeOnly(read('app/(hospital)/(tabs)/scanner.tsx'));
+
+  it('Home sends a hospital to its dashboard, with replace (Redirect)', () => {
+    expect(HOME).toMatch(/if \(isHospital\) return <Redirect href="\/\(hospital\)\/dashboard" \/>;/);
+  });
+
+  it('hides the patient bar for a hospital', () => {
+    expect(LAYOUT).toMatch(/tabBarStyle:\s*isHospital \? \{ display: 'none' \} : styles\.tabBar/);
+  });
+
+  it('the hospital bar is exactly Dashboard then Scanner', () => {
+    const names = [...TABS.matchAll(/<Tabs\.Screen\s+name="([^"]+)"/g)].map(m => m[1]);
+    expect(names).toEqual(['dashboard', 'scanner']);
+  });
+
+  it('stops the camera when the Scanner tab loses focus', () => {
+    // A tab stays mounted, so without this the camera runs behind Dashboard.
+    expect(SCANNER).toMatch(/useFocusEffect\(useCallback\(\(\) => \(\) => setScanning\(false\), \[\]\)\)/);
   });
 });

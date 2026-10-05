@@ -36,23 +36,22 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Colors } from '../../constants/colors';
-import { appendKeyword, suggestKeywordsForList } from '../../constants/searchKeywords';
-import { suggestSpecializations } from '../../constants/specializations';
-import NotificationBell from '../../components/NotificationBell';
-import API, { logoutUser } from '../../services/api';
+import { Colors } from '../../../constants/colors';
+import { appendKeyword, suggestKeywordsForList } from '../../../constants/searchKeywords';
+import { suggestSpecializations } from '../../../constants/specializations';
+import NotificationBell from '../../../components/NotificationBell';
+import API, { logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
-} from '../../utils/scanCenters';
-import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../constants/slots';
-import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../components/ScanEditorModal';
-import { notifyHospitalNewBooking, registerPushToken } from '../../services/notifications';
-import BookingNoticePicker from '../../components/BookingNoticePicker';
-import { providerLabel } from '../../utils/booking';
-import { usePolling } from '../../hooks/usePolling';
-import { pickDocumentPhoto } from '../../utils/imagePicker';
-import { safeBack } from '../../utils/navigation';
-import { tenDigitMobile } from '../../utils/phone';
+} from '../../../utils/scanCenters';
+import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
+import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
+import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
+import BookingNoticePicker from '../../../components/BookingNoticePicker';
+import { providerLabel } from '../../../utils/booking';
+import { usePolling } from '../../../hooks/usePolling';
+import { pickDocumentPhoto } from '../../../utils/imagePicker';
+import { tenDigitMobile } from '../../../utils/phone';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1329,10 +1328,9 @@ export default function HospitalDashboard() {
           NAVBAR
       ══════════════════════════════════════════════════════════════════════ */}
       <View style={styles.navbar}>
+        {/* No back arrow: this is the hospital's home tab (see (tabs)/_layout.tsx).
+            It used to go to /(patient)/home, the patient tab bar. */}
         <View style={styles.navLeft}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/(patient)/home')}>
-            <Ionicons name="chevron-back" size={22} color={Colors.blue600} />
-          </TouchableOpacity>
           <View style={{ flexShrink: 1 }}>
             <Text style={styles.navTitle} numberOfLines={1}>{hospital.name}</Text>
             <View style={styles.liveRow}>
@@ -1975,8 +1973,6 @@ const styles = StyleSheet.create({
   navbar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
   navLeft:   { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   navRight:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  backBtn:   { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center' },
-  backBtnText: { fontSize: 18, fontWeight: '800', color: Colors.blue600 },
   profileBtn:  { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center' },
   profileBtnText: { fontSize: 16 },
   navTitle:  { fontSize: 16, fontWeight: '800', color: Colors.gray900 },

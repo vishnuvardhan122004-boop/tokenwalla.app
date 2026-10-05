@@ -100,9 +100,11 @@ function TabIcon({ icon, focused }: TabIconProps) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function PatientLayout() {
-  // A hospital account has no business browsing or booking, and it lands here
-  // for real: the dashboard's back button goes to /(patient)/home
-  // (dashboard.tsx), which drops a logged-in hospital into this tab bar.
+  // A hospital account has no business browsing or booking, and it still lands
+  // here: app launch boots into Home, and it opens notifications from its
+  // dashboard bell. HomeScreen redirects it to its own Dashboard | Scanner bar
+  // (app/(hospital)/(tabs)/_layout.tsx), and this bar is hidden for it, so it
+  // never sees a Home or Profile tab.
   //
   // The role is re-read on FOCUS, not on mount, and that is the whole fix.
   // This layout mounts at app launch, before anyone logs in (app/index.tsx
@@ -135,12 +137,12 @@ export default function PatientLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: isHospital ? { display: 'none' } : styles.tabBar,
         tabBarActiveTintColor: Colors.blue600,
         tabBarInactiveTintColor: Colors.gray400,
       }}
     >
-      {/* ── Visible tabs: 4 for a patient, 2 for a hospital ─────────────────── */}
+      {/* ── Visible tabs: 4 for a patient; the bar is hidden for a hospital ── */}
       <Tabs.Screen
         name="home"
         options={{
