@@ -89,12 +89,54 @@ export function logoutInProgress(): boolean {
 // ── Attach access token to every request EXCEPT public ones ────────────────
 API.interceptors.request.use(async (config) => {
   (config as { _epoch?: number })._epoch = _epoch;
-  if (!isPublicRequest(config)) {
+  // A retry already carries the token its own refresh returned (see the 401
+  // handler) — storage may hold another session's, or none during a logout.
+  if (!isPublicRequest(config) && !(config as { _retry?: boolean })._retry) {
     const token = await AsyncStorage.getItem('access');
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
+// ── One refresh at a time ─────────────────────────────────────────────────
+// The server rotates the refresh token and blacklists the old one on every
+// use. Two requests that 401 together (the hospital dashboard fires several on
+// mount) each spent the SAME token: the first rotated it, the second was
+// refused, and its catch logged the user out on an ordinary expiry (ROADMAP
+// 32). So every 401 holding the same refresh token awaits one refresh.
+// Keyed by the token, not by _epoch: the logout's own DELETE must still join a
+// refresh sent just before the logout began (or it double-spends the token and
+// the unregister fails), while a NEW login's token never joins the old one's.
+// The write happens inside, before the entry clears, so a 401 landing between
+// the response and the write can't read the already-rotated token.
+let _refreshing: { token: string; access: Promise<string> } | null = null;
+
+function refreshOnce(refresh: string): Promise<string> {
+  if (_refreshing?.token === refresh) return _refreshing.access;
+  const epoch = _epoch;
+  const access = (async () => {
+    const { data } = await axios.post(
+      `${BASE}/auth/token/refresh/`,
+      { refresh },
+      { timeout: 25000 }
+    );
+    // A logout started or ended while the refresh was out: don't write that
+    // session's rotated tokens into storage logout has cleared. Each caller
+    // still checks its own session before retrying with `access`.
+    if (epoch === _epoch) {
+      // One write, not two: a second awaited setItem could land after a
+      // logout's clear and put the refresh token back on its own.
+      const pairs: [string, string][] = [['access', data.access]];
+      if (data.refresh) pairs.push(['refresh', data.refresh]);
+      await AsyncStorage.multiSet(pairs);
+    }
+    return data.access as string;
+  })();
+  const entry = { token: refresh, access };
+  _refreshing = entry;
+  access.finally(() => { if (_refreshing === entry) _refreshing = null; }).catch(() => {});
+  return access;
+}
 
 // ── Auto-refresh on 401 ───────────────────────────────────────────────────
 API.interceptors.response.use(
@@ -118,20 +160,9 @@ API.interceptors.response.use(
       const refresh = await AsyncStorage.getItem('refresh');
       if (!refresh) { if (mayLogOut && sameSession()) await logoutUser(); return Promise.reject(err); }
       try {
-        const { data } = await axios.post(
-          `${BASE}/auth/token/refresh/`,
-          { refresh },
-          { timeout: 25000 }
-        );
-        // A logout started or ended while the refresh was out: don't write
-        // that session's rotated tokens into storage logout has cleared.
+        const access = await refreshOnce(refresh);
         if (!sameSession()) return Promise.reject(err);
-        // One write, not two: a second awaited setItem could land after a
-        // logout's clear and put the refresh token back on its own.
-        const pairs: [string, string][] = [['access', data.access]];
-        if (data.refresh) pairs.push(['refresh', data.refresh]);
-        await AsyncStorage.multiSet(pairs);
-        original.headers.Authorization = `Bearer ${data.access}`;
+        original.headers.Authorization = `Bearer ${access}`;
         return API(original);
       } catch {
         // Never from inside a logout, and never over a session that has

@@ -357,3 +357,99 @@ describe('logoutUser cleanup', () => {
     expect(_logoutTaskLabels()).toContain('push-token');
   });
 });
+
+// ROADMAP 32. The server rotates on every refresh and blacklists the old
+// token, so this mock refuses a refresh token it has already rotated — the
+// old 401 handler spent R1 once per concurrent 401, and the second spend
+// logged the user out on an ordinary expiry.
+describe('single-flight token refresh', () => {
+  let spent: Set<string>;
+  let release: () => void;
+  let gate: Promise<void>;
+  let refresh: jest.SpyInstance;
+
+  beforeEach(() => {
+    signedIn();
+    expiredAuth = 'Bearer A1';
+    spent = new Set();
+    gate = new Promise<void>(r => { release = r; });
+    deletes = 0;
+    deleteAuth.length = 0;
+    mockTokenDelayMs = -1;
+    (router.replace as jest.Mock).mockClear();
+    refresh = jest.spyOn(axios, 'post').mockImplementation(async (_url, body) => {
+      const token = (body as { refresh: string }).refresh;
+      await gate;
+      if (spent.has(token)) throw new Error('Token is blacklisted');
+      spent.add(token);
+      return { data: { access: `A-${token}`, refresh: `${token}+` } };
+    });
+  });
+
+  afterEach(() => {
+    refresh.mockRestore();
+    expiredAuth = null;
+  });
+
+  it('concurrent 401s share one refresh and nobody is logged out', async () => {
+    const all = Promise.all([
+      API.get('/bookings/queue/1/'),
+      API.get('/bookings/queue/2/'),
+      API.get('/hospitals/me/'),
+    ]);
+    await new Promise(r => setTimeout(r, 10));   // all three are waiting on it
+    release();
+    const results = await all;
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    results.forEach(res => expect(res.config.headers?.Authorization).toBe('Bearer A-R1'));
+    expect(mockStore.get('access')).toBe('A-R1');
+    expect(mockStore.get('refresh')).toBe('R1+');
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+
+  it('a different refresh token never joins another one\'s refresh', async () => {
+    const first = API.get('/bookings/queue/1/');
+    await new Promise(r => setTimeout(r, 10));
+    mockStore.set('refresh', 'R9');               // a different session's token
+    const second = API.get('/bookings/queue/2/');
+    await new Promise(r => setTimeout(r, 10));
+    release();
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(a.config.headers?.Authorization).toBe('Bearer A-R1');
+    expect(b.config.headers?.Authorization).toBe('Bearer A-R9');
+  });
+
+  // The leak ROADMAP 32 named: a poll's refresh is out when logout starts, and
+  // the unregister DELETE 401s on the same token. Spending it a second time
+  // failed the DELETE and left this account's DeviceToken row on the server.
+  it("logout's unregister joins a refresh already in flight, and writes nothing back", async () => {
+    mockTokenDelayMs = 0;
+    const poll = API.get('/bookings/queue/1/').catch(e => e);
+    await new Promise(r => setTimeout(r, 10));
+    const done = logoutUser();
+    await new Promise(r => setTimeout(r, 10));
+    release();
+    await done;
+    await poll;
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(deleteAuth).toEqual(['Bearer A1', 'Bearer A-R1']);
+    expect(mockStore.get('access')).toBeUndefined();
+    expect(mockStore.get('refresh')).toBeUndefined();
+  });
+
+  it('the next expiry starts a fresh refresh with the rotated token', async () => {
+    release();
+    await API.get('/bookings/queue/1/');
+    expiredAuth = 'Bearer A-R1';                  // the refreshed token expires too
+    const res = await API.get('/bookings/queue/1/');
+
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(refresh.mock.calls[1][1]).toEqual({ refresh: 'R1+' });
+    expect(res.config.headers?.Authorization).toBe('Bearer A-R1+');
+    expect(router.replace).not.toHaveBeenCalled();
+  });
+});
