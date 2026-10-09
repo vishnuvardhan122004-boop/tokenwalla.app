@@ -3,10 +3,10 @@
  * The app had no plural handling at all; `translate` now picks `<key>_one`
  * for a singular numeric count, per CLDR for each shipped language.
  */
+import { translate } from './i18n';
+
 jest.mock('@react-native-async-storage/async-storage', () => ({}));
 jest.mock('expo-localization', () => ({ getLocales: () => [] }));
-
-import { translate } from './i18n';
 
 describe('translate() plurals', () => {
   it('one reads in the singular, everything else in the plural (en)', () => {
