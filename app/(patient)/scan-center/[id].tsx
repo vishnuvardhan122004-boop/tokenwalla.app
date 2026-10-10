@@ -67,6 +67,9 @@ export default function ScanCenterScreen() {
   const [scans,   setScans]   = useState<Scan[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed,  setFailed]  = useState(false);
+  // A 404 is the server saying this centre is not public (pending, rejected
+  // or [TEST], ROADMAP 33), not a network failure — a different message.
+  const [notFound, setNotFound] = useState(false);
 
   const [openScan,     setOpenScan]     = useState<Scan | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
@@ -115,7 +118,7 @@ export default function ScanCenterScreen() {
   useEffect(() => {
     setCentre(null); setScans([]); setOpenScan(null);
     setSelectedDate(''); setSelectedSlot(''); setAvail({});
-    setFailed(false); setLoading(true);
+    setFailed(false); setNotFound(false); setLoading(true);
   }, [id]);
 
   useEffect(() => {
@@ -130,7 +133,11 @@ export default function ScanCenterScreen() {
         setCentre(cRes.data);
         setScans(asList<Scan>(sRes.data));
       })
-      .catch(() => { if (!cancelled) setFailed(true); })
+      .catch((err) => {
+        if (cancelled) return;
+        setNotFound(err?.response?.status === 404);
+        setFailed(true);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [id]);
@@ -193,8 +200,9 @@ export default function ScanCenterScreen() {
     return (
       <SafeAreaView style={st.safe} edges={['top']}>
         <View style={st.centre}>
-          <Ionicons name="cloud-offline-outline" size={44} color={Colors.gray400} />
-          <Text style={st.emptyTitle}>{t('sc_cant_load')}</Text>
+          <Ionicons name={notFound ? 'information-circle-outline' : 'cloud-offline-outline'}
+            size={44} color={Colors.gray400} />
+          <Text style={st.emptyTitle}>{t(notFound ? 'sc_not_available' : 'sc_cant_load')}</Text>
           <TouchableOpacity style={st.retry} onPress={() => safeBack(router, '/(patient)/doctors')}>
             <Text style={st.retryText}>{t('sc_go_back')}</Text>
           </TouchableOpacity>
