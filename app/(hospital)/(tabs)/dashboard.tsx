@@ -40,7 +40,7 @@ import { Colors } from '../../../constants/colors';
 import { appendKeyword, suggestKeywordsForList } from '../../../constants/searchKeywords';
 import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
-import API, { logoutUser } from '../../../services/api';
+import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
 } from '../../../utils/scanCenters';
@@ -97,12 +97,21 @@ interface Patient {
   id: number | string;
   user_name?: string;
   user_mobile?: string;
+  patient_name?: string;   // the beneficiary when booked for someone else
+  patient_mobile?: string;
+  is_for_other?: boolean;
   doctor_name?: string;
   slot?: string;
   token?: string | number;
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
   provider_kind?: string; // 'DOCTOR' | 'SCAN'
 }
+
+// Who the visit is FOR — the beneficiary when it was booked for someone else.
+// The queue showed the ACCOUNT holder, so reception called the son for the
+// mother while the QR scanner said her name (web audit HD-3, same defect).
+const nameOf   = (p: Patient): string => p.patient_name || p.user_name || '';
+const mobileOf = (p: Patient) => p.patient_mobile || p.user_mobile || '';
 
 interface QueueState {
   waiting: Patient[];
@@ -383,7 +392,7 @@ export default function HospitalDashboard() {
         for (const p of waiting as Patient[]) {
           if (!known.has(String(p.id))) {
             notifyHospitalNewBooking({
-              patientName: p.user_name,
+              patientName: nameOf(p),
               doctorName:  p.doctor_name,
               slot:        p.slot,
               token:       p.token != null ? String(p.token) : undefined,
@@ -501,11 +510,19 @@ export default function HospitalDashboard() {
     catch { Alert.alert('Error', 'Failed to mark complete'); }
   };
 
-  // Skip a patient who isn't ready without cancelling them. The same endpoint
-  // toggles: waiting → held (hold), held → waiting (resume).
-  const toggleHold = async (id: number | string) => {
-    try { await API.patch(`/bookings/hold/${id}/`); loadQueue(); }
-    catch { Alert.alert('Error', 'Failed to update hold status'); }
+  // Skip a patient who isn't ready without cancelling them. The endpoint is a
+  // toggle, so a second tap used to reverse the first — the patient told
+  // "your turn is on hold" while still in the queue, or re-held on Resume
+  // (web audit HD-4). Saying which way makes the server 409 a repeat; the ref
+  // stops a double tap from sending it at all.
+  const holding = useRef(new Set<string>());
+  const toggleHold = async (id: number | string, action: 'hold' | 'resume') => {
+    const key = String(id);
+    if (holding.current.has(key)) return;
+    holding.current.add(key);
+    try { await API.patch(`/bookings/hold/${id}/`, { action }); }
+    catch (e) { Alert.alert('Error', apiMessage(e, 'Failed to update hold status')); }
+    finally { holding.current.delete(key); loadQueue(); }
   };
 
   // Long-press action: patient never turned up. Confirmed because it drops
@@ -652,8 +669,10 @@ export default function HospitalDashboard() {
             try {
               await API.delete(`/doctors/${doc.id}/`);
               loadDoctors();
-            } catch {
-              Alert.alert('Error', 'Failed to delete. The doctor may have active bookings.');
+            } catch (e) {
+              // The server says why — live bookings, or (since web #135)
+              // payment or document history that must be kept.
+              Alert.alert('Error', apiMessage(e, 'Failed to delete. The doctor may have active bookings.'));
             }
           },
         },
@@ -866,8 +885,9 @@ export default function HospitalDashboard() {
     Alert.alert(
       `Token ${p.token ?? '—'}`,
       [
-        `Patient: ${p.user_name || 'Patient'}`,
-        p.user_mobile ? `Mobile: ${p.user_mobile}` : null,
+        `Patient: ${nameOf(p) || 'Patient'}`,
+        mobileOf(p) ? `Mobile: ${mobileOf(p)}` : null,
+        p.is_for_other && p.user_name ? `Booked by: ${p.user_name}${p.user_mobile ? ` · ${p.user_mobile}` : ''}` : null,
         p.doctor_name ? `Doctor: ${p.doctor_name}` : null,
         p.slot ? `Slot: ${p.slot}` : null,
         `Day: ${dayLabelFor(p.date)}`,
@@ -879,7 +899,7 @@ export default function HospitalDashboard() {
             {
               text: 'Mark as No-show',
               style: 'destructive',
-              onPress: () => noShow(p.id, p.user_name || 'This patient'),
+              onPress: () => noShow(p.id, nameOf(p) || 'This patient'),
             },
           ],
     );
@@ -920,7 +940,7 @@ export default function HospitalDashboard() {
             <Text style={styles.sheetTitle}>Share a document</Text>
             <Text style={styles.sheetSub}>
               Send a report, prescription or discharge summary to{' '}
-              {shareFor?.user_name || 'this patient'}.
+              {(shareFor && nameOf(shareFor)) || 'this patient'}.
             </Text>
             {([
               { icon: 'camera-outline',  label: 'Take a photo',   source: 'camera'  },
@@ -1471,14 +1491,15 @@ export default function HospitalDashboard() {
               : fWaiting.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.warningText }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                    <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
+                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
                     <TouchableOpacity
-                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
-                      disabled={!p.user_mobile}
+                      onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
+                      disabled={!mobileOf(p)}
                       accessibilityRole="link"
-                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                      accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
                     >
-                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                      <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
@@ -1496,10 +1517,10 @@ export default function HospitalDashboard() {
                     <TouchableOpacity
                       style={styles.callBtn}
                       onPress={() => callNext(p.id)}
-                      onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
+                      onLongPress={() => noShow(p.id, nameOf(p) || 'This patient')}
                       delayLongPress={600}
                       accessibilityRole="button"
-                      accessibilityLabel={`Call ${p.user_name || 'patient'}, token ${p.token}`}
+                      accessibilityLabel={`Call ${nameOf(p) || 'patient'}, token ${p.token}`}
                       accessibilityHint="Double tap to call. Press and hold to mark as no-show."
                     >
                       <Text style={styles.callBtnText}>Call →</Text>
@@ -1507,9 +1528,9 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.holdBtn}
-                      onPress={() => toggleHold(p.id)}
+                      onPress={() => toggleHold(p.id, 'hold')}
                       accessibilityRole="button"
-                      accessibilityLabel={`Hold ${p.user_name || 'patient'}, token ${p.token}, and skip to the next patient`}
+                      accessibilityLabel={`Hold ${nameOf(p) || 'patient'}, token ${p.token}, and skip to the next patient`}
                     >
                       <Ionicons name="pause" size={13} color={Colors.gray600} />
                       <Text style={styles.holdBtnText}>Hold</Text>
@@ -1531,14 +1552,15 @@ export default function HospitalDashboard() {
                 {fOnHold.map((p: Patient) => (
                   <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.gray400 }]}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                      <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
+                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
                       <TouchableOpacity
-                        onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
-                        disabled={!p.user_mobile}
+                        onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
+                        disabled={!mobileOf(p)}
                         accessibilityRole="link"
-                        accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                        accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
                       >
-                        <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                        <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                       </TouchableOpacity>
                       <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                       <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
@@ -1554,9 +1576,9 @@ export default function HospitalDashboard() {
                     </View>
                     <TouchableOpacity
                       style={styles.resumeBtn}
-                      onPress={() => toggleHold(p.id)}
+                      onPress={() => toggleHold(p.id, 'resume')}
                       accessibilityRole="button"
-                      accessibilityLabel={`Resume ${p.user_name || 'patient'}, token ${p.token}, back into the waiting queue`}
+                      accessibilityLabel={`Resume ${nameOf(p) || 'patient'}, token ${p.token}, back into the waiting queue`}
                     >
                       <Ionicons name="play" size={13} color={Colors.blue600} />
                       <Text style={styles.resumeBtnText}>Resume</Text>
@@ -1574,14 +1596,15 @@ export default function HospitalDashboard() {
               : fInProgress.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                    <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
+                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
                     <TouchableOpacity
-                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
-                      disabled={!p.user_mobile}
+                      onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
+                      disabled={!mobileOf(p)}
                       accessibilityRole="link"
-                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                      accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
                     >
-                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                      <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
@@ -1598,10 +1621,10 @@ export default function HospitalDashboard() {
                   <TouchableOpacity
                     style={styles.doneBtn}
                     onPress={() => complete(p.id)}
-                    onLongPress={() => noShow(p.id, p.user_name || 'This patient')}
+                    onLongPress={() => noShow(p.id, nameOf(p) || 'This patient')}
                     delayLongPress={600}
                     accessibilityRole="button"
-                    accessibilityLabel={`Mark ${p.user_name || 'patient'} done, token ${p.token}`}
+                    accessibilityLabel={`Mark ${nameOf(p) || 'patient'} done, token ${p.token}`}
                     accessibilityHint="Double tap to complete. Press and hold to mark as no-show."
                   >
                     <Text style={styles.doneBtnText}>Done ✓</Text>
@@ -1619,14 +1642,15 @@ export default function HospitalDashboard() {
               : fCompleted.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.successText, opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.patientName}>{p.user_name || 'Patient'}</Text>
+                    <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
+                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
                     <TouchableOpacity
-                      onPress={() => p.user_mobile && Linking.openURL(`tel:${p.user_mobile}`)}
-                      disabled={!p.user_mobile}
+                      onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
+                      disabled={!mobileOf(p)}
                       accessibilityRole="link"
-                      accessibilityLabel={`Call ${p.user_name || 'patient'} on ${p.user_mobile}`}
+                      accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
                     >
-                      <Text style={styles.patientPhone}>{p.user_mobile || 'N/A'}</Text>
+                      <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
