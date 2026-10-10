@@ -142,12 +142,14 @@ const en: Dict = {
   // doctors list
   find_doctors: 'Find Doctors',
   doctors_available: '{count} doctors available',
+  doctors_available_one: '{count} doctor available',
   search_placeholder: 'Search doctor, specialization, hospital...',
   top_searches: 'Top searches',
   detect_location: 'Detect My Location',
   near_city: 'Near: {city}',
   available_only: 'Available Only',
   results_count: '{count} results',
+  results_count_one: '{count} result',
   sorted_proximity: 'sorted by proximity',
   sorted_availability: 'sorted by availability',
   clear_all: 'Clear all',
@@ -158,6 +160,7 @@ const en: Dict = {
   book_now: 'Book Now →',
   unavailable: 'Unavailable',
   slots_today: '{count} slots today',
+  slots_today_one: '{count} slot today',
   walk_in_contact: 'Walk-in · Contact hospital',
   top_match: '⭐ Top Match',
   yrs_exp: '{years}y exp',
@@ -329,7 +332,9 @@ const en: Dict = {
   title_scans: 'Scans & Diagnostics',
   title_blood: 'Blood Tests',
   centres_near_you: '{count} centres near you',
+  centres_near_you_one: '{count} centre near you',
   centres_count: '{count} centres',
+  centres_count_one: '{count} centre',
   search_scans_ph: 'Search scans, centre, city...',
   search_tests_ph: 'Search tests, centre, city...',
   no_scan_centres: 'No scanning centres yet',
@@ -337,7 +342,9 @@ const en: Dict = {
   onboarding_partners: "We're onboarding diagnostic partners now. Try the Doctors tab.",
   contact_the_centre: 'Contact the centre',
   scans_count: '{count} scans',
+  scans_count_one: '{count} scan',
   tests_count: '{count} tests',
+  tests_count_one: '{count} test',
   from_price: 'from ₹{price}',
   permission_denied: 'Permission Denied',
   allow_location: 'Allow location access to find nearby doctors.',
@@ -674,12 +681,14 @@ const hi: Dict = {
   // doctors list
   find_doctors: 'डॉक्टर खोजें',
   doctors_available: '{count} डॉक्टर उपलब्ध',
+  doctors_available_one: '{count} डॉक्टर उपलब्ध',
   search_placeholder: 'डॉक्टर, विशेषज्ञता, अस्पताल खोजें...',
   top_searches: 'लोकप्रिय खोजें',
   detect_location: 'मेरा स्थान पता करें',
   near_city: 'निकट: {city}',
   available_only: 'केवल उपलब्ध',
   results_count: '{count} परिणाम',
+  results_count_one: '{count} परिणाम',
   sorted_proximity: 'निकटता के अनुसार',
   sorted_availability: 'उपलब्धता के अनुसार',
   clear_all: 'सभी साफ़ करें',
@@ -690,6 +699,7 @@ const hi: Dict = {
   book_now: 'अभी बुक करें →',
   unavailable: 'अनुपलब्ध',
   slots_today: 'आज {count} स्लॉट',
+  slots_today_one: 'आज {count} स्लॉट',
   walk_in_contact: 'वॉक-इन · अस्पताल से संपर्क करें',
   top_match: '⭐ टॉप मैच',
   yrs_exp: '{years} वर्ष अनुभव',
@@ -861,7 +871,9 @@ const hi: Dict = {
   title_scans: 'स्कैन और जाँच',
   title_blood: 'रक्त जाँच',
   centres_near_you: 'आपके पास {count} केंद्र',
+  centres_near_you_one: 'आपके पास {count} केंद्र',
   centres_count: '{count} केंद्र',
+  centres_count_one: '{count} केंद्र',
   search_scans_ph: 'स्कैन, केंद्र, शहर खोजें...',
   search_tests_ph: 'जाँच, केंद्र, शहर खोजें...',
   no_scan_centres: 'अभी कोई स्कैनिंग केंद्र नहीं',
@@ -869,7 +881,9 @@ const hi: Dict = {
   onboarding_partners: 'हम अभी जाँच केंद्रों को जोड़ रहे हैं। डॉक्टर टैब देखें।',
   contact_the_centre: 'केंद्र से संपर्क करें',
   scans_count: '{count} स्कैन',
+  scans_count_one: '{count} स्कैन',
   tests_count: '{count} जाँच',
+  tests_count_one: '{count} जाँच',
   from_price: '₹{price} से',
   permission_denied: 'अनुमति अस्वीकृत',
   allow_location: 'पास के डॉक्टर खोजने के लिए स्थान की अनुमति दें।',
@@ -1206,12 +1220,14 @@ const te: Dict = {
   // doctors list
   find_doctors: 'డాక్టర్లను కనుగొనండి',
   doctors_available: '{count} డాక్టర్లు అందుబాటులో',
+  doctors_available_one: '{count} డాక్టర్ అందుబాటులో',
   search_placeholder: 'డాక్టర్, స్పెషలైజేషన్, ఆసుపత్రి వెతకండి...',
   top_searches: 'టాప్ సెర్చ్‌లు',
   detect_location: 'నా స్థానాన్ని గుర్తించండి',
   near_city: 'సమీపంలో: {city}',
   available_only: 'అందుబాటులో ఉన్నవి మాత్రమే',
   results_count: '{count} ఫలితాలు',
+  results_count_one: '{count} ఫలితం',
   sorted_proximity: 'సామీప్యం ప్రకారం',
   sorted_availability: 'అందుబాటు ప్రకారం',
   clear_all: 'అన్నీ క్లియర్ చేయి',
@@ -1222,6 +1238,7 @@ const te: Dict = {
   book_now: 'ఇప్పుడే బుక్ చేయండి →',
   unavailable: 'అందుబాటులో లేదు',
   slots_today: 'ఈరోజు {count} స్లాట్‌లు',
+  slots_today_one: 'ఈరోజు {count} స్లాట్',
   walk_in_contact: 'వాక్-ఇన్ · హాస్పిటల్‌ను సంప్రదించండి',
   top_match: '⭐ టాప్ మ్యాచ్',
   yrs_exp: '{years} సం. అనుభవం',
@@ -1393,7 +1410,9 @@ const te: Dict = {
   title_scans: 'స్కాన్లు & డయాగ్నస్టిక్స్',
   title_blood: 'రక్త పరీక్షలు',
   centres_near_you: 'మీ దగ్గర {count} కేంద్రాలు',
+  centres_near_you_one: 'మీ దగ్గర {count} కేంద్రం',
   centres_count: '{count} కేంద్రాలు',
+  centres_count_one: '{count} కేంద్రం',
   search_scans_ph: 'స్కాన్, కేంద్రం, నగరం వెతకండి...',
   search_tests_ph: 'పరీక్ష, కేంద్రం, నగరం వెతకండి...',
   no_scan_centres: 'ఇంకా స్కానింగ్ కేంద్రాలు లేవు',
@@ -1401,7 +1420,9 @@ const te: Dict = {
   onboarding_partners: 'మేము ఇప్పుడు డయాగ్నస్టిక్ భాగస్వాములను చేర్చుతున్నాము. డాక్టర్ల ట్యాబ్ చూడండి.',
   contact_the_centre: 'కేంద్రాన్ని సంప్రదించండి',
   scans_count: '{count} స్కాన్లు',
+  scans_count_one: '{count} స్కాన్',
   tests_count: '{count} పరీక్షలు',
+  tests_count_one: '{count} పరీక్ష',
   from_price: '₹{price} నుండి',
   permission_denied: 'అనుమతి నిరాకరించబడింది',
   allow_location: 'దగ్గరలోని డాక్టర్లను కనుగొనడానికి లొకేషన్ అనుమతి ఇవ్వండి.',
@@ -1738,12 +1759,14 @@ const kn: Dict = {
   // doctors list
   find_doctors: 'ವೈದ್ಯರನ್ನು ಹುಡುಕಿ',
   doctors_available: '{count} ವೈದ್ಯರು ಲಭ್ಯ',
+  doctors_available_one: '{count} ವೈದ್ಯ ಲಭ್ಯ',
   search_placeholder: 'ವೈದ್ಯ, ವಿಶೇಷತೆ, ಆಸ್ಪತ್ರೆ ಹುಡುಕಿ...',
   top_searches: 'ಜನಪ್ರಿಯ ಹುಡುಕಾಟಗಳು',
   detect_location: 'ನನ್ನ ಸ್ಥಳ ಪತ್ತೆಮಾಡಿ',
   near_city: 'ಹತ್ತಿರ: {city}',
   available_only: 'ಲಭ್ಯವಿರುವುದು ಮಾತ್ರ',
   results_count: '{count} ಫಲಿತಾಂಶಗಳು',
+  results_count_one: '{count} ಫಲಿತಾಂಶ',
   sorted_proximity: 'ಸಾಮೀಪ್ಯದ ಪ್ರಕಾರ',
   sorted_availability: 'ಲಭ್ಯತೆಯ ಪ್ರಕಾರ',
   clear_all: 'ಎಲ್ಲವನ್ನೂ ತೆರವುಗೊಳಿಸಿ',
@@ -1754,6 +1777,7 @@ const kn: Dict = {
   book_now: 'ಈಗ ಬುಕ್ ಮಾಡಿ →',
   unavailable: 'ಲಭ್ಯವಿಲ್ಲ',
   slots_today: 'ಇಂದು {count} ಸ್ಲಾಟ್‌ಗಳು',
+  slots_today_one: 'ಇಂದು {count} ಸ್ಲಾಟ್',
   walk_in_contact: 'ವಾಕ್-ಇನ್ · ಆಸ್ಪತ್ರೆಯನ್ನು ಸಂಪರ್ಕಿಸಿ',
   top_match: '⭐ ಟಾಪ್ ಮ್ಯಾಚ್',
   yrs_exp: '{years} ವರ್ಷ ಅನುಭವ',
@@ -1925,7 +1949,9 @@ const kn: Dict = {
   title_scans: 'ಸ್ಕ್ಯಾನ್ ಮತ್ತು ಡಯಾಗ್ನೋಸ್ಟಿಕ್ಸ್',
   title_blood: 'ರಕ್ತ ಪರೀಕ್ಷೆಗಳು',
   centres_near_you: 'ನಿಮ್ಮ ಹತ್ತಿರ {count} ಕೇಂದ್ರಗಳು',
+  centres_near_you_one: 'ನಿಮ್ಮ ಹತ್ತಿರ {count} ಕೇಂದ್ರ',
   centres_count: '{count} ಕೇಂದ್ರಗಳು',
+  centres_count_one: '{count} ಕೇಂದ್ರ',
   search_scans_ph: 'ಸ್ಕ್ಯಾನ್, ಕೇಂದ್ರ, ನಗರ ಹುಡುಕಿ...',
   search_tests_ph: 'ಪರೀಕ್ಷೆ, ಕೇಂದ್ರ, ನಗರ ಹುಡುಕಿ...',
   no_scan_centres: 'ಇನ್ನೂ ಸ್ಕ್ಯಾನಿಂಗ್ ಕೇಂದ್ರಗಳಿಲ್ಲ',
@@ -1933,7 +1959,9 @@ const kn: Dict = {
   onboarding_partners: 'ನಾವು ಈಗ ಡಯಾಗ್ನೋಸ್ಟಿಕ್ ಪಾಲುದಾರರನ್ನು ಸೇರಿಸುತ್ತಿದ್ದೇವೆ. ವೈದ್ಯರ ಟ್ಯಾಬ್ ನೋಡಿ.',
   contact_the_centre: 'ಕೇಂದ್ರವನ್ನು ಸಂಪರ್ಕಿಸಿ',
   scans_count: '{count} ಸ್ಕ್ಯಾನ್‌ಗಳು',
+  scans_count_one: '{count} ಸ್ಕ್ಯಾನ್',
   tests_count: '{count} ಪರೀಕ್ಷೆಗಳು',
+  tests_count_one: '{count} ಪರೀಕ್ಷೆ',
   from_price: '₹{price} ರಿಂದ',
   permission_denied: 'ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ',
   allow_location: 'ಹತ್ತಿರದ ವೈದ್ಯರನ್ನು ಹುಡುಕಲು ಸ್ಥಳದ ಅನುಮತಿ ನೀಡಿ.',
@@ -2159,6 +2187,31 @@ const kn: Dict = {
 
 const TRANSLATIONS: Record<LangCode, Dict> = { en, hi, te, kn };
 
+// CLDR's "one" category for the four shipped languages: en and te at exactly
+// 1; hi and kn at 0 or 1. ponytail: hand-rolled rather than Intl.PluralRules,
+// which Hermes does not reliably ship. Add a line here with any new language.
+function isOne(lang: LangCode, n: number): boolean {
+  return n === 1 || (n === 0 && (lang === 'hi' || lang === 'kn'));
+}
+
+/**
+ * The string for `key` in `lang`, with `{vars}` filled in. A numeric `count`
+ * that is singular for the language picks `<key>_one` when one exists, so
+ * "1 slots today" reads "1 slot today"; the plain key is the plural.
+ * Falls back to English, then to the key itself.
+ */
+export function translate(lang: LangCode, key: string, vars?: Record<string, string | number>): string {
+  const dict = TRANSLATIONS[lang] || en;
+  const one = typeof vars?.count === 'number' && isOne(lang, vars.count) ? `${key}_one` : null;
+  let str = (one ? dict[one] : undefined) ?? dict[key] ?? (one ? en[one] : undefined) ?? en[key] ?? key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) {
+      str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
+    }
+  }
+  return str;
+}
+
 function deviceDefault(): LangCode {
   try {
     const codes = Localization.getLocales().map(l => (l.languageCode || '').toLowerCase());
@@ -2201,16 +2254,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: string, vars?: Record<string, string | number>) => {
-      const dict = TRANSLATIONS[lang] || en;
-      let str = dict[key] ?? en[key] ?? key;
-      if (vars) {
-        for (const [k, v] of Object.entries(vars)) {
-          str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), String(v));
-        }
-      }
-      return str;
-    },
+    (key: string, vars?: Record<string, string | number>) => translate(lang, key, vars),
     [lang],
   );
 
