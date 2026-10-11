@@ -34,6 +34,7 @@ import { Colors } from '../../constants/colors';
 import API, { logoutUser } from '../../services/api';
 import LocationSearch from '../../components/LocationSearch';
 import LocationPickerModal from '../../components/LocationPickerModal';
+import SignedInDevices from '../../components/SignedInDevices';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -979,6 +980,8 @@ export default function HospitalProfile() {
               </TouchableOpacity>
             ))}
           </View>
+
+          <SignedInDevices />
 
           {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={confirmLogout}>
