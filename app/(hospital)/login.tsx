@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAxiosError } from 'axios';
+import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useState } from 'react';
 import {
@@ -129,7 +130,12 @@ export default function HospitalLoginScreen() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await API.post('/hospitals/login/', { mobile, password });
+      // Labels this phone in the hospital's signed-in devices list: an app's
+      // User-Agent is only okhttp / CFNetwork. A browser's UA already says
+      // enough, so the web sends nothing and the server reads that.
+      const deviceName = Platform.OS === 'web' ? '' : (Constants.deviceName ?? '').trim().slice(0, 120);
+      const { data } = await API.post('/hospitals/login/',
+        deviceName ? { mobile, password, device_name: deviceName } : { mobile, password });
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
