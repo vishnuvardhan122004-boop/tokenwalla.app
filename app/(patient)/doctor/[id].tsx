@@ -32,7 +32,7 @@ import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 
-interface SlotInfo { booked: number; max: number; full: boolean; }
+interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; }
 interface GalleryPhoto { id: number | string; url: string; }
 
 interface Hospital {
@@ -253,6 +253,9 @@ export default function DoctorDetails() {
         slot:         selectedSlot,
         // No fee params: checkout fetches the server's fee_breakdown for this
         // doctor, and the order is priced server-side from doctorId alone.
+        // Priority seats still free in this slot — 0 hides the option; the
+        // server re-checks before taking any money.
+        priorityLeft: String(slotAvail[selectedSlot]?.priority_left || 0),
       },
     });
   };

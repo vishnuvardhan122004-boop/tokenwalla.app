@@ -66,11 +66,14 @@ export function checkoutPayable(opts: {
   doctorFeeOnline: number;   // breakdown.doctor_fee (0 unless FULL)
   passPrice: number;
   total: number | null;
+  // A priority seat, GST included (0 = none). Rides on top of every paid
+  // case; a free redemption never offers one (there is no checkout to carry it).
+  priorityExtra?: number;
 }): number | null {
   const { redeemIsFree, redeemNeedsPay, passSelected,
-          doctorFeeOnline, passPrice, total } = opts;
+          doctorFeeOnline, passPrice, total, priorityExtra = 0 } = opts;
   if (redeemIsFree)   return 0;
-  if (redeemNeedsPay) return doctorFeeOnline;
-  if (passSelected)   return doctorFeeOnline + passPrice;
-  return total;
+  if (redeemNeedsPay) return doctorFeeOnline + priorityExtra;
+  if (passSelected)   return doctorFeeOnline + passPrice + priorityExtra;
+  return total === null ? null : total + priorityExtra;
 }

@@ -67,6 +67,26 @@ describe('parsePaymentMessage', () => {
   });
 });
 
+describe('checkoutPayable — a priority seat on top', () => {
+  const base = {
+    redeemIsFree: false, redeemNeedsPay: false, passSelected: false,
+    doctorFeeOnline: 0, passPrice: 35, total: 25.37,
+  };
+  it('adds the GST-inclusive priority price to an ordinary bill', () => {
+    expect(checkoutPayable({ ...base, priorityExtra: 59 })).toBeCloseTo(84.37, 2);
+  });
+  it('rides on a pass purchase and on a paid FULL redemption', () => {
+    expect(checkoutPayable({ ...base, passSelected: true, priorityExtra: 59 })).toBe(94);
+    expect(checkoutPayable({
+      ...base, redeemNeedsPay: true, doctorFeeOnline: 200, priorityExtra: 59,
+    })).toBe(259);
+  });
+  it('never turns a free redemption into a charge, or a loading bill into a number', () => {
+    expect(checkoutPayable({ ...base, redeemIsFree: true, priorityExtra: 59 })).toBe(0);
+    expect(checkoutPayable({ ...base, total: null, priorityExtra: 59 })).toBeNull();
+  });
+});
+
 describe('checkoutPayable — what the patient is charged', () => {
   const base = {
     redeemIsFree: false, redeemNeedsPay: false, passSelected: false,

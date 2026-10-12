@@ -416,6 +416,12 @@ export default function MyBookings() {
                         <Text style={st.forOtherText}>For {booking.patient_name}</Text>
                       </View>
                     ) : null}
+                    {booking.is_priority ? (
+                      <View style={st.forOther}>
+                        <Ionicons name="star" size={12} color={Colors.blue700} />
+                        <Text style={st.forOtherText}>{t('mb_priority')}</Text>
+                      </View>
+                    ) : null}
                     {booking.hospital_mobile ? (
                       <TouchableOpacity style={st.iconTextRow} onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
                         <Ionicons name="call-outline" size={13} color={Colors.blue600} />

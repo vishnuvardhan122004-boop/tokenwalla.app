@@ -36,7 +36,11 @@ export default function PaymentScreen() {
     doctorId, doctorName, doctorMobile,
     scanId, scanName,
     hospital, date, slot,
+    priorityLeft,
   } = params;
+  // Priority seats still free in this slot, as the doctor page saw them —
+  // 0 hides the option. The server re-checks before any money moves.
+  const priorityLeftN = Number(priorityLeft || 0);
 
   // One screen, either provider. The SERVER prices whichever id it is sent and
   // is the only authority on the amount — this screen only previews it.
@@ -53,6 +57,11 @@ export default function PaymentScreen() {
   const [feeError,  setFeeError]  = useState(false);
   const [feeReload, setFeeReload] = useState(0);
   const total = breakdown ? Number(breakdown.final_amount) : null;
+  // What a priority seat adds, GST included: the difference between the
+  // server's two breakdowns, so this screen still does no tax math. 0 = the
+  // doctor sells none (or the backend predates priority booking).
+  const [priorityExtra, setPriorityExtra] = useState(0);
+  const [priority,      setPriority]      = useState(false);
 
   const [user,         setUser]         = useState<any>(null);
   const [loading,      setLoading]      = useState(false);
@@ -108,6 +117,9 @@ export default function PaymentScreen() {
         // preview either way — the amount charged is the server's order amount.
         setBreakdown(data.fee_breakdown
           || computeFeeBreakdown(isScan ? data.price : data.fee, data.payment_collection_mode));
+        setPriorityExtra(data.priority_fee_breakdown && data.fee_breakdown
+          ? Number(data.priority_fee_breakdown.final_amount) - Number(data.fee_breakdown.final_amount)
+          : 0);
       })
       .catch(() => {
         if (!cancelled) setFeeError(true);
@@ -151,6 +163,9 @@ export default function PaymentScreen() {
     ? new Date(passData.pass.expires_at).toLocaleDateString('en-IN',
         { day: 'numeric', month: 'short', year: 'numeric' })
     : '';
+  // A ₹0 pass redemption has no checkout to carry a priority fee.
+  const priorityOffered  = !isScan && priorityExtra > 0 && priorityLeftN > 0 && !redeemIsFree;
+  const prioritySelected = priorityOffered && priority;
   // What is actually charged now — see utils/payment.checkoutPayable, which
   // holds the table so it can be unit tested without a React tree.
   const payable = checkoutPayable({
@@ -158,6 +173,7 @@ export default function PaymentScreen() {
     doctorFeeOnline,
     passPrice: Number(passData?.price || 0),
     total,
+    priorityExtra: prioritySelected ? priorityExtra : 0,
   });
 
   // Spending a credit: no order, no WebView, no Razorpay. The server re-checks
@@ -382,6 +398,9 @@ export default function PaymentScreen() {
         // consultation fee alone and tags it pass:'redeem', so /verify/ spends
         // the credit against the order rather than trusting this flag.
         ...(redeemNeedsPay ? { redeemPass: true } : {}),
+        // A priority seat: the server prices it from the doctor and re-checks
+        // the seat; this flag only asks.
+        ...(prioritySelected ? { priority: true } : {}),
         notes:    { providerId, providerName, hospital, date, slot },
       });
 
@@ -677,6 +696,17 @@ export default function PaymentScreen() {
                   </View>
                 ))
               )}
+              {prioritySelected && (
+                <View style={styles.feeRow}>
+                  <View style={styles.feeLabelRow}>
+                    <Text style={styles.feeLabel}>{t('pay_priority_row')}</Text>
+                    <View style={styles.clinicTag}>
+                      <Text style={styles.clinicTagText}>{t('pay_incl_gst')}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.feeValue}>₹{money(priorityExtra)}</Text>
+                </View>
+              )}
             </View>
           )}
           <View style={styles.totalRow}>
@@ -748,6 +778,32 @@ export default function PaymentScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+          </View>
+        )}
+
+        {/* Priority seat — called first in the slot */}
+        {priorityOffered && (
+          <View style={styles.otherCard}>
+            <View style={styles.otherToggleRow}>
+              <View style={{ flex: 1, paddingRight: 12 }}>
+                <Text style={styles.otherTitle}>
+                  <Ionicons name="star" size={14} color={Colors.warningText} />{' '}
+                  {t('pay_priority_title', { price: money(priorityExtra) })}
+                </Text>
+                <Text style={styles.otherDesc}>
+                  {t('pay_priority_sub', { slot: String(slot) })}
+                  {' · '}
+                  {t('pay_priority_left', { count: priorityLeftN })}
+                </Text>
+              </View>
+              <Switch
+                value={priority}
+                onValueChange={setPriority}
+                accessibilityLabel={t('pay_priority_row')}
+                trackColor={{ false: Colors.gray200, true: Colors.blue600 }}
+                thumbColor={Colors.white}
+              />
+            </View>
           </View>
         )}
 
