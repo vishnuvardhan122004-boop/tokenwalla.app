@@ -166,6 +166,8 @@ export default function PaymentScreen() {
   // A ₹0 pass redemption has no checkout to carry a priority fee.
   const priorityOffered  = !isScan && priorityExtra > 0 && priorityLeftN > 0 && !redeemIsFree;
   const prioritySelected = priorityOffered && priority;
+  // Every label that quotes a price must include the seat once it's ticked.
+  const priorityOn = prioritySelected ? priorityExtra : 0;
   // What is actually charged now — see utils/payment.checkoutPayable, which
   // holds the table so it can be unit tested without a React tree.
   const payable = checkoutPayable({
@@ -173,7 +175,7 @@ export default function PaymentScreen() {
     doctorFeeOnline,
     passPrice: Number(passData?.price || 0),
     total,
-    priorityExtra: prioritySelected ? priorityExtra : 0,
+    priorityExtra: priorityOn,
   });
 
   // Spending a credit: no order, no WebView, no Razorpay. The server re-checks
@@ -730,6 +732,7 @@ export default function PaymentScreen() {
                 bug in our favour. */}
             <Text style={styles.passTitle}>
               {t(redeemNeedsPay ? 'pay_pass_covered_fee_due' : 'pay_pass_covered')}
+              {priorityOn ? ` ${t('pay_plus_priority', { price: money(priorityOn) })}` : ''}
             </Text>
             <Text style={styles.passDesc}>
               {creditsLeft === 1
@@ -764,7 +767,7 @@ export default function PaymentScreen() {
                   <Text style={styles.passOptionTitle}>
                     {choice
                       ? t('pay_opt_pass',   { price: money(passData.price) })
-                      : t('pay_opt_single', { price: money(total!) })}
+                      : t('pay_opt_single', { price: money(total! + priorityOn) })}
                   </Text>
                   <Text style={styles.passOptionDesc}>
                     {choice
