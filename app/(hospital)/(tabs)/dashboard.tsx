@@ -85,6 +85,9 @@ interface Doctor {
   fee: number | string;
   max_per_slot: number | string;
   booking_cutoff_hours?: number | null;
+  // Priority booking (0 = off). Absent on a backend that predates it.
+  priority_fee?: number;
+  priority_per_slot?: number;
   available: boolean;
   running_delay_minutes?: number;
   slots: string[];
@@ -105,6 +108,7 @@ interface Patient {
   token?: string | number;
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
   provider_kind?: string; // 'DOCTOR' | 'SCAN'
+  is_priority?: boolean;  // paid to be called first in its slot
 }
 
 // Who the visit is FOR — the beneficiary when it was booked for someone else.
@@ -131,6 +135,8 @@ interface FormState {
   fee: string;
   max_per_slot: string;
   booking_cutoff_hours: string;   // '' = use the platform default
+  priority_fee: string;           // '' / '0' = no priority booking
+  priority_per_slot: string;
   available: boolean;
   slots: string[];
   days: string[];
@@ -169,6 +175,8 @@ const EMPTY_FORM: FormState = {
   fee:            '',
   max_per_slot:   '10',
   booking_cutoff_hours: '',
+  priority_fee:   '',
+  priority_per_slot: '2',
   available:      true,
   slots:          [],
   days:           [],
@@ -706,6 +714,8 @@ export default function HospitalDashboard() {
       fee:            String(doc.fee          || ''),
       max_per_slot:   String(doc.max_per_slot || 10),
       booking_cutoff_hours: doc.booking_cutoff_hours == null ? '' : String(doc.booking_cutoff_hours),
+      priority_fee:   doc.priority_fee ? String(doc.priority_fee) : '',
+      priority_per_slot: String(doc.priority_per_slot ?? 2),
       available:      doc.available       ?? true,
       slots:          doc.slots           || [],
       days:           doc.days            || [],
@@ -801,6 +811,13 @@ export default function HospitalDashboard() {
       payload.append('available',      String(form.available));
       payload.append('slots',          JSON.stringify(form.slots));
       payload.append('days',           JSON.stringify(form.days));
+      // Edit only, and only when the backend served the field: switching
+      // priority on needs payout details, which a doctor being created cannot
+      // have yet, and an older backend would 400 nothing but ignore it anyway.
+      if (editDoc && editDoc.priority_fee !== undefined) {
+        payload.append('priority_fee',      String(Number(form.priority_fee) || 0));
+        payload.append('priority_per_slot', String(Number(form.priority_per_slot) || 1));
+      }
 
       if (!editDoc && hospital) {
         payload.append('hospital', String(hospital.id));
@@ -1223,6 +1240,39 @@ export default function HospitalDashboard() {
                 onChange={(v: string) => setField('booking_cutoff_hours', v)}
               />
 
+              {editDoc && editDoc.priority_fee !== undefined && (
+                <View style={styles.fieldRow}>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <Text style={styles.fieldLabel}>Priority Fee (₹)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="0 = off"
+                      placeholderTextColor={Colors.gray400}
+                      keyboardType="numeric"
+                      value={form.priority_fee}
+                      onChangeText={(v: string) => setField('priority_fee', v)}
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.fieldLabel}>Priority Seats / Slot</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="e.g. 2"
+                      placeholderTextColor={Colors.gray400}
+                      keyboardType="numeric"
+                      value={form.priority_per_slot}
+                      onChangeText={(v: string) => setField('priority_per_slot', v)}
+                    />
+                  </View>
+                </View>
+              )}
+              {editDoc && editDoc.priority_fee !== undefined && (
+                <Text style={{ fontSize: 12, color: Colors.gray400, marginBottom: 12 }}>
+                  ₹20–₹200 extra for a patient to be called first in their slot. Paid out
+                  to you in full; needs payout details in Payments. 0 = off.
+                </Text>
+              )}
+
               <View style={styles.switchRow}>
                 <View>
                   <Text style={styles.fieldLabel}>Availability</Text>
@@ -1491,6 +1541,11 @@ export default function HospitalDashboard() {
               : fWaiting.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.warningText }]}>
                   <View style={{ flex: 1 }}>
+                    {p.is_priority ? (
+                      <Text style={[styles.patientMeta, { color: Colors.warningText, fontWeight: '700' }]}>
+                        ★ Priority — call first in slot
+                      </Text>
+                    ) : null}
                     <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
                     {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
                     <TouchableOpacity
