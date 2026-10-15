@@ -173,8 +173,10 @@ export default function HospitalScreen() {
                 </View>
               )}
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={st.docName} numberOfLines={1}>{providerLabel(doc.name)}</Text>
-                {!!doc.specialization && <Text style={st.docSpec} numberOfLines={1}>{doc.specialization}</Text>}
+                {/* Wrap, don't clip: "Dr. Venkata Subrahma…" is not a name a
+                    patient can pick a doctor by. */}
+                <Text style={st.docName}>{providerLabel(doc.name)}</Text>
+                {!!doc.specialization && <Text style={st.docSpec}>{doc.specialization}</Text>}
                 {doc.experience != null && <Text style={st.docMeta}>{t('yrs_exp', { years: doc.experience })}</Text>}
               </View>
               <View style={{ alignItems: 'flex-end', gap: 4 }}>
