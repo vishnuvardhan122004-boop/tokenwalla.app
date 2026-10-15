@@ -71,5 +71,11 @@ app-example
 # Claude Code local config
 .claude/
 
+# Productivity plugin (local only) — personal notes, never ship to build workers
+TASKS.md
+CLAUDE.md
+dashboard.html
+memory/
+
 # Play publisher service account key — never ship to build workers
 play-service-account.json
