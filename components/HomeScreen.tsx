@@ -315,12 +315,23 @@ export default function HomeScreen() {
 
         {/* ── Stats ── */}
         <View style={styles.statsRow}>
-          {STATS.map((s, i) => (
-            <View key={s.key} style={[styles.statItem, i < 3 && styles.statBorder]}>
-              <Text style={styles.statNum}>{s.num}</Text>
-              <Text style={styles.statLabel}>{t(s.key)}</Text>
-            </View>
-          ))}
+          {STATS.map((s, i) => {
+            // The hospitals stat opens the hospital list. Not for a hospital
+            // account: that route sits behind the patient-only guard.
+            const opensList = s.key === 'stat_hospitals' && !isHospital;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                style={[styles.statItem, i < 3 && styles.statBorder]}
+                disabled={!opensList}
+                activeOpacity={0.7}
+                onPress={() => router.push('/(patient)/hospitals')}
+              >
+                <Text style={styles.statNum}>{s.num}</Text>
+                <Text style={[styles.statLabel, opensList && styles.statLink]}>{t(s.key)}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* ── How it Works ── */}
@@ -590,6 +601,7 @@ const styles = StyleSheet.create({
   statBorder: { borderRightWidth: 1, borderRightColor: Colors.blue100 },
   statNum:    { fontSize: 17, fontWeight: '800', color: Colors.blue600 },
   statLabel:  { fontSize: 11, color: Colors.gray400, marginTop: 2 },
+  statLink:   { color: Colors.blue600, textDecorationLine: 'underline' },
 
   // Section
   section:      { padding: 24 },

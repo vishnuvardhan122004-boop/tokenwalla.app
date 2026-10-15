@@ -210,6 +210,8 @@ export default function PatientLayout() {
       <Tabs.Protected guard={!isHospital}>
         <Tabs.Screen name="doctor/[id]"      options={{ href: null }} />
         <Tabs.Screen name="scan-center/[id]" options={{ href: null }} />
+        <Tabs.Screen name="hospitals"        options={{ href: null }} />
+        <Tabs.Screen name="hospital/[id]"    options={{ href: null }} />
         <Tabs.Screen name="my-qr"            options={{ href: null }} />
         <Tabs.Screen name="payment"          options={{ href: null }} />
         <Tabs.Screen name="booking-token"    options={{ href: null }} />
