@@ -49,7 +49,7 @@ function protectedNames(src: string): string[] {
 }
 
 const BOOKING_SCREENS = [
-  'doctors', 'my-bookings', 'doctor/[id]', 'scan-center/[id]', 'my-qr', 'payment', 'booking-token',
+  'doctors', 'my-bookings', 'doctor/[id]', 'scan-center/[id]', 'hospitals', 'hospital/[id]', 'my-qr', 'payment', 'booking-token',
 ];
 
 describe('the role is read on focus, not on mount (the bug a device caught)', () => {
