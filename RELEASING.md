@@ -29,17 +29,21 @@ Production-profile builds and store releases since the rule's first month.
 
 | Month | versionCode | Version | Built | `main` commit | Counts? |
 |---|---|---|---|---|---|
-| 2026-10 | 45 | 1.5.1 | ≤ 2026-10-03 | — | **? — on Play by 2026-10-03; upload date not recorded** |
+| 2026-10 | 44 | 1.5.0 | 2026-10-02 | `9d733bf` | **yes** (live on Play 2026-10-02, per WORKLOG) |
+| 2026-10 | 45 | 1.5.1 | ≤ 2026-10-03 | `3001b8f` | **yes** (on Play by 2026-10-03) |
 | 2026-10 | 46 | 1.5.2 | 2026-10-03 | `c038bf8` | no: superseded, never released |
 | 2026-10 | 47 | 1.5.2 | 2026-10-03 | `2e2a2e9` | no: superseded, never released |
 | 2026-10 | 48 | — | 2026-10-04 | `cb312f9c` | no: build ERRORED, code spent |
 | 2026-10 | 49 | 1.5.2 | 2026-10-04/05 | `6c33e887` | no: built, never uploaded |
 | 2026-10 | 50 | 1.5.2 | 2026-10-05 | `14d888a` | **yes** (uploaded 2026-10-09) |
 
-**October 2026: at least 1 of 2 used (vc50).** If 1.5.1 / vc45 was also
-uploaded in October, both are used, and vc51 this month is a third release that
-needs Vishnu's explicit go-ahead. Settle it from Play Console's release history
-and fix the vc45 row.
+**October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
+was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
+on Vishnu's explicit go-ahead in session 2026-10-15.** Reason: installed apps
+log hospitals out on an ordinary token expiry (#49), show "couldn't load" for
+centres the server now hides (#51), and lack priority booking, which is live
+on the web (#55). Play Console → Release history can still correct the
+vc44/vc45 dates.
 
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
