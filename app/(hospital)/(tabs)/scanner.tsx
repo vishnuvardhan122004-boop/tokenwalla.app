@@ -11,15 +11,17 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -28,7 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
-import { normalizeBookingStatus, providerLabel } from '../../../utils/booking';
+import { normalizeBookingStatus, providerLabel, toLocalISODate } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 
@@ -42,6 +44,10 @@ function extractToken(raw: string): string {
     return trimmed.toUpperCase();
   }
 }
+
+// Per-device switch: the door device keeps it on, a reception device turns it
+// off (there a scan means "arrived", not "going in"). Default on.
+const AUTO_KEY = 'tw_scan_auto_confirm';
 
 // ── Status badge styles ─────────────────────────────────────────────────────
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
@@ -87,6 +93,7 @@ export default function HospitalScanner() {
   const [scanState,  setScanState]  = useState<ScanState>('idle');
   const [errorMsg,   setErrorMsg]   = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [autoConfirm, setAutoConfirm] = useState(true);
 
   const lastScannedRef = useRef('');
   const scanCooldown   = useRef(false);
@@ -94,6 +101,44 @@ export default function HospitalScanner() {
   // Scan Next, leaving the tab. A verify or confirm still in flight then drops
   // its answer instead of writing it onto the NEXT patient's card.
   const visitRef       = useRef(0);
+  // Whether the current card came from the camera, so auto-ready can turn it
+  // back on (a camera scan stops it; a typed token never started it).
+  const fromCameraRef  = useRef(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(AUTO_KEY).then(v => setAutoConfirm(v !== '0')).catch(() => {});
+  }, []);
+
+  const toggleAuto = (on: boolean) => {
+    setAutoConfirm(on);
+    AsyncStorage.setItem(AUTO_KEY, on ? '1' : '0').catch(() => {});
+  };
+
+  // ── Mark as In Consultation ───────────────────────────────────────────────
+  const markAttended = useCallback(async (token?: string) => {
+    if (!token) return;
+    setConfirming(true);
+    const visit = visitRef.current;
+    try {
+      await API.post(`/bookings/scan/${token}/`);
+      if (visit !== visitRef.current) return;
+      setScanState('confirmed');
+      setScanResult(prev => ({
+        ...prev,
+        booking: { ...((prev?.booking || prev) as Booking), status: 'in_progress' },
+      }));
+    } catch (e: unknown) {
+      if (visit !== visitRef.current) return;
+      const err = e as { response?: { status?: number; data?: any } };
+      if (err?.response?.status === 409) { setScanState('already_done'); }
+      else {
+        setErrorMsg(err?.response?.data?.message || 'Failed to mark attendance. Try again.');
+        setScanState('error');
+      }
+    } finally {
+      setConfirming(false);
+    }
+  }, []);
 
   // ── Verify a token against the backend ────────────────────────────────────
   const handleTokenFound = useCallback(async (rawToken: string) => {
@@ -116,6 +161,13 @@ export default function HospitalScanner() {
       setScanState(
         data.already_done || normalizeBookingStatus(data.booking?.status) === 'completed' ? 'already_done' : 'found',
       );
+      // Right patient, today's booking, still waiting → mark them in straight
+      // away. Any other date keeps the manual button so staff decide.
+      const b = data.booking;
+      if (autoConfirm && !data.already_done && b?.date === toLocalISODate(new Date()) &&
+          ['CONFIRMED', 'ON_HOLD'].includes(b.status)) {
+        await markAttended(b.token);
+      }
     } catch (e: unknown) {
       if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
@@ -140,7 +192,7 @@ export default function HospitalScanner() {
         setScanState('error');
       }
     }
-  }, []);
+  }, [autoConfirm, markAttended]);
 
   // ── Camera scan handler (with cooldown to avoid duplicate scans) ──────────
   const onBarcodeScanned = useCallback(({ data }: { data: string }) => {
@@ -151,6 +203,7 @@ export default function HospitalScanner() {
     lastScannedRef.current = token;
     scanCooldown.current   = true;
     setScanning(false);              // stop camera while we verify + show result
+    fromCameraRef.current  = true;
     handleTokenFound(token);
     setTimeout(() => { scanCooldown.current = false; }, 4000);
   }, [handleTokenFound]);
@@ -194,35 +247,21 @@ export default function HospitalScanner() {
     const t = manualToken.trim();
     if (!t) return;
     setScanning(false);
+    fromCameraRef.current = false;
     handleTokenFound(t);
   };
 
-  // ── Mark as In Consultation ───────────────────────────────────────────────
-  const markAttended = async () => {
-    const token = scanResult?.booking?.token;
-    if (!token) return;
-    setConfirming(true);
-    const visit = visitRef.current;
-    try {
-      await API.post(`/bookings/scan/${token}/`);
-      if (visit !== visitRef.current) return;
-      setScanState('confirmed');
-      setScanResult(prev => ({
-        ...prev,
-        booking: { ...((prev?.booking || prev) as Booking), status: 'in_progress' },
-      }));
-    } catch (e: unknown) {
-      if (visit !== visitRef.current) return;
-      const err = e as { response?: { status?: number; data?: any } };
-      if (err?.response?.status === 409) { setScanState('already_done'); }
-      else {
-        setErrorMsg(err?.response?.data?.message || 'Failed to mark attendance. Try again.');
-        setScanState('error');
-      }
-    } finally {
-      setConfirming(false);
-    }
-  };
+  // Confirmed → clear the card after 3s so the next patient can be scanned.
+  useEffect(() => {
+    if (scanState !== 'confirmed') return;
+    const t = setTimeout(() => {
+      setScanResult(null);
+      setScanState('idle');
+      setManualToken('');
+      if (fromCameraRef.current) setScanning(true);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [scanState]);
 
   const resetScanner = () => {
     visitRef.current += 1;
@@ -300,6 +339,15 @@ export default function HospitalScanner() {
               <Text style={styles.stopBtnText}>Stop Camera</Text>
             </TouchableOpacity>
           )}
+
+          <View style={styles.autoRow}>
+            <Text style={styles.autoText}>Auto-mark In Consultation when the booking is for today</Text>
+            <Switch
+              value={autoConfirm}
+              onValueChange={toggleAuto}
+              accessibilityLabel="Auto-mark In Consultation"
+            />
+          </View>
 
           {/* Divider */}
           <View style={styles.dividerRow}>
@@ -394,6 +442,8 @@ export default function HospitalScanner() {
                     <Text style={styles.resultSub}>
                       {isConfirmed ? `${booking.patient_name} has been called in`
                         : isDone   ? `Status is already: ${st.label}`
+                        : booking.date !== toLocalISODate(new Date())
+                          ?          `Booking is for ${booking.date}, not today — confirm to mark attendance`
                         :            'Booking found — confirm to mark attendance'}
                     </Text>
                   </View>
@@ -428,7 +478,7 @@ export default function HospitalScanner() {
                   {!isDone && !isConfirmed && (
                     <TouchableOpacity
                       style={[styles.confirmBtn, confirming && { opacity: 0.5 }]}
-                      onPress={markAttended}
+                      onPress={() => markAttended(booking.token)}
                       disabled={confirming}
                     >
                       {confirming
@@ -485,6 +535,9 @@ const styles = StyleSheet.create({
   startBtnText: { color: Colors.white, fontSize: 15, fontWeight: '700' },
   stopBtn:   { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   stopBtnText: { color: Colors.errorText, fontSize: 15, fontWeight: '700' },
+
+  autoRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: -8, marginBottom: 20 },
+  autoText:    { flex: 1, fontSize: 13, color: Colors.gray600 },
 
   dividerRow:  { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
   dividerLine: { flex: 1, height: 1, backgroundColor: Colors.blue100 },
