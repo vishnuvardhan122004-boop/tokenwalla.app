@@ -48,6 +48,7 @@ import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/s
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
+import WalkInForm from '../../../components/WalkInForm';
 import { providerLabel } from '../../../utils/booking';
 import { usePolling } from '../../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../../utils/imagePicker';
@@ -1506,6 +1507,7 @@ export default function HospitalDashboard() {
         ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'queue' && (
           <View style={{ padding: 16 }}>
+            {sellsConsults && <WalkInForm doctors={doctors} onAdded={loadQueue} />}
 
             {/* ── DAY FILTER: Today / Tomorrow / All ── */}
             <View style={styles.dayFilterRow}>
