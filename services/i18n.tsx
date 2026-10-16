@@ -575,6 +575,12 @@ const en: Dict = {
   dr_not_selected_yet: 'Not selected yet',
   dr_note_walkin_hours: "Walk in during the hospital's opening hours",
   dr_note_secured_refund: 'Secured by Razorpay · Refundable if cancelled 2hrs before slot',
+  // Hospital list + hospital page (Home "Hospitals" stat)
+  hl_cant_load_list: "Couldn't load hospitals",
+  hl_no_hospitals: 'No hospitals listed yet',
+  hl_cant_load: "We couldn't load this hospital",
+  hl_not_available: 'This hospital is not available on TokenWalla right now',
+  hl_no_doctors: 'No doctors listed at this hospital yet',
 };
 
 const hi: Dict = {
@@ -1123,6 +1129,12 @@ const hi: Dict = {
   dr_not_selected_yet: 'अभी चुना नहीं गया',
   dr_note_walkin_hours: 'अस्पताल के खुलने के समय में आएँ',
   dr_note_secured_refund: 'Razorpay द्वारा सुरक्षित · स्लॉट से 2 घंटे पहले रद्द करने पर रिफंड योग्य',
+  // Hospital list + hospital page (Home "Hospitals" stat)
+  hl_cant_load_list: 'अस्पताल लोड नहीं हो सके',
+  hl_no_hospitals: 'अभी कोई अस्पताल सूचीबद्ध नहीं है',
+  hl_cant_load: 'यह अस्पताल लोड नहीं हो सका',
+  hl_not_available: 'यह अस्पताल अभी TokenWalla पर उपलब्ध नहीं है',
+  hl_no_doctors: 'इस अस्पताल में अभी कोई डॉक्टर सूचीबद्ध नहीं है',
 };
 
 const te: Dict = {
@@ -1671,6 +1683,12 @@ const te: Dict = {
   dr_not_selected_yet: 'ఇంకా ఎంచుకోలేదు',
   dr_note_walkin_hours: 'ఆసుపత్రి తెరిచి ఉన్న వేళల్లో రండి',
   dr_note_secured_refund: 'Razorpay ద్వారా సురక్షితం · స్లాట్‌కు 2 గంటల ముందు రద్దు చేస్తే రీఫండ్',
+  // Hospital list + hospital page (Home "Hospitals" stat)
+  hl_cant_load_list: 'ఆసుపత్రులను లోడ్ చేయలేకపోయాం',
+  hl_no_hospitals: 'ఇంకా ఆసుపత్రులు ఏవీ జాబితాలో లేవు',
+  hl_cant_load: 'ఈ ఆసుపత్రిని లోడ్ చేయలేకపోయాము',
+  hl_not_available: 'ఈ ఆసుపత్రి ప్రస్తుతం TokenWallaలో అందుబాటులో లేదు',
+  hl_no_doctors: 'ఈ ఆసుపత్రిలో ఇంకా డాక్టర్లు ఎవరూ జాబితాలో లేరు',
 };
 
 const kn: Dict = {
@@ -2219,6 +2237,12 @@ const kn: Dict = {
   dr_not_selected_yet: 'ಇನ್ನೂ ಆಯ್ಕೆ ಮಾಡಿಲ್ಲ',
   dr_note_walkin_hours: 'ಆಸ್ಪತ್ರೆ ತೆರೆದಿರುವ ಸಮಯದಲ್ಲಿ ಬನ್ನಿ',
   dr_note_secured_refund: 'Razorpay ಮೂಲಕ ಸುರಕ್ಷಿತ · ಸ್ಲಾಟ್‌ಗಿಂತ 2 ಗಂಟೆ ಮೊದಲು ರದ್ದುಗೊಳಿಸಿದರೆ ಮರುಪಾವತಿ',
+  // Hospital list + hospital page (Home "Hospitals" stat)
+  hl_cant_load_list: 'ಆಸ್ಪತ್ರೆಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ',
+  hl_no_hospitals: 'ಇನ್ನೂ ಯಾವುದೇ ಆಸ್ಪತ್ರೆ ಪಟ್ಟಿಯಲ್ಲಿಲ್ಲ',
+  hl_cant_load: 'ಈ ಆಸ್ಪತ್ರೆಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ',
+  hl_not_available: 'ಈ ಆಸ್ಪತ್ರೆ ಈಗ TokenWalla ನಲ್ಲಿ ಲಭ್ಯವಿಲ್ಲ',
+  hl_no_doctors: 'ಈ ಆಸ್ಪತ್ರೆಯಲ್ಲಿ ಇನ್ನೂ ಯಾವುದೇ ವೈದ್ಯರು ಪಟ್ಟಿಯಲ್ಲಿಲ್ಲ',
 };
 
 const TRANSLATIONS: Record<LangCode, Dict> = { en, hi, te, kn };
