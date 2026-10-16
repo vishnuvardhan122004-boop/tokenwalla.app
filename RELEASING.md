@@ -36,6 +36,8 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 48 | — | 2026-10-04 | `cb312f9c` | no: build ERRORED, code spent |
 | 2026-10 | 49 | 1.5.2 | 2026-10-04/05 | `6c33e887` | no: built, never uploaded |
 | 2026-10 | 50 | 1.5.2 | 2026-10-05 | `14d888a` | **yes** (uploaded 2026-10-09) |
+| 2026-10 | 51 | 1.6.0 | 2026-10-15 | `a415290` | **yes** (uploaded 2026-10-15) |
+| 2026-10 | 52 | 1.6.1 | 2026-10-16 | release PR merge | **yes** (Vishnu's go-ahead 2026-10-16) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
@@ -44,6 +46,11 @@ log hospitals out on an ordinary token expiry (#49), show "couldn't load" for
 centres the server now hides (#51), and lack priority booking, which is live
 on the web (#55). Play Console → Release history can still correct the
 vc44/vc45 dates.
+
+**vc52 (1.6.1) is a 5th, on Vishnu's explicit request in session
+2026-10-16** ("build a app with new version code", after being told the
+count). Reason: ships #58 (Home's Hospitals stat → hospital list → hospital
+page with its doctors), merged after vc51 was cut.
 
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
