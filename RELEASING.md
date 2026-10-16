@@ -37,7 +37,7 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 49 | 1.5.2 | 2026-10-04/05 | `6c33e887` | no: built, never uploaded |
 | 2026-10 | 50 | 1.5.2 | 2026-10-05 | `14d888a` | **yes** (uploaded 2026-10-09) |
 | 2026-10 | 51 | 1.6.0 | 2026-10-15 | `a415290` | **yes** (uploaded 2026-10-15) |
-| 2026-10 | 52 | 1.6.1 | 2026-10-16 | release PR merge | **yes** (Vishnu's go-ahead 2026-10-16) |
+| 2026-10 | 52 | 1.6.1 | 2026-10-16 | `6a932e6` | **yes** (uploaded 2026-10-16, on go-ahead) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
