@@ -18,7 +18,8 @@
 import fs from 'fs';
 import path from 'path';
 
-const APP = path.join(__dirname, '..', 'app');
+// components/ too: the hospital's walk-in form keeps its mobile box there.
+const ROOTS = ['app', 'components'].map((d) => path.join(__dirname, '..', d));
 
 /** Inputs where maxLength is the legitimate cap: free text with no filter. */
 const ALLOWED = [
@@ -53,7 +54,7 @@ function textInputs(src: string): { block: string; line: number }[] {
   return out;
 }
 
-const inputs = walk(APP).flatMap((file) =>
+const inputs = ROOTS.flatMap(walk).flatMap((file) =>
   textInputs(fs.readFileSync(file, 'utf8')).map((t) => ({
     ...t,
     where: `${path.relative(path.join(__dirname, '..'), file)}:${t.line}`,
