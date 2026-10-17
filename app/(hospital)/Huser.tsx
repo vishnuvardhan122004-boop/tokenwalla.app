@@ -288,9 +288,10 @@ export default function HospitalRegisterScreen() {
           </View>
 
           {/* ── We also offer ────────────────────────────────────────────────
-              One account, many services. Ticked here they go live with the
-              account; added later from Profile they need admin approval. Only
-              the segments the card does not already cover are shown, so the
+              One account, many services. Ticked here they are REQUESTED, not
+              live: the server files them PENDING (backend hospitals/views.py),
+              the same admin queue a service added later from Profile lands in.
+              Only the segments the card does not already cover are shown, so the
               primary choice can never be un-ticked into an account that sells
               nothing. */}
           <Text style={styles.alsoTitle}>We also offer</Text>
