@@ -46,11 +46,11 @@ const doctor = (over: object = {}) => ({
 });
 
 let r: any;
-const mount = async (doc: object) => {
+const mount = async (docs: object | object[]) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
-    url.startsWith('/doctors/?hospital=') ? Promise.resolve({ data: [doc] })
+    url.startsWith('/doctors/?hospital=') ? Promise.resolve({ data: [docs].flat() })
     : url.startsWith('/bookings/queue/')
       ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress: [], completed: [] } })
       : Promise.resolve({ data: [] }));
@@ -75,10 +75,11 @@ const text = () => r.root.findAll((n: any) => n.type === 'Text')
 /** The pressable carrying this accessibilityLabel (the composite, not its host view). */
 const control = (label: string) => r.root.findAll((n: any) =>
   n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function')[0];
-/** The readout between − and +, which is read, not pressed. */
-const readout = () => r.root.findAll((n: any) =>
-  n.type === 'Text' && typeof n.props.accessibilityLabel === 'string'
-  && n.props.accessibilityLabel.startsWith('Delay '))[0]?.props.accessibilityLabel;
+/** What the readout between − and + actually RENDERS (not its accessibility label). */
+const readout = (i = 0) => {
+  const node = r.root.findAll((n: any) => n.type === 'Text' && n.props.testID === 'delay-readout')[i];
+  return node && [node.props.children].flat(Infinity).join('');
+};
 const press = async (label: string) => { await act(async () => { control(label).props.onPress(); }); };
 
 let alert: jest.SpyInstance;
@@ -91,7 +92,7 @@ afterEach(() => { alert.mockRestore(); return act(() => r.unmount()); });
 test('the timer starts at 15m and Notify posts exactly what was dialled', async () => {
   await mount(doctor());
   (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 15, notified_count: 3 } });
-  expect(text()).toContain('15m');
+  expect(readout()).toBe('15m');
 
   await press('Notify patients');
 
@@ -105,8 +106,9 @@ test('the quick buttons reach 3 hours, + stops there, and the toast reads in hou
   (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 180, notified_count: 2 } });
 
   await press('Set delay to 3h');
+  expect(readout()).toBe('3h');
   await press('More delay');                              // clamped, not 185
-  expect(text()).toContain('3h');
+  expect(readout()).toBe('3h');
 
   await press('Notify patients');
   expect(API.post).toHaveBeenCalledWith('/doctors/7/set-delay/', { delay_minutes: 180 }, JSON_HEADERS);
@@ -116,15 +118,15 @@ test('the quick buttons reach 3 hours, + stops there, and the toast reads in hou
 test('+ and − step by 5 minutes and stop at 5', async () => {
   await mount(doctor());
   await press('More delay');
-  expect(readout()).toBe('Delay 20m');
+  expect(readout()).toBe('20m');
   for (let i = 0; i < 5; i++) await press('Less delay');   // 20 -> 5 in three taps, then clamped
-  expect(readout()).toBe('Delay 5m');
+  expect(readout()).toBe('5m');
 });
 
 test('an active delay seeds the timer, and the chosen reason rides along', async () => {
   await mount(doctor({ running_delay_minutes: 90 }));
   (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 120, notified_count: 4 } });
-  expect(readout()).toBe('Delay 1h 30m');
+  expect(readout()).toBe('1h 30m');
 
   await press('Set delay to 2h');
   await press('Reason: In surgery');
@@ -146,13 +148,35 @@ test('tapping the chosen reason again drops it', async () => {
 test('Arrived posts to the arrived endpoint, clears the delay and resets the timer', async () => {
   await mount(doctor({ running_delay_minutes: 60 }));
   (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 0, notified_count: 5 } });
+  await press('Set delay to 3h');                         // a real draft to throw away
+  await press('Reason: In surgery');
+  expect(readout()).toBe('3h');
 
   await press('Doctor arrived');
 
   expect(API.post).toHaveBeenCalledWith('/doctors/7/arrived/', {}, JSON_HEADERS);
-  expect(alert).toHaveBeenCalledWith('Updated', 'Dr. Kumar marked arrived. 5 patients notified.');
   expect(control('Notify patients')).toBeTruthy();         // no delay active any more
-  expect(readout()).toBe('Delay 15m');                      // draft back to the default
+  expect(readout()).toBe('15m');                           // draft back to the default
+  expect(control('Reason: In surgery').props.accessibilityState.selected).toBe(false);
+});
+
+test('the Arrived toast does not claim delivery: it is push-only', async () => {
+  await mount(doctor({ running_delay_minutes: 60 }));
+  (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 0, notified_count: 5 } });
+
+  await press('Doctor arrived');
+
+  expect(alert).toHaveBeenCalledWith('Updated',
+    'Dr. Kumar marked arrived. Patients with the app were notified; WhatsApp-only patients were not (5 booked today).');
+});
+
+test('Arrived with nobody booked today just says so, without a count', async () => {
+  await mount(doctor({ running_delay_minutes: 60 }));
+  (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 0, notified_count: 0 } });
+
+  await press('Doctor arrived');
+
+  expect(alert).toHaveBeenCalledWith('Updated', 'Dr. Kumar marked arrived.');
 });
 
 test('Clear is silent: it posts a bare 0, not the arrived announcement', async () => {
@@ -175,6 +199,38 @@ test('a double tap on Notify sends one request, not two pushes', async () => {
 
   expect(API.post).toHaveBeenCalledTimes(1);
   await act(async () => { release({ data: { running_delay_minutes: 15, notified_count: 1 } }); });
+});
+
+test('a chip reports whether it is selected, for screen readers', async () => {
+  await mount(doctor());
+  expect(control('Set delay to 15m').props.accessibilityState.selected).toBe(true);
+  expect(control('Reason: Emergency').props.accessibilityState.selected).toBe(false);
+  await press('Reason: Emergency');
+  expect(control('Reason: Emergency').props.accessibilityState.selected).toBe(true);
+});
+
+test('with two doctors, a request on one keeps its controls disabled while the other starts', async () => {
+  await mount([doctor(), doctor({ id: 8, name: 'Rao' })]);
+  const resolvers: Array<(v: unknown) => void> = [];
+  (API.post as jest.Mock).mockImplementation(() => new Promise(res => { resolvers.push(res); }));
+  // One entry per rendered button: a pressable and the node it wraps both carry
+  // the label and the handler, so keep only the outermost.
+  const all = (label: string) => r.root.findAll((n: any) =>
+    n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function'
+    && n.parent?.props?.onPress !== n.props.onPress);
+
+  await act(async () => { all('Notify patients')[0].props.onPress(); });   // doctor 7, pending
+  await act(async () => { all('Notify patients')[1].props.onPress(); });   // doctor 8 starts too
+
+  expect(API.post).toHaveBeenCalledTimes(2);
+  // Doctor 7 is still in flight, so its controls must still read as busy.
+  expect(all('Notify patients')[0].props.disabled).toBe(true);
+  expect(all('More delay')[0].props.disabled).toBe(true);
+
+  await act(async () => { resolvers[1]({ data: { running_delay_minutes: 15, notified_count: 1 } }); });
+  expect(all('More delay')[0].props.disabled).toBe(true);                    // 8 finishing must not free 7
+  await act(async () => { resolvers[0]({ data: { running_delay_minutes: 15, notified_count: 1 } }); });
+  expect(all('More delay')[0].props.disabled).toBe(false);
 });
 
 test('Arrived and Clear do nothing while the doctor is not running late', async () => {

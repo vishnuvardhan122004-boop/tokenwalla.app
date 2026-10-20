@@ -358,7 +358,9 @@ export default function HospitalDashboard() {
   const [errors,     setErrors]     = useState<Record<string, string>>({});
   const [saving,     setSaving]     = useState<boolean>(false);
   const [toggling,   setToggling]   = useState<number | string | null>(null);
-  const [settingDelay, setSettingDelay] = useState<number | string | null>(null);
+  // Per doctor, like the in-flight guard: one shared value let doctor B's request
+  // re-enable doctor A's controls while A was still pending.
+  const [settingDelay, setSettingDelay] = useState<Set<string>>(new Set());
   const [delayDraft, setDelayDraft] = useState<Record<string, DelayDraft>>({});
 
   const [doctorImageFile,      setDoctorImageFile]      = useState<ImageFile | null>(null);
@@ -612,14 +614,14 @@ export default function HospitalDashboard() {
     const key = String(doc.id);
     if (delayInFlight.current.has(key)) return;
     delayInFlight.current.add(key);
-    setSettingDelay(doc.id);
+    setSettingDelay(prev => new Set(prev).add(key));
     try {
       await fn();
     } catch (e) {
       Alert.alert('Error', extractApiError(e, 'Failed to update delay.'));
     } finally {
       delayInFlight.current.delete(key);
-      setSettingDelay(null);
+      setSettingDelay(prev => { const next = new Set(prev); next.delete(key); return next; });
     }
   };
 
@@ -644,7 +646,13 @@ export default function HospitalDashboard() {
       { headers: { 'Content-Type': 'application/json' } },
     );
     applyDelayResult(doc, 0);
-    Alert.alert('Updated', `${providerLabel(doc.name, 'DOCTOR')} marked arrived. ${data.notified_count} patients notified.`);
+    // Arrived is push-only (no approved WhatsApp template yet), and notified_count
+    // is every confirmed booking today, walk-ins and website-only patients
+    // included, so "N patients notified" would claim delivery that didn't happen.
+    const n = data.notified_count;
+    Alert.alert('Updated', n > 0
+      ? `${providerLabel(doc.name, 'DOCTOR')} marked arrived. Patients with the app were notified; WhatsApp-only patients were not (${n} booked today).`
+      : `${providerLabel(doc.name, 'DOCTOR')} marked arrived.`);
   });
 
   // ── Share a document with the patient ─────────────────────────────────────
@@ -1921,7 +1929,7 @@ export default function HospitalDashboard() {
                 const hasDoctorImg   = isValidImage(doc.image);
                 const hasHospitalImg = isValidImage(doc.hospital_image);
                 const delay          = draftFor(doc);
-                const delayBusy      = settingDelay === doc.id;
+                const delayBusy      = settingDelay.has(String(doc.id));
                 const delayActive    = (doc.running_delay_minutes ?? 0) > 0;
 
                 return (
@@ -2067,7 +2075,7 @@ export default function HospitalDashboard() {
                         >
                           <Ionicons name="remove" size={18} color={Colors.gray700} />
                         </TouchableOpacity>
-                        <Text style={styles.delayReadout} accessibilityLabel={`Delay ${formatDelay(delay.minutes)}`}>
+                        <Text style={styles.delayReadout} testID="delay-readout" accessibilityLabel={`Delay ${formatDelay(delay.minutes)}`}>
                           {formatDelay(delay.minutes)}
                         </Text>
                         <TouchableOpacity
@@ -2087,6 +2095,8 @@ export default function HospitalDashboard() {
                             onPress={() => patchDraft(doc, () => ({ minutes: m }))}
                             disabled={delayBusy}
                             accessibilityLabel={`Set delay to ${formatDelay(m)}`}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: delay.minutes === m, disabled: delayBusy }}
                           >
                             <Text style={styles.delayBtnText}>{formatDelay(m)}</Text>
                           </TouchableOpacity>
@@ -2101,6 +2111,8 @@ export default function HospitalDashboard() {
                             onPress={() => patchDraft(doc, c => ({ reason: c.reason === key ? '' : key }))}
                             disabled={delayBusy}
                             accessibilityLabel={`Reason: ${text}`}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: delay.reason === key, disabled: delayBusy }}
                           >
                             <Text style={styles.delayBtnText}>{text}</Text>
                           </TouchableOpacity>
