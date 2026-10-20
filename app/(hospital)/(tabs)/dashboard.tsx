@@ -50,6 +50,7 @@ import { notifyHospitalNewBooking, registerPushToken } from '../../../services/n
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
 import WalkInForm from '../../../components/WalkInForm';
 import { providerLabel } from '../../../utils/booking';
+import { formatDelay } from '../../../utils/formatDelay';
 import { usePolling } from '../../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../../utils/imagePicker';
 import { tenDigitMobile } from '../../../utils/phone';
@@ -157,12 +158,23 @@ const MOBILE_RE   = /^[6-9][0-9]{9}$/;
 const LANDLINE_RE = /^0[1-9][0-9]{1,3}[- ]?[0-9]{6,8}$/;
 
 
-// The set-delay endpoint has always accepted 0|10|15|20|30|45|60
-// (backend/doctors/views.py DELAY_MINUTES_CHOICES) — only this list capped the
-// UI at 30, on both repos. Mirrors src/hospital/Hdashboard.js on the website.
-const DELAY_PRESETS = [10, 15, 20, 30, 45, 60];
-// '+60m' is a worse read than '+1h' for the longest delay on a crowded row.
-const delayLabel = (m: number) => (m === 60 ? `+1h` : `+${m}m`);
+// The running-late timer: any 5-minute step up to 3 hours (backend/doctors/
+// views.py DELAY_MAX_MINUTES / DELAY_STEP_MINUTES). Mirrors
+// src/hospital/Hdashboard.js on the website. No slider: react-native ships none
+// and a native slider package would force a native rebuild, so − / + step by 5
+// and the quick buttons jump. The draft is what staff have dialled in but not
+// yet sent; nothing reaches a patient until Notify / Update.
+const DELAY_MAX = 180;
+const DELAY_STEP = 5;
+const DELAY_DEFAULT = 15;
+const DELAY_QUICK = [15, 30, 60, 120, 180];
+// Keys are the backend's closed set; the server maps them to the patient text.
+const DELAY_REASONS: [string, string][] = [
+  ['surgery', 'In surgery'],
+  ['emergency', 'Emergency'],
+  ['on_the_way', 'On the way'],
+];
+interface DelayDraft { minutes: number; reason: string }
 
 
 const EMPTY_FORM: FormState = {
@@ -347,6 +359,7 @@ export default function HospitalDashboard() {
   const [saving,     setSaving]     = useState<boolean>(false);
   const [toggling,   setToggling]   = useState<number | string | null>(null);
   const [settingDelay, setSettingDelay] = useState<number | string | null>(null);
+  const [delayDraft, setDelayDraft] = useState<Record<string, DelayDraft>>({});
 
   const [doctorImageFile,      setDoctorImageFile]      = useState<ImageFile | null>(null);
   const [doctorImagePreview,   setDoctorImagePreview]   = useState<string | null>(null);
@@ -573,25 +586,66 @@ export default function HospitalDashboard() {
   };
 
   // ── Doctor Running Late ────────────────────────────────────────────────────
-  const setDoctorDelay = async (doc: Doctor, minutes: number) => {
+  const draftFor = (doc: Doctor, drafts: Record<string, DelayDraft> = delayDraft): DelayDraft =>
+    drafts[String(doc.id)] ?? { minutes: doc.running_delay_minutes || DELAY_DEFAULT, reason: '' };
+  const patchDraft = (doc: Doctor, patch: (cur: DelayDraft) => Partial<DelayDraft>) =>
+    setDelayDraft(p => {
+      const cur = draftFor(doc, p);
+      return { ...p, [String(doc.id)]: { ...cur, ...patch(cur) } };
+    });
+  const clampDelay = (m: number) => Math.min(DELAY_MAX, Math.max(DELAY_STEP, m));
+
+  // Shared tail of set-delay / arrived: reflect the server's flag, and drop the
+  // draft when the delay is gone so the next one starts from the default.
+  const applyDelayResult = (doc: Doctor, minutes: number) => {
+    setDoctors(prev => prev.map(d => (d.id === doc.id ? { ...d, running_delay_minutes: minutes } : d)));
+    if (!minutes) {
+      setDelayDraft(p => { const next = { ...p }; delete next[String(doc.id)]; return next; });
+    }
+  };
+
+  // One request per doctor in flight. `disabled` only lands on the next render,
+  // so a double tap inside one tick would otherwise push every patient twice
+  // (the same fix Hold got in the queue; see hospitalDashboard.queue.test.tsx).
+  const delayInFlight = useRef<Set<string>>(new Set());
+  const withDelaySaving = async (doc: Doctor, fn: () => Promise<void>) => {
+    const key = String(doc.id);
+    if (delayInFlight.current.has(key)) return;
+    delayInFlight.current.add(key);
     setSettingDelay(doc.id);
     try {
-      const { data } = await API.post(
-        `/doctors/${doc.id}/set-delay/`,
-        { delay_minutes: minutes },
-        { headers: { 'Content-Type': 'application/json' } },
-      );
-      setDoctors(prev => prev.map(d => (
-        d.id === doc.id ? { ...d, running_delay_minutes: data.running_delay_minutes } : d
-      )));
-      Alert.alert('Updated', minutes > 0
-        ? `${providerLabel(doc.name, 'DOCTOR')} marked ${minutes === 60 ? '1h' : `${minutes}m`} late. ${data.notified_count} patients notified.`
-        : `${providerLabel(doc.name, 'DOCTOR')}'s delay cleared.`);
+      await fn();
     } catch (e) {
       Alert.alert('Error', extractApiError(e, 'Failed to update delay.'));
+    } finally {
+      delayInFlight.current.delete(key);
+      setSettingDelay(null);
     }
-    setSettingDelay(null);
   };
+
+  const setDoctorDelay = (doc: Doctor, minutes: number, reason = '') => withDelaySaving(doc, async () => {
+    const { data } = await API.post(
+      `/doctors/${doc.id}/set-delay/`,
+      { delay_minutes: minutes, ...(reason ? { reason } : {}) },
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    applyDelayResult(doc, data.running_delay_minutes);
+    Alert.alert('Updated', minutes > 0
+      ? `${providerLabel(doc.name, 'DOCTOR')} marked ${formatDelay(minutes)} late. ${data.notified_count} patients notified.`
+      : `${providerLabel(doc.name, 'DOCTOR')}'s delay cleared.`);
+  });
+
+  // Unlike Clear (silent, for a mistaken tap) this tells today's patients the
+  // doctor is in. The server no-ops when no delay is active.
+  const markDoctorArrived = (doc: Doctor) => withDelaySaving(doc, async () => {
+    const { data } = await API.post(
+      `/doctors/${doc.id}/arrived/`,
+      {},
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    applyDelayResult(doc, 0);
+    Alert.alert('Updated', `${providerLabel(doc.name, 'DOCTOR')} marked arrived. ${data.notified_count} patients notified.`);
+  });
 
   // ── Share a document with the patient ─────────────────────────────────────
   // The stage a visit does not end at: the scan report, the lab result, the
@@ -1866,6 +1920,9 @@ export default function HospitalDashboard() {
               doctors.map((doc: Doctor) => {
                 const hasDoctorImg   = isValidImage(doc.image);
                 const hasHospitalImg = isValidImage(doc.hospital_image);
+                const delay          = draftFor(doc);
+                const delayBusy      = settingDelay === doc.id;
+                const delayActive    = (doc.running_delay_minutes ?? 0) > 0;
 
                 return (
                   <View key={String(doc.id)} style={styles.doctorCard}>
@@ -1999,31 +2056,80 @@ export default function HospitalDashboard() {
                     {/* ── Running Late ── */}
                     <View style={styles.delayRow}>
                       <Text style={styles.delayLabel}>
-                        Running Late{doc.running_delay_minutes ? ` · ${delayLabel(doc.running_delay_minutes)}` : ''}
+                        Running Late{delayActive ? ` · ${formatDelay(doc.running_delay_minutes ?? 0)}` : ''}
                       </Text>
-                      <View style={styles.delayBtnRow}>
-                        {DELAY_PRESETS.map(m => {
-                          const isOn = doc.running_delay_minutes === m;
-                          const isBusy = settingDelay === doc.id;
-                          return (
-                            <TouchableOpacity
-                              key={m}
-                              style={[styles.delayBtn, isOn ? styles.delayBtnOn : styles.delayBtnOff, isBusy && { opacity: 0.5 }]}
-                              onPress={() => setDoctorDelay(doc, m)}
-                              disabled={isBusy}
-                            >
-                              <Text style={styles.delayBtnText}>{delayLabel(m)}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
+                      <View style={styles.delayStepRow}>
                         <TouchableOpacity
-                          style={[
-                            styles.delayBtn,
-                            styles.delayBtnOff,
-                            (settingDelay === doc.id || !doc.running_delay_minutes) && { opacity: 0.5 },
-                          ]}
+                          style={[styles.delayStepBtn, delayBusy && { opacity: 0.5 }]}
+                          onPress={() => patchDraft(doc, c => ({ minutes: clampDelay(c.minutes - DELAY_STEP) }))}
+                          disabled={delayBusy}
+                          accessibilityLabel="Less delay"
+                        >
+                          <Ionicons name="remove" size={18} color={Colors.gray700} />
+                        </TouchableOpacity>
+                        <Text style={styles.delayReadout} accessibilityLabel={`Delay ${formatDelay(delay.minutes)}`}>
+                          {formatDelay(delay.minutes)}
+                        </Text>
+                        <TouchableOpacity
+                          style={[styles.delayStepBtn, delayBusy && { opacity: 0.5 }]}
+                          onPress={() => patchDraft(doc, c => ({ minutes: clampDelay(c.minutes + DELAY_STEP) }))}
+                          disabled={delayBusy}
+                          accessibilityLabel="More delay"
+                        >
+                          <Ionicons name="add" size={18} color={Colors.gray700} />
+                        </TouchableOpacity>
+                      </View>
+                      <View style={styles.delayBtnRow}>
+                        {DELAY_QUICK.map(m => (
+                          <TouchableOpacity
+                            key={m}
+                            style={[styles.delayBtn, delay.minutes === m ? styles.delayBtnOn : styles.delayBtnOff, delayBusy && { opacity: 0.5 }]}
+                            onPress={() => patchDraft(doc, () => ({ minutes: m }))}
+                            disabled={delayBusy}
+                            accessibilityLabel={`Set delay to ${formatDelay(m)}`}
+                          >
+                            <Text style={styles.delayBtnText}>{formatDelay(m)}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <View style={[styles.delayBtnRow, { marginTop: 6 }]}>
+                        {DELAY_REASONS.map(([key, text]) => (
+                          <TouchableOpacity
+                            key={key}
+                            style={[styles.delayBtn, delay.reason === key ? styles.delayBtnOn : styles.delayBtnOff, delayBusy && { opacity: 0.5 }]}
+                            // Tap the chosen reason again to drop it: "no reason" is a state, not a button.
+                            onPress={() => patchDraft(doc, c => ({ reason: c.reason === key ? '' : key }))}
+                            disabled={delayBusy}
+                            accessibilityLabel={`Reason: ${text}`}
+                          >
+                            <Text style={styles.delayBtnText}>{text}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                      <View style={[styles.delayBtnRow, { marginTop: 8 }]}>
+                        <TouchableOpacity
+                          style={[styles.delayNotifyBtn, delayBusy && { opacity: 0.5 }]}
+                          onPress={() => setDoctorDelay(doc, delay.minutes, delay.reason)}
+                          disabled={delayBusy}
+                          accessibilityLabel={delayActive ? 'Update patients' : 'Notify patients'}
+                        >
+                          {delayBusy
+                            ? <ActivityIndicator size="small" color={Colors.gray700} />
+                            : <Text style={styles.delayNotifyText}>{delayActive ? 'Update patients' : 'Notify patients'}</Text>}
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.delayBtn, styles.delayBtnOff, (delayBusy || !delayActive) && { opacity: 0.5 }]}
+                          onPress={() => markDoctorArrived(doc)}
+                          disabled={delayBusy || !delayActive}
+                          accessibilityLabel="Doctor arrived"
+                        >
+                          <Text style={styles.delayBtnText}>Arrived</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[styles.delayBtn, styles.delayBtnOff, (delayBusy || !delayActive) && { opacity: 0.5 }]}
                           onPress={() => setDoctorDelay(doc, 0)}
-                          disabled={settingDelay === doc.id || !doc.running_delay_minutes}
+                          disabled={delayBusy || !delayActive}
+                          accessibilityLabel="Clear delay"
                         >
                           <Text style={styles.delayBtnText}>Clear</Text>
                         </TouchableOpacity>
@@ -2197,6 +2303,11 @@ const styles = StyleSheet.create({
   delayBtnOn:    { backgroundColor: Colors.warningBg, borderColor: Colors.warningBorder },
   delayBtnOff:   { backgroundColor: Colors.gray100, borderColor: Colors.gray200 },
   delayBtnText:  { fontSize: 11, fontWeight: '700', color: Colors.gray700 },
+  delayStepRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  delayStepBtn:  { width: 40, height: 36, borderRadius: 8, borderWidth: 1, borderColor: Colors.gray200, backgroundColor: Colors.gray100, alignItems: 'center', justifyContent: 'center' },
+  delayReadout:  { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: Colors.gray700 },
+  delayNotifyBtn:  { flex: 1.8, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, alignItems: 'center', justifyContent: 'center' },
+  delayNotifyText: { fontSize: 12, fontWeight: '800', color: Colors.warningText },
 
   modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
   modalCancel:     { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 8 },
