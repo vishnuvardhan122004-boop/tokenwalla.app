@@ -238,3 +238,39 @@ test('Arrived and Clear do nothing while the doctor is not running late', async 
   expect(control('Doctor arrived').props.disabled).toBe(true);
   expect(control('Clear delay').props.disabled).toBe(true);
 });
+
+/** Pull-to-refresh, as the doctor list reloads when another device changed it. */
+const refresh = async () => {
+  const node = r.root.findAll((n: any) => typeof n.props?.onRefresh === 'function')[0];
+  await act(async () => { await node.props.onRefresh(); });
+};
+const serverNowSays = (minutes: number) => (API.get as jest.Mock).mockImplementation((url: string) =>
+  url.startsWith('/doctors/?hospital=') ? Promise.resolve({ data: [doctor({ running_delay_minutes: minutes })] })
+  : url.startsWith('/bookings/queue/')
+    ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress: [], completed: [] } })
+    : Promise.resolve({ data: [] }));
+
+test('a draft started against a delay that was then cleared elsewhere does not linger', async () => {
+  await mount(doctor({ running_delay_minutes: 90 }));
+  await press('Set delay to 2h');                          // staff are mid-edit on this device
+  await press('Reason: In surgery');
+  expect(readout()).toBe('2h');
+
+  serverNowSays(0);                                         // meanwhile the web dashboard cleared it
+  await refresh();
+
+  expect(readout()).toBe('15m');                            // follows the server, not the old 2h draft
+  expect(control('Reason: In surgery').props.accessibilityState.selected).toBe(false);
+});
+
+test('Notify keeps the chosen reason picked for the next Update', async () => {
+  await mount(doctor());
+  (API.post as jest.Mock).mockResolvedValue({ data: { running_delay_minutes: 30, notified_count: 2 } });
+  await press('Set delay to 30m');
+  await press('Reason: On the way');
+
+  await press('Notify patients');
+
+  expect(readout()).toBe('30m');
+  expect(control('Reason: On the way').props.accessibilityState.selected).toBe(true);
+});
