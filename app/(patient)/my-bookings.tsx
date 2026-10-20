@@ -35,6 +35,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { usePolling } from '../../hooks/usePolling';
 import { syncAppointmentReminders } from '../../services/notifications';
 import { normalizeBookingStatus, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
+import { formatDelay } from '../../utils/formatDelay';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -537,7 +538,7 @@ export default function MyBookings() {
                   <View style={st.unavailBanner}>
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{doctorDelays[booking.doctor]} mins late. Adjusted time:{' '}
+                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{formatDelay(doctorDelays[booking.doctor])} late. Adjusted time:{' '}
                       <Text style={{ textDecorationLine: 'line-through' }}>{booking.slot}</Text>
                       {' → '}
                       {addDelayToSlot(booking.date, booking.slot, doctorDelays[booking.doctor])}
