@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
+import ReceiptModal from '../../components/ReceiptModal';
 import RescheduleModal from '../../components/RescheduleModal';
 import { SkeletonList } from '../../components/Skeleton';
 import { Colors } from '../../constants/colors';
@@ -92,6 +93,7 @@ export default function MyBookings() {
   const { user } = useCurrentUser();
   const [cancelling,        setCancelling]        = useState<number | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
+  const [receiptBooking,    setReceiptBooking]    = useState<Booking | null>(null);
 
   // Download ticket: render a full ticket (with QR) off-screen for the chosen
   // booking, snapshot it to a PNG, then open the share sheet. The list cards
@@ -439,7 +441,22 @@ export default function MyBookings() {
                         <Text style={st.metaChip}>{booking.slot}</Text>
                       </View>
                     </View>
-                    <Text style={st.amount}>₹{booking.amount}</Text>
+                    <View style={st.amountRow}>
+                      <Text style={st.amount}>₹{booking.amount}</Text>
+                      {/* A free booking (a pass visit at a SERVICE_ONLY provider)
+                          has nothing to itemise. */}
+                      {Number(booking.amount) > 0 && (
+                        <TouchableOpacity
+                          style={st.receiptLink}
+                          onPress={() => setReceiptBooking(booking)}
+                          accessibilityRole="button"
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Ionicons name="receipt-outline" size={13} color={Colors.blue600} />
+                          <Text style={st.receiptLinkText}>{t('mb_receipt')}</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
 
@@ -591,6 +608,11 @@ export default function MyBookings() {
         />
       )}
 
+      {/* Mounted only while open, so it fetches its receipt when asked. */}
+      {receiptBooking && (
+        <ReceiptModal booking={{ id: receiptBooking.id }} onClose={() => setReceiptBooking(null)} />
+      )}
+
       {/* RescheduleModal — WebView-based, no react-native-razorpay */}
       <RescheduleModal
         visible={!!rescheduleBooking}
@@ -714,7 +736,10 @@ const st = StyleSheet.create({
   metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' },
   metaChipRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaChip:     { fontSize: 12, color: Colors.gray400 },
-  amount:       { fontSize: 13, fontWeight: '700', color: Colors.blue600, paddingBottom: 12 },
+  amount:       { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
+  amountRow:    { flexDirection: 'row', alignItems: 'center', gap: 14, paddingBottom: 12 },
+  receiptLink:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  receiptLinkText: { fontSize: 12.5, fontWeight: '600', color: Colors.blue600, textDecorationLine: 'underline' },
 
   queuePanel:  { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#F0F9FF', borderTopWidth: 1, borderTopColor: Colors.blue100, padding: 14 },
   queueCircle: { width: 46, height: 46, borderRadius: 23, backgroundColor: Colors.blue50, borderWidth: 2, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
