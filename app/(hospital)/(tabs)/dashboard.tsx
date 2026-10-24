@@ -2005,7 +2005,7 @@ export default function HospitalDashboard() {
                 style={styles.scanSearch}
                 value={scanQuery}
                 onChangeText={v => { setScanQuery(v); setScanShown(SCAN_PAGE); }}
-                placeholder={`Search your ${unit.many.toLowerCase()} by name, type or search words`}
+                placeholder={`Search ${unit.many.toLowerCase()} by name, type or words`}
                 placeholderTextColor={Colors.gray400}
                 accessibilityLabel={`Search your ${unit.many.toLowerCase()}`}
                 autoCorrect={false}
