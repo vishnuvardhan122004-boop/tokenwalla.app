@@ -28,7 +28,7 @@ import ProviderAboutPanel from '../../../components/ProviderAboutPanel';
 import API from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
 import { directionsUrl } from '../../../utils/booking';
-import { asList, BLOOD_CENTER } from '../../../utils/scanCenters';
+import { asList, BLOOD_CENTER, SCAN_PAGE } from '../../../utils/scanCenters';
 import { safeBack } from '../../../utils/navigation';
 
 interface Scan {
@@ -65,6 +65,7 @@ export default function ScanCenterScreen() {
 
   const [centre,  setCentre]  = useState<any>(null);
   const [scans,   setScans]   = useState<Scan[]>([]);
+  const [shown,   setShown]   = useState(SCAN_PAGE);
   const [loading, setLoading] = useState(true);
   const [failed,  setFailed]  = useState(false);
   // A 404 is the server saying this centre is not public (pending, rejected
@@ -116,7 +117,7 @@ export default function ScanCenterScreen() {
   // Reset on centre change. This screen is a single Tabs.Screen instance, so
   // without this the previous centre's scans flash before the new ones land.
   useEffect(() => {
-    setCentre(null); setScans([]); setOpenScan(null);
+    setCentre(null); setScans([]); setShown(SCAN_PAGE); setOpenScan(null);
     setSelectedDate(''); setSelectedSlot(''); setAvail({});
     setFailed(false); setNotFound(false); setLoading(true);
   }, [id]);
@@ -299,7 +300,7 @@ export default function ScanCenterScreen() {
           </Text>
         )}
 
-        {scans.map(scan => {
+        {scans.slice(0, shown).map(scan => {
           const open = openScan?.id === scan.id;
           const isFull = scan.fee_breakdown?.collection_mode === 'FULL';
           return (
@@ -447,6 +448,16 @@ export default function ScanCenterScreen() {
             </View>
           );
         })}
+
+        {scans.length > shown && (
+          <TouchableOpacity
+            style={st.more}
+            onPress={() => setShown(n => n + SCAN_PAGE)}
+            accessibilityRole="button"
+          >
+            <Text style={st.retryText}>{t('sc_show_more', { n: scans.length - shown })}</Text>
+          </TouchableOpacity>
+        )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -460,6 +471,7 @@ const st = StyleSheet.create({
   emptySub:   { fontSize: 13.5, color: Colors.gray500, lineHeight: 20 },
   retry:      { marginTop: 8, paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: Colors.blue50 },
   retryText:  { fontSize: 13.5, fontWeight: '700', color: Colors.blue700 },
+  more:       { alignItems: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.blue50, marginTop: 4 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
