@@ -413,13 +413,48 @@ describe('bulk edit: days and time slots', () => {
     expect(slots[slots.length - 1]).toBe('12:30 PM');
   });
 
-  test('Clear All sends an empty list (walk-in), and the form says so first', async () => {
+  const update = () => r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Update 2 tests'
+    && typeof n.props.onPress === 'function')[0];
+
+  test('Time slots ticked with none chosen cannot be saved, so a tap cannot make every test walk-in', async () => {
     await mount(many(2));
     await openEdit(2);
     await pressLabel('Time slots');
-    expect(has(/Walk-in mode\./)).toBe(true);
-    await pressLabel('Update 2 tests');
-    expect((API.post as jest.Mock).mock.calls[0][1].rows[0].slots).toEqual([]);
+    expect(has(/Pick at least one time to save/)).toBe(true);
+    expect(update().props.disabled).toBe(true);
+    await press(/^08:00 AM$/);
+    expect(update().props.disabled).toBe(false);
+    await pressLabel('Time slots');   // un-ticking the only ticked section leaves nothing to save
+    expect(update().props.disabled).toBe(true);
+  });
+
+  test('Clear All after choosing some leaves nothing chosen, so saving is blocked again', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Time slots');
+    await pressLabel('Quick hours 9 AM – 1 PM');
+    expect(update().props.disabled).toBe(false);
+    await press(/^Clear All$/);
+    expect(update().props.disabled).toBe(true);
+  });
+
+  test('Days ticked with none chosen cannot be saved either', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Days');
+    expect(has(/Pick at least one day to save/)).toBe(true);
+    expect(update().props.disabled).toBe(true);
+    await press(/^Monday$/);
+    expect(update().props.disabled).toBe(false);
+  });
+
+  test('another ticked section does not unlock an empty Days one', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Before you come');
+    expect(update().props.disabled).toBe(false);
+    await pressLabel('Days');
+    expect(update().props.disabled).toBe(true);
   });
 
   test('Update stays disabled until the parent has finished reloading the list', async () => {

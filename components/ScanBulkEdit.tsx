@@ -50,7 +50,11 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
   const tick = (k: Key) => setOn(o => ({ ...o, [k]: !o[k] }));
   const { rows: priced, ready: priceReady, problem: priceProblem } = priceRows(scans, edit);
   const anyTicked = Object.values(on).some(Boolean);
-  const canSave = anyTicked && (!on.price || priceReady) && !saving;
+  // Days or Time slots ticked with nothing chosen would replace every selected
+  // test's list with an empty one (all of them walk-in, no online booking) in one
+  // tap. A choice is required; taking one test off online booking is its own edit.
+  const emptyPick = (on.days && days.length === 0) || (on.slots && slots.length === 0);
+  const canSave = anyTicked && (!on.price || priceReady) && !emptyPick && !saving;
 
   const toggleSlot = (s: string) => setSlots(cur =>
     (cur.includes(s) ? cur.filter(x => x !== s) : [...cur, s])
@@ -203,6 +207,7 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
                 <View style={s.pills}>
                   {DAYS_OF_WEEK.map(({ key, label }) => pill(label, days.includes(key), () => toggleDay(key)))}
                 </View>
+                {days.length === 0 && <Text style={s.problem}>Pick at least one day to save.</Text>}
                 <TouchableOpacity style={s.action} onPress={() => setDays(DAYS_OF_WEEK.map(d => d.key))}
                   accessibilityRole="button">
                   <Text style={s.actionText}>All days</Text>
@@ -218,8 +223,7 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
                 <QuickHours onPick={setSlots} />
                 {slots.length === 0 && (
                   <Text style={s.note}>
-                    Walk-in mode. With no slots selected, patients see these {unit}s but there is no
-                    online token booking.
+                    Pick at least one time to save. To take a {unit} off online booking, edit it on its own.
                   </Text>
                 )}
                 {SLOT_SECTIONS.map(sec => (

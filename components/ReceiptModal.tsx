@@ -4,10 +4,10 @@
  *
  * The backend already computes and marks up every line (SAC codes, the
  * consultation fee's GST exemption, the combined GST on platform + gateway); this
- * only renders it. Like the website it is English-only: it is a tax document and
- * its line descriptions come from the server in English. "Save" shares a PNG of
- * the receipt through the same share sheet the token ticket uses, so no PDF
- * library is needed.
+ * only renders it. The chrome and alerts go through t(); the line descriptions and
+ * notes come from the server in English and stay that way (it is a tax document).
+ * "Save" shares a PNG of the receipt through the same share sheet the token ticket
+ * uses, so no PDF library is needed.
  */
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
@@ -20,6 +20,7 @@ import { captureRef } from 'react-native-view-shot';
 
 import { Colors } from '../constants/colors';
 import API from '../services/api';
+import { useI18n } from '../services/i18n';
 
 interface LineItem {
   description: string;
@@ -48,18 +49,21 @@ export default function ReceiptModal({ booking, onClose }: {
   booking: { id: number | string };
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [data, setData] = useState<Receipt | null>(null);
-  const [error, setError] = useState('');
+  // null = fine; '' = failed with no server message (the fallback is applied at
+  // render, so the effect does not depend on t, which changes every render).
+  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     let alive = true;
     setData(null);
-    setError('');
+    setError(null);
     API.get(`/payment/receipt/${booking.id}/`)
       .then(res => { if (alive) setData(res.data); })
-      .catch(err => { if (alive) setError(err?.response?.data?.message || 'Could not load the receipt.'); });
+      .catch(err => { if (alive) setError(err?.response?.data?.message || ''); });
     return () => { alive = false; };
   }, [booking.id]);
 
@@ -71,12 +75,12 @@ export default function ReceiptModal({ booking, onClose }: {
       const uri = await captureRef(scrollRef, { format: 'png', quality: 1, result: 'tmpfile', snapshotContentContainer: true });
       const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(shareUri, { mimeType: 'image/png', dialogTitle: 'Save your receipt', UTI: 'public.png' });
+        await Sharing.shareAsync(shareUri, { mimeType: 'image/png', dialogTitle: t('rc_save_title'), UTI: 'public.png' });
       } else {
-        Alert.alert('Not available', 'Saving is not available on this device.');
+        Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
       }
     } catch {
-      Alert.alert('Error', 'Could not save the receipt. Please try again.');
+      Alert.alert(t('error'), t('rc_save_failed'));
     } finally {
       setSaving(false);
     }
@@ -87,15 +91,15 @@ export default function ReceiptModal({ booking, onClose }: {
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
         <View style={s.header}>
-          <Text style={s.title}>Receipt</Text>
-          <TouchableOpacity onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+          <Text style={s.title}>{t('mb_receipt')}</Text>
+          <TouchableOpacity onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('sc_close')}>
             <Ionicons name="close" size={22} color={Colors.gray600} />
           </TouchableOpacity>
         </View>
 
         <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, backgroundColor: Colors.white }}>
-          {!data && !error && <ActivityIndicator style={{ marginTop: 40 }} color={Colors.blue600} />}
-          {!!error && <Text style={s.error}>{error}</Text>}
+          {!data && error === null && <ActivityIndicator style={{ marginTop: 40 }} color={Colors.blue600} />}
+          {error !== null && <Text style={s.error}>{error || t('rc_load_failed')}</Text>}
           {data && b && (
             <View style={s.sheet}>
               <View style={s.head}>
@@ -110,9 +114,9 @@ export default function ReceiptModal({ booking, onClose }: {
               </View>
 
               {([
-                ['Patient', b.patient], ['Provider', b.doctor], ['Hospital', b.hospital],
-                ['Date & slot', `${b.date} · ${b.slot}`], ['Token', String(b.token)],
-                ['Payment ID', data.payment_id || '—'],
+                [t('bt_patient'), b.patient], [t('rc_provider'), b.doctor], [t('bt_hospital'), b.hospital],
+                [t('rc_date_slot'), `${b.date} · ${b.slot}`], [t('mb_token_caps'), String(b.token)],
+                [t('bt_payment_id'), data.payment_id || '—'],
               ] as const).map(([label, value]) => (
                 <View key={label} style={s.row}>
                   <Text style={s.label}>{label}</Text>
@@ -136,30 +140,29 @@ export default function ReceiptModal({ booking, onClose }: {
               ))}
 
               <View style={s.rule} />
-              <View style={s.sum}><Text style={s.sumText}>Taxable value</Text><Text style={s.sumText}>₹{data.taxable_value}</Text></View>
-              <View style={s.sum}><Text style={s.sumText}>GST ({data.gst.rate})</Text><Text style={s.sumText}>₹{data.gst.amount}</Text></View>
-              <View style={s.sum}><Text style={s.total}>Total</Text><Text style={s.total}>₹{data.total}</Text></View>
+              <View style={s.sum}><Text style={s.sumText}>{t('rc_taxable')}</Text><Text style={s.sumText}>₹{data.taxable_value}</Text></View>
+              <View style={s.sum}><Text style={s.sumText}>{t('rc_gst', { rate: data.gst.rate })}</Text><Text style={s.sumText}>₹{data.gst.amount}</Text></View>
+              <View style={s.sum}><Text style={s.total}>{t('rc_total')}</Text><Text style={s.total}>₹{data.total}</Text></View>
 
               {!!data.pass && (
                 <Text style={s.passNote}>
-                  Appointment Pass #{data.pass.id} —{' '}
-                  {data.pass.role === 'purchase' ? 'purchased with this booking' : 'redeemed against this booking'}
+                  {t(data.pass.role === 'purchase' ? 'rc_pass_buy' : 'rc_pass_redeem', { id: data.pass.id })}
                 </Text>
               )}
               {!!data.note && <Text style={s.passNote}>{data.note}</Text>}
-              <Text style={s.footer}>Computer-generated receipt · support@tokenwalla.com</Text>
+              <Text style={s.footer}>{t('rc_footer')}</Text>
             </View>
           )}
         </ScrollView>
 
         <View style={s.actions}>
           <TouchableOpacity style={s.ghost} onPress={onClose} accessibilityRole="button">
-            <Text style={s.ghostText}>Close</Text>
+            <Text style={s.ghostText}>{t('sc_close')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[s.primary, (!data || saving) && { opacity: 0.5 }]} onPress={save}
-            disabled={!data || saving} accessibilityRole="button" accessibilityLabel="Save receipt">
+            disabled={!data || saving} accessibilityRole="button" accessibilityLabel={t('rc_save')}>
             {saving ? <ActivityIndicator color={Colors.white} size="small" />
-                    : <Text style={s.primaryText}>Save receipt</Text>}
+                    : <Text style={s.primaryText}>{t('rc_save')}</Text>}
           </TouchableOpacity>
         </View>
       </SafeAreaView>

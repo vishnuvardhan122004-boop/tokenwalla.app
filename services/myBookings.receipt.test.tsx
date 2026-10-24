@@ -127,3 +127,11 @@ test('Save receipt snapshots the whole scroll content and opens the share sheet'
   expect(captureRef).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ snapshotContentContainer: true, format: 'png' }));
   expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///tmp/receipt.png', expect.objectContaining({ mimeType: 'image/png' }));
 });
+
+test('a failure with no server message falls back to the translated text', async () => {
+  await mount([booking(1, 311)]);
+  (API.get as jest.Mock).mockImplementation((url: string) =>
+    url.startsWith('/payment/receipt/') ? Promise.reject(new Error('network')) : Promise.resolve({ data: [booking(1, 311)] }));
+  await press(/^Receipt$/);
+  expect(texts(/^Could not load the receipt\.$/)).not.toHaveLength(0);
+});
