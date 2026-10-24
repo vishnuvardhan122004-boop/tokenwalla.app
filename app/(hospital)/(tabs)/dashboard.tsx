@@ -47,7 +47,9 @@ import {
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
 import QuickHours from '../../../components/QuickHours';
 import ScanBulkEdit from '../../../components/ScanBulkEdit';
+import ScanImport from '../../../components/ScanImport';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
+import { suggestionsFor } from '../../../constants/testSuggestions';
 import { matchesTest, SEARCH_ABOVE } from '../../../utils/matchTest';
 import { bulkDeleteSummary, postInBatches } from '../../../utils/scanBulk';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
@@ -358,6 +360,7 @@ export default function HospitalDashboard() {
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [confirmIds,   setConfirmIds]   = useState<(number | string)[] | null>(null);  // ids the delete prompt was opened for
   const [bulkBusy,     setBulkBusy]     = useState(false);
+  const [importOpen,   setImportOpen]   = useState(false);
   const [scanNotice,   setScanNotice]   = useState<{ text: string; error: boolean } | null>(null);
   // null + open = adding; a record + open = editing. Two pieces of state rather
   // than one nullable, so closing the sheet does not blank the row mid-animation.
@@ -1077,9 +1080,25 @@ export default function HospitalDashboard() {
           visible={scanModalOpen}
           scan={editScan}
           unit={unit.one.toLowerCase() as 'scan' | 'test'}
+          // A hybrid centre gets both lists, a blood-only lab never an MRI.
+          suggestions={suggestionsFor(sellsBlood, sellsScans)}
           centerId={hospital.id}
           onClose={() => setScanModalOpen(false)}
           onSaved={loadScans}
+        />
+      )}
+
+      {/* Import a price list from a CSV. Mounted only while open. */}
+      {importOpen && !!hospital?.id && (
+        <ScanImport
+          centerId={hospital.id}
+          unit={scanUnit}
+          onDone={async (text: string) => {
+            setImportOpen(false);
+            await loadScans();
+            setScanNotice({ text, error: false });
+          }}
+          onClose={() => setImportOpen(false)}
         />
       )}
 
@@ -1946,15 +1965,27 @@ export default function HospitalDashboard() {
               </TouchableOpacity>
             )}
 
-            {!selecting && scans.length > 1 && (
-              <TouchableOpacity
-                style={styles.scanSelectBtn}
-                onPress={() => { setScanNotice(null); setSelecting(true); }}
-                accessibilityRole="button"
-              >
-                <Ionicons name="checkbox-outline" size={16} color={Colors.blue700} />
-                <Text style={styles.scanEditText}>Select</Text>
-              </TouchableOpacity>
+            {!selecting && (
+              <View style={styles.scanTools}>
+                <TouchableOpacity
+                  style={styles.scanToolBtn}
+                  onPress={() => { setScanNotice(null); setImportOpen(true); }}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="cloud-upload-outline" size={16} color={Colors.blue700} />
+                  <Text style={styles.scanEditText}>Import from file</Text>
+                </TouchableOpacity>
+                {scans.length > 1 && (
+                  <TouchableOpacity
+                    style={styles.scanToolBtn}
+                    onPress={() => { setScanNotice(null); setSelecting(true); }}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="checkbox-outline" size={16} color={Colors.blue700} />
+                    <Text style={styles.scanEditText}>Select</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             )}
 
             {!!scanNotice && (
@@ -2490,7 +2521,8 @@ const styles = StyleSheet.create({
   scanActions:    { flexDirection: 'row', gap: 10, marginTop: 12 },
   scanEditBtn:    { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9 },
   scanEditText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
-  scanSelectBtn:  { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 10, marginBottom: 12 },
+  scanTools:      { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  scanToolBtn:    { flex: 1, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 10 },
   scanSearch:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14.5, color: Colors.gray900, marginBottom: 12 },
   scanNotice:     { backgroundColor: Colors.successBg, borderRadius: 10, padding: 12, marginBottom: 12 },
   scanNoticeErr:  { backgroundColor: Colors.errorBg },

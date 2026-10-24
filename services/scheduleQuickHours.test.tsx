@@ -125,3 +125,40 @@ test('the doctor form has the same quick hours, and a second one replaces the fi
   await tap(control('Quick hours 9 AM – 1 PM'));
   expect(flat()).toContain('TIMESLOTS(8of48selected)');
 });
+
+// ── Name / Type quick picks (web #179) ────────────────────────────────────────
+const mountPicks = async (suggestions?: { names: string[]; types: string[] }) => {
+  (API.post as jest.Mock).mockResolvedValue({ data: {} });
+  await act(async () => {
+    r = TestRenderer.create(
+      <ScanEditorModal visible scan={null} centerId={1} unit="test" suggestions={suggestions}
+        onClose={jest.fn()} onSaved={jest.fn()} />);
+  });
+};
+const input = (placeholder: string) => r.root.findAll((n: any) =>
+  n.props?.placeholder === placeholder && typeof n.props.onChangeText === 'function')[0];
+const pick = (label: string) => r.root.findAll((n: any) =>
+  n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function')[0];
+const picks = { names: ['Complete Blood Count (CBC)', 'Lipid Profile'], types: ['Blood Test', 'Urine Test'] };
+
+test('typing a name offers matching picks, and tapping one fills the box', async () => {
+  await mountPicks(picks);
+  await act(async () => { input('e.g. MRI Brain').props.onChangeText('cbc'); });
+  expect(pick('Use Complete Blood Count (CBC)')).toBeDefined();
+  expect(pick('Use Lipid Profile')).toBeUndefined();
+  await tap(pick('Use Complete Blood Count (CBC)'));
+  expect(input('e.g. MRI Brain').props.value).toBe('Complete Blood Count (CBC)');
+  expect(pick('Use Complete Blood Count (CBC)')).toBeUndefined();      // an exact pick offers none
+});
+
+test('the Type box has its own picks', async () => {
+  await mountPicks(picks);
+  await tap(pick('Use Urine Test'));
+  expect(input('e.g. MRI, CT, X-ray, Blood Test').props.value).toBe('Urine Test');
+});
+
+test('with no suggestions passed the form is unchanged', async () => {
+  await mountPicks(undefined);
+  expect(pick('Use Lipid Profile')).toBeUndefined();
+  expect(pick('Use Blood Test')).toBeUndefined();
+});

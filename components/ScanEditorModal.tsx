@@ -25,6 +25,7 @@ import QuickHours from './QuickHours';
 import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
+import { suggestTests } from '../constants/testSuggestions';
 import API from '../services/api';
 
 export interface ScanRecord {
@@ -107,11 +108,13 @@ interface Props {
   /** What a blood centre calls a scan. Defaults to 'scan' so a scanning centre
    *  — and any caller that predates blood centres — is unchanged. */
   unit?: 'scan' | 'test';
+  /** Quick picks for the Name and Type boxes. Absent = none, as before. */
+  suggestions?: { names: string[]; types: string[] };
   onClose: () => void;
   onSaved: () => void;
 }
 
-export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan', onClose, onSaved }: Props) {
+export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan', suggestions, onClose, onSaved }: Props) {
   const Unit = `${unit[0].toUpperCase()}${unit.slice(1)}`;
   const [form, setForm]     = useState<FormState>(EMPTY);
   const [saving, setSaving] = useState(false);
@@ -216,6 +219,24 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
     }
   };
 
+  // Tap-to-fill chips under a free-text box: the same idea as the doctor form's
+  // specialization picks, and the website's <datalist>s.
+  const picks = (options: string[] | undefined, typed: string, set: (v: string) => void) => {
+    const list = options ? suggestTests(options, typed) : [];
+    if (list.length === 0) return null;
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+        contentContainerStyle={s.pickRow} style={{ marginTop: -4 }}>
+        {list.map(p => (
+          <TouchableOpacity key={p} style={s.pick} onPress={() => set(p)} accessibilityRole="button"
+            accessibilityLabel={`Use ${p}`}>
+            <Text style={s.pickText}>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    );
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
@@ -245,11 +266,13 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
             <Text style={s.label}>{Unit} Name</Text>
             <TextInput style={s.input} placeholder="e.g. MRI Brain" placeholderTextColor={Colors.gray400}
               value={form.name} onChangeText={t => setField('name', t)} />
+            {picks(suggestions?.names, form.name, v => setField('name', v))}
 
             <Text style={s.label}>Modality</Text>
             <TextInput style={s.input} placeholder="e.g. MRI, CT, X-ray, Blood Test"
               placeholderTextColor={Colors.gray400}
               value={form.modality} onChangeText={t => setField('modality', t)} />
+            {picks(suggestions?.types, form.modality, v => setField('modality', v))}
             <Text style={s.hint}>Patients filter the centre list by this.</Text>
 
             <Text style={s.label}>Search Keywords</Text>
@@ -502,6 +525,10 @@ const s = StyleSheet.create({
   modeCardOn: { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
   modeLabel:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
   modeHint:   { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
+
+  pickRow:  { gap: 6, paddingBottom: 12, paddingRight: 4 },
+  pick:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6 },
+  pickText: { fontSize: 12, fontWeight: '600', color: Colors.blue700 },
 
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
 

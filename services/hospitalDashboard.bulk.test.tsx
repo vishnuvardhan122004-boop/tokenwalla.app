@@ -22,6 +22,8 @@ jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
 jest.mock('@react-native-async-storage/async-storage', () =>
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
+jest.mock('expo-document-picker', () => ({ getDocumentAsync: jest.fn() }));
+jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }));
 jest.mock('./notifications', () => ({
   registerPushToken: jest.fn(), notifyHospitalNewBooking: jest.fn(),
 }));
@@ -277,5 +279,28 @@ describe('bulk edit', () => {
     await pressLabel('Update 2 tests');
     expect(has(/Some tests could not be updated, so none were\. Panel 2: Price too high\./)).toBe(true);
     expect(has(/^Edit 2 tests$/)).toBe(true);
+  });
+});
+
+describe('import from a file', () => {
+  test('the button opens the import screen, and Cancel closes it', async () => {
+    await mount(many(2));
+    expect(has(/^Import tests from a file$/)).toBe(false);
+    await press(/^Import from file$/);
+    expect(has(/^Import tests from a file$/)).toBe(true);
+    await press(/^Cancel$/);
+    expect(has(/^Import tests from a file$/)).toBe(false);
+  });
+
+  test('a centre with no tests yet can import its first list', async () => {
+    await mount([]);
+    expect(has(/^Import from file$/)).toBe(true);
+    expect(has(/^Select$/)).toBe(false);
+  });
+
+  test('select mode hides it', async () => {
+    await mount(many(3));
+    await press(/^Select$/);
+    expect(has(/^Import from file$/)).toBe(false);
   });
 });
