@@ -42,7 +42,7 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
-  asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
+  asList, KIND_TO_SEGMENT, SCAN_PAGE, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
 } from '../../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
 import QuickHours from '../../../components/QuickHours';
@@ -343,6 +343,7 @@ export default function HospitalDashboard() {
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
+  const [scanShown,  setScanShown]  = useState(SCAN_PAGE);
   // null + open = adding; a record + open = editing. Two pieces of state rather
   // than one nullable, so closing the sheet does not blank the row mid-animation.
   // Which completed booking is mid-upload, so only that card shows a spinner.
@@ -1863,7 +1864,7 @@ export default function HospitalDashboard() {
                   until you add one.
                 </Text>
               </View>
-            ) : scans.map(sc => (
+            ) : scans.slice(0, scanShown).map(sc => (
               <View key={String(sc.id)} style={styles.scanCard}>
                 <View style={styles.scanTop}>
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -1905,6 +1906,18 @@ export default function HospitalDashboard() {
                 </View>
               </View>
             ))}
+
+            {scans.length > scanShown && (
+              <TouchableOpacity
+                style={styles.scanMoreBtn}
+                onPress={() => setScanShown(n => n + SCAN_PAGE)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.scanEditText}>
+                  Show more ({scans.length - scanShown} left)
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -2264,6 +2277,7 @@ const styles = StyleSheet.create({
   scanActions:    { flexDirection: 'row', gap: 10, marginTop: 12 },
   scanEditBtn:    { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9 },
   scanEditText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+  scanMoreBtn:    { alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 12, marginTop: 4 },
   scanDeleteBtn:  { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, borderRadius: 10, paddingVertical: 9 },
   scanDeleteText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
 
