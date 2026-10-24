@@ -21,10 +21,10 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
-import QuickHours from './QuickHours';
+import { DayPicker, SlotPicker } from './SchedulePicker';
 import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
-import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
+import { DEFAULT_SLOTS } from '../constants/slots';
 import { suggestTests } from '../constants/testSuggestions';
 import API from '../services/api';
 
@@ -145,12 +145,6 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
 
   const setField = (k: keyof FormState, v: string | boolean) =>
     setForm(p => ({ ...p, [k]: v } as FormState));
-
-  const toggle = (key: 'slots' | 'days', value: string) =>
-    setForm(p => ({
-      ...p,
-      [key]: p[key].includes(value) ? p[key].filter(v => v !== value) : [...p[key], value],
-    }));
 
   const save = async () => {
     const name = form.name.trim();
@@ -391,66 +385,22 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
             </View>
 
             <Text style={s.section}>DAYS  ({form.days.length} selected)</Text>
-            <View style={s.slotActions}>
-              <TouchableOpacity style={s.slotActionBtn}
-                onPress={() => setForm(p => ({ ...p, days: DAYS_OF_WEEK.map(d => d.key) }))}>
-                <Text style={s.slotActionText}>All days</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={s.grid}>
-              {DAYS_OF_WEEK.map(({ key, label }) => {
-                const on = form.days.includes(key);
-                return (
-                  <TouchableOpacity key={key} style={[s.dayChip, on && s.chipOn]} onPress={() => toggle('days', key)}>
-                    <Text style={[s.chipText, on && s.chipTextOn]}>{label}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <DayPicker days={form.days} onChange={days => setForm(p => ({ ...p, days }))}
+              allLabel="All days" clearable={false} />
 
             <Text style={s.section}>
               TIME SLOTS  ({form.slots.length} of {DEFAULT_SLOTS.length} selected)
             </Text>
-            <View style={s.slotActions}>
-              <TouchableOpacity style={s.slotActionBtn}
-                onPress={() => setForm(p => ({ ...p, slots: [...DEFAULT_SLOTS] }))}>
-                <Text style={s.slotActionText}>Select All</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[s.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
-                onPress={() => setForm(p => ({ ...p, slots: [] }))}>
-                <Text style={[s.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
-              </TouchableOpacity>
-            </View>
-            {/* A time saved off the half-hour grid (09:15 AM) has no chip here,
-                so it could never be put back: keep it, as the website does. */}
-            <QuickHours onPick={slots =>
-              setForm(p => ({ ...p, slots: [...slots, ...p.slots.filter(t => !DEFAULT_SLOTS.includes(t))] }))} />
-            {form.slots.length === 0 && (
-              <View style={s.note}>
-                <Text style={s.noteTitle}>No online slots</Text>
-                <Text style={s.noteText}>
-                  With no slots selected, patients see this scan and your centre&apos;s number
-                  but cannot book a token online.
-                </Text>
-              </View>
-            )}
-            {SLOT_SECTIONS.map(section => (
-              <View key={section.label} style={{ marginBottom: 14 }}>
-                <Text style={s.slotSectionLabel}>{section.label}</Text>
-                <View style={s.grid}>
-                  {section.slots.map(slot => {
-                    const on = form.slots.includes(slot);
-                    return (
-                      <TouchableOpacity key={slot} style={[s.slotChip, on && s.chipOn]}
-                        onPress={() => toggle('slots', slot)}>
-                        <Text style={[s.chipText, on && s.chipTextOn]}>{slot}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+            <SlotPicker slots={form.slots} onChange={slots => setForm(p => ({ ...p, slots }))} keepOffGrid
+              note={(
+                <View style={s.note}>
+                  <Text style={s.noteTitle}>No online slots</Text>
+                  <Text style={s.noteText}>
+                    With no slots selected, patients see this scan and your centre&apos;s number
+                    but cannot book a token online.
+                  </Text>
                 </View>
-              </View>
-            ))}
+              )} />
 
             <View style={{ height: 50 }} />
           </ScrollView>
@@ -532,17 +482,7 @@ const s = StyleSheet.create({
 
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 6 },
 
-  grid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dayChip:  { borderWidth: 1, borderColor: Colors.gray200, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  slotChip: { borderWidth: 1, borderColor: Colors.gray200, borderRadius: 9, paddingHorizontal: 11, paddingVertical: 7 },
-  chipOn:      { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
-  chipText:    { fontSize: 12.5, color: Colors.gray600, fontWeight: '600' },
-  chipTextOn:  { color: Colors.blue700, fontWeight: '700' },
 
-  slotActions:   { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  slotActionBtn: { flex: 1, borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  slotActionText:{ fontSize: 12.5, fontWeight: '700', color: Colors.blue700 },
-  slotSectionLabel: { fontSize: 12, fontWeight: '700', color: Colors.gray500, marginBottom: 8 },
 
   note:      { backgroundColor: Colors.blue50, borderRadius: 12, padding: 13, marginBottom: 14 },
   noteTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue800, marginBottom: 3 },

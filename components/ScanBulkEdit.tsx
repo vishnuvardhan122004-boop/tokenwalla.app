@@ -15,9 +15,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors } from '../constants/colors';
-import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
+import { DAYS_OF_WEEK, DEFAULT_SLOTS } from '../constants/slots';
 import { bulkError, bulkEditSummary, postInBatches, priceRows, type PriceEdit, type Unit } from '../utils/scanBulk';
-import QuickHours from './QuickHours';
+import { DayPicker, SlotPicker } from './SchedulePicker';
 import type { ScanRecord } from './ScanEditorModal';
 
 const PREVIEW_ROWS = 5;
@@ -55,12 +55,6 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
   // tap. A choice is required; taking one test off online booking is its own edit.
   const emptyPick = (on.days && days.length === 0) || (on.slots && slots.length === 0);
   const canSave = anyTicked && (!on.price || priceReady) && !emptyPick && !saving;
-
-  const toggleSlot = (s: string) => setSlots(cur =>
-    (cur.includes(s) ? cur.filter(x => x !== s) : [...cur, s])
-      .sort((a, b) => DEFAULT_SLOTS.indexOf(a) - DEFAULT_SLOTS.indexOf(b)));
-  const toggleDay = (d: string) => setDays(cur =>
-    DAYS_OF_WEEK.map(x => x.key).filter(x => (x === d ? !cur.includes(d) : cur.includes(x))));
 
   const save = async () => {
     if (!canSave) return;
@@ -204,14 +198,8 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
                 <Text style={s.hint}>
                   Replaces each {unit}&apos;s days ({days.length} of {DAYS_OF_WEEK.length} selected)
                 </Text>
-                <View style={s.pills}>
-                  {DAYS_OF_WEEK.map(({ key, label }) => pill(label, days.includes(key), () => toggleDay(key)))}
-                </View>
-                {days.length === 0 && <Text style={s.problem}>Pick at least one day to save.</Text>}
-                <TouchableOpacity style={s.action} onPress={() => setDays(DAYS_OF_WEEK.map(d => d.key))}
-                  accessibilityRole="button">
-                  <Text style={s.actionText}>All days</Text>
-                </TouchableOpacity>
+                <DayPicker days={days} onChange={setDays} allLabel="All days" clearable={false}
+                  note={<Text style={s.problem}>Pick at least one day to save.</Text>} />
               </>
             ))}
 
@@ -220,28 +208,12 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
                 <Text style={s.hint}>
                   Replaces each {unit}&apos;s times ({slots.length} of {DEFAULT_SLOTS.length} selected)
                 </Text>
-                <QuickHours onPick={setSlots} />
-                {slots.length === 0 && (
-                  <Text style={s.note}>
-                    Pick at least one time to save. To take a {unit} off online booking, edit it on its own.
-                  </Text>
-                )}
-                {SLOT_SECTIONS.map(sec => (
-                  <View key={sec.label} style={{ marginBottom: 10 }}>
-                    <Text style={s.sectionLabel}>{sec.label}</Text>
-                    <View style={s.pills}>
-                      {sec.slots.map(slot => pill(slot, slots.includes(slot), () => toggleSlot(slot)))}
-                    </View>
-                  </View>
-                ))}
-                <View style={s.pills}>
-                  <TouchableOpacity style={s.action} onPress={() => setSlots([...DEFAULT_SLOTS])} accessibilityRole="button">
-                    <Text style={s.actionText}>Select All</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[s.action, s.actionDanger]} onPress={() => setSlots([])} accessibilityRole="button">
-                    <Text style={[s.actionText, { color: Colors.errorText }]}>Clear All</Text>
-                  </TouchableOpacity>
-                </View>
+                <SlotPicker slots={slots} onChange={setSlots}
+                  note={(
+                    <Text style={s.note}>
+                      Pick at least one time to save. To take a {unit} off online booking, edit it on its own.
+                    </Text>
+                  )} />
               </>
             ))}
 
@@ -306,13 +278,9 @@ const s = StyleSheet.create({
   problem: { fontSize: 12.5, color: Colors.errorText, marginTop: 2 },
   hint:    { fontSize: 11.5, color: Colors.gray400, lineHeight: 17, marginBottom: 8 },
   note:    { fontSize: 12.5, color: Colors.blue700, backgroundColor: Colors.blue50, borderRadius: 10, padding: 10, marginBottom: 10, lineHeight: 18 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', color: Colors.gray500, marginBottom: 6 },
 
   previewRow:   { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 3 },
   previewName:  { flex: 1, fontSize: 12.5, color: Colors.gray700 },
   previewPrice: { fontSize: 12.5, color: Colors.gray700 },
 
-  action:       { flexGrow: 1, borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  actionDanger: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg },
-  actionText:   { fontSize: 12.5, fontWeight: '700', color: Colors.blue700 },
 });

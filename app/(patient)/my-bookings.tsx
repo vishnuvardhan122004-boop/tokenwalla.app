@@ -23,8 +23,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
 import ReceiptModal from '../../components/ReceiptModal';
 import RescheduleModal from '../../components/RescheduleModal';
 import { SkeletonList } from '../../components/Skeleton';
@@ -37,6 +35,7 @@ import { usePolling } from '../../hooks/usePolling';
 import { syncAppointmentReminders } from '../../services/notifications';
 import { normalizeBookingStatus, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
 import { formatDelay } from '../../utils/formatDelay';
+import { shareCapturedView } from '../../utils/shareCapture';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -121,15 +120,7 @@ export default function MyBookings() {
     // Give the off-screen ticket + QR a moment to lay out and paint before capture.
     const timer = setTimeout(async () => {
       try {
-        const uri = await captureRef(ticketRef, { format: 'png', quality: 1, result: 'tmpfile' });
-        const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(shareUri, {
-            mimeType: 'image/png',
-            dialogTitle: t('mb_save_ticket'),
-            UTI: 'public.png',
-          });
-        } else {
+        if (!(await shareCapturedView(ticketRef, t('mb_save_ticket')))) {
           Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
         }
       } catch {

@@ -10,17 +10,16 @@
  * uses, so no PDF library is needed.
  */
 import { Ionicons } from '@expo/vector-icons';
-import * as Sharing from 'expo-sharing';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { captureRef } from 'react-native-view-shot';
 
 import { Colors } from '../constants/colors';
 import API from '../services/api';
 import { useI18n } from '../services/i18n';
+import { shareCapturedView } from '../utils/shareCapture';
 
 interface LineItem {
   description: string;
@@ -72,11 +71,7 @@ export default function ReceiptModal({ booking, onClose }: {
       setSaving(true);
       // The scroll view's whole content, not just the part on screen: a long receipt
       // (a pass note, several lines) must not lose its Total below the fold.
-      const uri = await captureRef(scrollRef, { format: 'png', quality: 1, result: 'tmpfile', snapshotContentContainer: true });
-      const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(shareUri, { mimeType: 'image/png', dialogTitle: t('rc_save_title'), UTI: 'public.png' });
-      } else {
+      if (!(await shareCapturedView(scrollRef, t('rc_save_title'), true))) {
         Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
       }
     } catch {

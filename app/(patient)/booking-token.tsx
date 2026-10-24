@@ -9,8 +9,6 @@ import {
   Text, TouchableOpacity,
   View,
 } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
-import * as Sharing from 'expo-sharing';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { money } from '../../utils/fees';
@@ -18,6 +16,7 @@ import { providerLabel } from '../../utils/booking';
 import { useI18n } from '../../services/i18n';
 import { notifyBookingConfirmed, scheduleAppointmentReminder } from '../../services/notifications';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { shareCapturedView } from '../../utils/shareCapture';
 
 export default function BookingTokenScreen() {
   const router = useRouter();
@@ -39,15 +38,7 @@ export default function BookingTokenScreen() {
   const handleDownload = async () => {
     try {
       setDownloading(true);
-      const uri = await captureRef(ticketRef, { format: 'png', quality: 1, result: 'tmpfile' });
-      const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(shareUri, {
-          mimeType: 'image/png',
-          dialogTitle: t('mb_save_ticket'),
-          UTI: 'public.png',
-        });
-      } else {
+      if (!(await shareCapturedView(ticketRef, t('mb_save_ticket')))) {
         Alert.alert(t('mb_not_available'), t('mb_save_unavailable'));
       }
     } catch {
