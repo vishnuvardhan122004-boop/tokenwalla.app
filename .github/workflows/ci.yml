@@ -1,0 +1,56 @@
+# TokenWalla app CI
+#
+# Typecheck, lint and unit tests on every pull request. It builds and releases
+# nothing: a store build is a manual `eas build` (see RELEASING.md), and merging
+# this repo ships nothing on its own.
+#
+# The repo had no CI before, so the jest suite only ran when somebody remembered
+# to run it. A PR to a live app should be green BEFORE it lands.
+#
+# Node 22 is what the suite is developed and checked against (Expo SDK 54 needs
+# 20.19 or newer).
+
+name: CI
+
+on:
+  pull_request:
+
+# A newer push to the same PR cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Typecheck, lint, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPO_NO_TELEMETRY: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # The dot matters: a bare `expo lint` only covers app/ and components/ and
+      # skips utils/, services/, hooks/ and constants/. Warnings do not fail the run
+      # (there are a few old ones); errors do.
+      - name: Lint
+        run: npx expo lint .
+
+      - name: Tests
+        run: npx jest --ci
