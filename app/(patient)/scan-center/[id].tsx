@@ -14,9 +14,9 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Linking, ScrollView, StyleSheet, Text,
+  ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -28,6 +28,7 @@ import ProviderAboutPanel from '../../../components/ProviderAboutPanel';
 import API from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
 import { directionsUrl } from '../../../utils/booking';
+import { matchesTest, SEARCH_ABOVE } from '../../../utils/matchTest';
 import { asList, BLOOD_CENTER, SCAN_PAGE } from '../../../utils/scanCenters';
 import { safeBack } from '../../../utils/navigation';
 
@@ -35,6 +36,7 @@ interface Scan {
   id: number | string;
   name: string;
   modality?: string;
+  keywords?: string;
   price: number;
   duration_minutes: number;
   description?: string;
@@ -59,13 +61,15 @@ const next7Days = () => Array.from({ length: 7 }, (_, i) => {
 
 export default function ScanCenterScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  // ?scan=ID is the browse tab's test result: open that test on arrival.
+  const { id, scan: scanParam } = useLocalSearchParams<{ id?: string; scan?: string }>();
   const { t } = useI18n();
   useAndroidBack(() => safeBack(router, '/(patient)/doctors'));
 
   const [centre,  setCentre]  = useState<any>(null);
   const [scans,   setScans]   = useState<Scan[]>([]);
   const [shown,   setShown]   = useState(SCAN_PAGE);
+  const [query,   setQuery]   = useState('');
   const [loading, setLoading] = useState(true);
   const [failed,  setFailed]  = useState(false);
   // A 404 is the server saying this centre is not public (pending, rejected
@@ -77,6 +81,8 @@ export default function ScanCenterScreen() {
   const [selectedSlot, setSelectedSlot] = useState('');
   const [avail,        setAvail]        = useState<Record<string, any>>({});
   const [availLoading, setAvailLoading] = useState(false);
+
+  const linked = useRef('');
 
   const dates = next7Days();
 
@@ -117,7 +123,8 @@ export default function ScanCenterScreen() {
   // Reset on centre change. This screen is a single Tabs.Screen instance, so
   // without this the previous centre's scans flash before the new ones land.
   useEffect(() => {
-    setCentre(null); setScans([]); setShown(SCAN_PAGE); setOpenScan(null);
+    setCentre(null); setScans([]); setShown(SCAN_PAGE); setQuery(''); setOpenScan(null);
+    linked.current = '';
     setSelectedDate(''); setSelectedSlot(''); setAvail({});
     setFailed(false); setNotFound(false); setLoading(true);
   }, [id]);
@@ -171,6 +178,24 @@ export default function ScanCenterScreen() {
     setSelectedDate(same ? '' : next7Days()[0].value);
     if (!same) API.post(`/scans/${scan.id}/view/`).catch(() => {});
   }, [openScan]);
+
+  // Open the test a browse result pointed at, once per centre+test. A ref, not
+  // state: the patient may close it again and it must stay closed.
+  useEffect(() => {
+    const key = `${id}/${scanParam}`;
+    if (!scanParam || linked.current === key) return;
+    const sc = scans.find(x => String(x.id) === String(scanParam));
+    if (!sc) return;
+    linked.current = key;
+    pickScan(sc);
+  }, [scans, scanParam, id, pickScan]);
+
+  // The words typed in the search box narrow the menu. With none typed, a test
+  // the patient arrived for goes first, so it is not buried under 30 others.
+  const matched = scans.filter(sc => matchesTest(sc, query));
+  const listed = !query && scanParam
+    ? [...matched].sort((a, b) => Number(String(b.id) === scanParam) - Number(String(a.id) === scanParam))
+    : matched;
 
   const callNumber = centre?.landline || centre?.mobile;
 
@@ -300,7 +325,23 @@ export default function ScanCenterScreen() {
           </Text>
         )}
 
-        {scans.slice(0, shown).map(scan => {
+        {scans.length > SEARCH_ABOVE && (
+          <TextInput
+            style={st.search}
+            value={query}
+            onChangeText={v => { setQuery(v); setShown(SCAN_PAGE); }}
+            placeholder={tn('sc_search')}
+            placeholderTextColor={Colors.gray400}
+            accessibilityLabel={tn('sc_search')}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+        )}
+        {scans.length > 0 && listed.length === 0 && (
+          <Text style={st.emptySub}>{tn('sc_no_match')}</Text>
+        )}
+
+        {listed.slice(0, shown).map(scan => {
           const open = openScan?.id === scan.id;
           const isFull = scan.fee_breakdown?.collection_mode === 'FULL';
           return (
@@ -449,13 +490,13 @@ export default function ScanCenterScreen() {
           );
         })}
 
-        {scans.length > shown && (
+        {listed.length > shown && (
           <TouchableOpacity
             style={st.more}
             onPress={() => setShown(n => n + SCAN_PAGE)}
             accessibilityRole="button"
           >
-            <Text style={st.retryText}>{t('sc_show_more', { n: scans.length - shown })}</Text>
+            <Text style={st.retryText}>{t('sc_show_more', { n: listed.length - shown })}</Text>
           </TouchableOpacity>
         )}
         </View>
@@ -472,6 +513,7 @@ const st = StyleSheet.create({
   retry:      { marginTop: 8, paddingVertical: 9, paddingHorizontal: 18, borderRadius: 10, backgroundColor: Colors.blue50 },
   retryText:  { fontSize: 13.5, fontWeight: '700', color: Colors.blue700 },
   more:       { alignItems: 'center', paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.blue50, marginTop: 4 },
+  search:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14.5, color: Colors.gray900, marginBottom: 12 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
