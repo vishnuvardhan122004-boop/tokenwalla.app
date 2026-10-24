@@ -180,7 +180,10 @@ const DELAY_REASONS: [string, string][] = [
   ['emergency', 'Emergency'],
   ['on_the_way', 'On the way'],
 ];
-interface DelayDraft { minutes: number; reason: string }
+// `base` is the doctor's server-side running_delay_minutes when the draft began.
+// If the server value has since moved (cleared or changed from another device),
+// the draft is stale and draftFor ignores it.
+interface DelayDraft { minutes: number; reason: string; base: number }
 
 
 const EMPTY_FORM: FormState = {
@@ -604,8 +607,11 @@ export default function HospitalDashboard() {
   };
 
   // ── Doctor Running Late ────────────────────────────────────────────────────
-  const draftFor = (doc: Doctor, drafts: Record<string, DelayDraft> = delayDraft): DelayDraft =>
-    drafts[String(doc.id)] ?? { minutes: doc.running_delay_minutes || DELAY_DEFAULT, reason: '' };
+  const draftFor = (doc: Doctor, drafts: Record<string, DelayDraft> = delayDraft): DelayDraft => {
+    const base = doc.running_delay_minutes || 0;
+    const draft = drafts[String(doc.id)];
+    return draft && draft.base === base ? draft : { minutes: base || DELAY_DEFAULT, reason: '', base };
+  };
   const patchDraft = (doc: Doctor, patch: (cur: DelayDraft) => Partial<DelayDraft>) =>
     setDelayDraft(p => {
       const cur = draftFor(doc, p);
@@ -613,13 +619,18 @@ export default function HospitalDashboard() {
     });
   const clampDelay = (m: number) => Math.min(DELAY_MAX, Math.max(DELAY_STEP, m));
 
-  // Shared tail of set-delay / arrived: reflect the server's flag, and drop the
-  // draft when the delay is gone so the next one starts from the default.
+  // Shared tail of set-delay / arrived: reflect the server's flag. The draft is
+  // dropped when the delay is gone (the next one starts from the default) and
+  // re-based on the new server value otherwise, so the chosen reason stays picked.
   const applyDelayResult = (doc: Doctor, minutes: number) => {
     setDoctors(prev => prev.map(d => (d.id === doc.id ? { ...d, running_delay_minutes: minutes } : d)));
-    if (!minutes) {
-      setDelayDraft(p => { const next = { ...p }; delete next[String(doc.id)]; return next; });
-    }
+    setDelayDraft(p => {
+      const next = { ...p };
+      const key = String(doc.id);
+      if (minutes && next[key]) next[key] = { ...next[key], base: minutes };
+      else delete next[key];
+      return next;
+    });
   };
 
   // One request per doctor in flight. `disabled` only lands on the next render,
