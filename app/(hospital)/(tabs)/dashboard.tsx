@@ -46,7 +46,10 @@ import {
 } from '../../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
 import QuickHours from '../../../components/QuickHours';
+import ScanBulkEdit from '../../../components/ScanBulkEdit';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
+import { matchesTest, SEARCH_ABOVE } from '../../../utils/matchTest';
+import { bulkDeleteSummary, postInBatches } from '../../../utils/scanBulk';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
 import WalkInForm from '../../../components/WalkInForm';
@@ -91,6 +94,8 @@ interface Doctor {
   // Priority booking (0 = off). Absent on a backend that predates it.
   priority_fee?: number;
   priority_per_slot?: number;
+  /** The doctor's note to patients, shown on their token. */
+  instructions?: string;
   available: boolean;
   running_delay_minutes?: number;
   slots: string[];
@@ -140,6 +145,7 @@ interface FormState {
   booking_cutoff_hours: string;   // '' = use the platform default
   priority_fee: string;           // '' / '0' = no priority booking
   priority_per_slot: string;
+  instructions: string;
   available: boolean;
   slots: string[];
   days: string[];
@@ -191,6 +197,7 @@ const EMPTY_FORM: FormState = {
   booking_cutoff_hours: '',
   priority_fee:   '',
   priority_per_slot: '2',
+  instructions:   '',
   available:      true,
   slots:          [],
   days:           [],
@@ -344,6 +351,14 @@ export default function HospitalDashboard() {
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
   const [scanShown,  setScanShown]  = useState(SCAN_PAGE);
+  const [scanQuery,  setScanQuery]  = useState('');
+  // Select mode on the tests list: ticked ids, and which bulk step is open.
+  const [selecting,    setSelecting]    = useState(false);
+  const [picked,       setPicked]       = useState<(number | string)[]>([]);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [confirmIds,   setConfirmIds]   = useState<(number | string)[] | null>(null);  // ids the delete prompt was opened for
+  const [bulkBusy,     setBulkBusy]     = useState(false);
+  const [scanNotice,   setScanNotice]   = useState<{ text: string; error: boolean } | null>(null);
   // null + open = adding; a record + open = editing. Two pieces of state rather
   // than one nullable, so closing the sheet does not blank the row mid-animation.
   // Which completed booking is mid-upload, so only that card shows a spinner.
@@ -496,6 +511,56 @@ export default function HospitalDashboard() {
     // until you clicked through, which looks like an empty price list.
     if ((sellsScans || sellsBlood) && activeTab === 'doctors') loadScans();
   }, [sellsScans, sellsBlood, activeTab, loadScans]);
+
+  const scanUnit = unit.one.toLowerCase() as 'scan' | 'test';
+  const matchedScans = scans.filter(sc => matchesTest(sc, scanQuery));
+  // Only what the search is showing is acted on: a test ticked and then filtered
+  // out is not edited or deleted behind the user's back.
+  const pickedScans = matchedScans.filter(sc => picked.includes(sc.id));
+  const allPicked = matchedScans.length > 0 && pickedScans.length === matchedScans.length;
+  const togglePick = (id: number | string) =>
+    setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
+  const toggleAllPicked = () => setPicked(p => (allPicked
+    ? p.filter(id => !matchedScans.some(sc => sc.id === id))
+    : [...new Set([...p, ...matchedScans.map(sc => sc.id)])]));
+  const endSelecting = () => {
+    setSelecting(false); setPicked([]); setBulkEditOpen(false); setConfirmIds(null);
+  };
+  // Leaving the tab ends select mode: the cards unmount and would come back
+  // ticked but out of view.
+  useEffect(() => { setSelecting(false); setPicked([]); setBulkEditOpen(false); setConfirmIds(null); }, [activeTab, seg]);
+
+  const onBulkEdited = async (text: string, failure?: boolean) => {
+    await loadScans();
+    endSelecting();
+    setScanNotice({ text, error: !!failure });
+  };
+
+  const bulkDelete = async () => {
+    if (!confirmIds) return;
+    setBulkBusy(true);
+    try {
+      // The ids the prompt named, not whatever is ticked by now.
+      const done = await postInBatches('/scans/bulk-delete/', 'ids', confirmIds);
+      await loadScans();
+      endSelecting();
+      setScanNotice({ text: bulkDeleteSummary(done, scanUnit), error: false });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || `Could not delete the ${scanUnit}s.`;
+      if (err?.doneCount) {
+        // Some are already gone: reload and leave select mode rather than offer
+        // the same ids again.
+        await loadScans();
+        endSelecting();
+        setScanNotice({ text: `${msg} Only the first ${err.doneCount} of ${confirmIds.length} were deleted or hidden.`, error: true });
+      } else {
+        setConfirmIds(null);
+        setScanNotice({ text: msg, error: true });
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   // ── Load Doctors ──────────────────────────────────────────────────────────
   const loadDoctors = useCallback(async () => {
@@ -782,6 +847,7 @@ export default function HospitalDashboard() {
       booking_cutoff_hours: doc.booking_cutoff_hours == null ? '' : String(doc.booking_cutoff_hours),
       priority_fee:   doc.priority_fee ? String(doc.priority_fee) : '',
       priority_per_slot: String(doc.priority_per_slot ?? 2),
+      instructions:   doc.instructions    || '',
       available:      doc.available       ?? true,
       slots:          doc.slots           || [],
       days:           doc.days            || [],
@@ -874,6 +940,8 @@ export default function HospitalDashboard() {
       // writes NULL. Sending nothing at all would leave a previously-set
       // override in place, so clearing the box would silently do nothing.
       payload.append('booking_cutoff_hours', form.booking_cutoff_hours.trim());
+      // Always sent, blank included, so clearing the box clears it.
+      payload.append('instructions',   form.instructions.trim());
       payload.append('available',      String(form.available));
       payload.append('slots',          JSON.stringify(form.slots));
       payload.append('days',           JSON.stringify(form.days));
@@ -1012,6 +1080,17 @@ export default function HospitalDashboard() {
           centerId={hospital.id}
           onClose={() => setScanModalOpen(false)}
           onSaved={loadScans}
+        />
+      )}
+
+      {/* Mounted only while open, so its ticks and typed values start fresh. */}
+      {bulkEditOpen && pickedScans.length > 0 && (
+        <ScanBulkEdit
+          visible
+          scans={pickedScans}
+          unit={scanUnit}
+          onDone={onBulkEdited}
+          onClose={() => setBulkEditOpen(false)}
         />
       )}
 
@@ -1304,6 +1383,18 @@ export default function HospitalDashboard() {
                 value={form.booking_cutoff_hours}
                 onChange={(v: string) => setField('booking_cutoff_hours', v)}
               />
+
+              <Text style={styles.fieldLabel}>Instructions for patients (optional)</Text>
+              <TextInput
+                style={[styles.fieldInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                multiline
+                maxLength={1000}
+                placeholder="e.g. Bring your previous reports and prescriptions"
+                placeholderTextColor={Colors.gray400}
+                value={form.instructions}
+                onChangeText={(v: string) => setField('instructions', v)}
+              />
+              <Text style={styles.fieldHint}>Shown to the patient on their token after they book.</Text>
 
               {editDoc && editDoc.priority_fee !== undefined && (
                 <View style={styles.fieldRow}>
@@ -1846,12 +1937,53 @@ export default function HospitalDashboard() {
               Patients see these, with prices, on your centre page.
             </Text>
 
-            <TouchableOpacity
-              style={styles.addDoctorBtn}
-              onPress={() => { setEditScan(null); setScanModalOpen(true); }}
-            >
-              <Text style={styles.addDoctorBtnText}>+ Add New {unit.one}</Text>
-            </TouchableOpacity>
+            {!selecting && (
+              <TouchableOpacity
+                style={styles.addDoctorBtn}
+                onPress={() => { setEditScan(null); setScanModalOpen(true); }}
+              >
+                <Text style={styles.addDoctorBtnText}>+ Add New {unit.one}</Text>
+              </TouchableOpacity>
+            )}
+
+            {!selecting && scans.length > 1 && (
+              <TouchableOpacity
+                style={styles.scanSelectBtn}
+                onPress={() => { setScanNotice(null); setSelecting(true); }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="checkbox-outline" size={16} color={Colors.blue700} />
+                <Text style={styles.scanEditText}>Select</Text>
+              </TouchableOpacity>
+            )}
+
+            {!!scanNotice && (
+              <TouchableOpacity
+                style={[styles.scanNotice, scanNotice.error && styles.scanNoticeErr]}
+                onPress={() => setScanNotice(null)}
+                accessibilityRole="alert"
+              >
+                <Text style={[styles.scanNoticeText, scanNotice.error && { color: Colors.errorText }]}>
+                  {scanNotice.text}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {scans.length > SEARCH_ABOVE && (
+              <TextInput
+                style={styles.scanSearch}
+                value={scanQuery}
+                onChangeText={v => { setScanQuery(v); setScanShown(SCAN_PAGE); }}
+                placeholder={`Search your ${unit.many.toLowerCase()} by name, type or search words`}
+                placeholderTextColor={Colors.gray400}
+                accessibilityLabel={`Search your ${unit.many.toLowerCase()}`}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+            )}
+            {scans.length > 0 && matchedScans.length === 0 && (
+              <Text style={styles.scanLead}>Nothing matches your search.</Text>
+            )}
 
             {scans.length === 0 ? (
               <View style={styles.scanEmpty}>
@@ -1864,9 +1996,23 @@ export default function HospitalDashboard() {
                   until you add one.
                 </Text>
               </View>
-            ) : scans.slice(0, scanShown).map(sc => (
-              <View key={String(sc.id)} style={styles.scanCard}>
+            ) : matchedScans.slice(0, scanShown).map(sc => (
+              <TouchableOpacity
+                key={String(sc.id)}
+                style={[styles.scanCard, selecting && picked.includes(sc.id) && styles.scanCardPicked]}
+                activeOpacity={selecting ? 0.8 : 1}
+                disabled={!selecting || !!confirmIds}
+                onPress={() => togglePick(sc.id)}
+                accessibilityRole={selecting ? 'checkbox' : undefined}
+                accessibilityState={selecting ? { checked: picked.includes(sc.id) } : undefined}
+                accessibilityLabel={selecting ? `Select ${sc.name}` : undefined}
+              >
                 <View style={styles.scanTop}>
+                  {selecting && (
+                    <Ionicons
+                      name={picked.includes(sc.id) ? 'checkbox' : 'square-outline'} size={22}
+                      color={picked.includes(sc.id) ? Colors.blue600 : Colors.gray400} />
+                  )}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.scanName}>{sc.name}</Text>
                     <Text style={styles.scanMeta}>
@@ -1888,33 +2034,35 @@ export default function HospitalDashboard() {
                 {!!sc.prep_instructions && (
                   <Text style={styles.scanPrep}>⚠ {sc.prep_instructions}</Text>
                 )}
-                <View style={styles.scanActions}>
-                  <TouchableOpacity
-                    style={styles.scanEditBtn}
-                    onPress={() => { setEditScan(sc); setScanModalOpen(true); }}
-                  >
-                    <Ionicons name="create-outline" size={15} color={Colors.blue700} />
-                    <Text style={styles.scanEditText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.scanDeleteBtn}
-                    onPress={() => confirmDeleteScan(sc, loadScans, unit.one.toLowerCase() as 'scan' | 'test')}
-                  >
-                    <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
-                    <Text style={styles.scanDeleteText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                {!selecting && (
+                  <View style={styles.scanActions}>
+                    <TouchableOpacity
+                      style={styles.scanEditBtn}
+                      onPress={() => { setEditScan(sc); setScanModalOpen(true); }}
+                    >
+                      <Ionicons name="create-outline" size={15} color={Colors.blue700} />
+                      <Text style={styles.scanEditText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.scanDeleteBtn}
+                      onPress={() => confirmDeleteScan(sc, loadScans, scanUnit)}
+                    >
+                      <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
+                      <Text style={styles.scanDeleteText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </TouchableOpacity>
             ))}
 
-            {scans.length > scanShown && (
+            {matchedScans.length > scanShown && (
               <TouchableOpacity
                 style={styles.scanMoreBtn}
                 onPress={() => setScanShown(n => n + SCAN_PAGE)}
                 accessibilityRole="button"
               >
                 <Text style={styles.scanEditText}>
-                  Show more ({scans.length - scanShown} left)
+                  Show more ({matchedScans.length - scanShown} left)
                 </Text>
               </TouchableOpacity>
             )}
@@ -2169,6 +2317,71 @@ export default function HospitalDashboard() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* Select mode's actions, pinned under the list so they stay in reach
+          however far down a long price list the user has scrolled. */}
+      {selecting && activeTab === 'doctors' && isCentre && (
+        <View style={styles.selectBar}>
+          {confirmIds ? (
+            <>
+              <Text style={styles.selectBarTitle}>
+                Delete {confirmIds.length} {confirmIds.length === 1 ? scanUnit : `${scanUnit}s`}?
+              </Text>
+              <Text style={styles.selectBarSub} numberOfLines={2}>
+                {scans.filter(sc => confirmIds.includes(sc.id)).slice(0, 3).map(sc => sc.name).join(', ')}
+                {confirmIds.length > 3 && ` and ${confirmIds.length - 3} more`}
+              </Text>
+              <Text style={styles.selectBarSub}>
+                This cannot be undone. Any with booking history are set to Hidden instead
+                (patients can still see them but cannot book), so past bookings keep their record.
+              </Text>
+              <View style={styles.selectBarRow}>
+                <TouchableOpacity style={[styles.selectDanger, bulkBusy && { opacity: 0.6 }]}
+                  disabled={bulkBusy} onPress={bulkDelete} accessibilityRole="button">
+                  {bulkBusy ? <ActivityIndicator color={Colors.white} size="small" />
+                            : <Text style={styles.selectDangerText}>Delete {confirmIds.length}</Text>}
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.selectGhost} disabled={bulkBusy}
+                  onPress={() => setConfirmIds(null)} accessibilityRole="button">
+                  <Text style={styles.scanEditText}>Keep</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={styles.selectBarRow}>
+                <TouchableOpacity style={styles.selectGhost} onPress={toggleAllPicked}
+                  disabled={matchedScans.length === 0} accessibilityRole="button">
+                  <Text style={styles.scanEditText}>
+                    {allPicked ? 'Clear selection' : `Select all (${matchedScans.length})`}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.selectCount} accessibilityLiveRegion="polite">
+                  {pickedScans.length} selected
+                </Text>
+              </View>
+              <View style={styles.selectBarRow}>
+                <TouchableOpacity style={[styles.selectPrimary, pickedScans.length === 0 && { opacity: 0.45 }]}
+                  disabled={pickedScans.length === 0} onPress={() => setBulkEditOpen(true)}
+                  accessibilityRole="button" accessibilityLabel="Edit selected">
+                  <Ionicons name="create-outline" size={15} color={Colors.white} />
+                  <Text style={styles.selectPrimaryText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.selectOutlineDanger, pickedScans.length === 0 && { opacity: 0.45 }]}
+                  disabled={pickedScans.length === 0}
+                  onPress={() => { setBulkEditOpen(false); setConfirmIds(pickedScans.map(sc => sc.id)); }}
+                  accessibilityRole="button" accessibilityLabel="Delete selected">
+                  <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
+                  <Text style={styles.scanDeleteText}>Delete</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.selectGhost} onPress={endSelecting} accessibilityRole="button">
+                  <Text style={styles.scanEditText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -2277,6 +2490,23 @@ const styles = StyleSheet.create({
   scanActions:    { flexDirection: 'row', gap: 10, marginTop: 12 },
   scanEditBtn:    { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9 },
   scanEditText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+  scanSelectBtn:  { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 10, marginBottom: 12 },
+  scanSearch:     { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.gray200, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14.5, color: Colors.gray900, marginBottom: 12 },
+  scanNotice:     { backgroundColor: Colors.successBg, borderRadius: 10, padding: 12, marginBottom: 12 },
+  scanNoticeErr:  { backgroundColor: Colors.errorBg },
+  scanNoticeText: { fontSize: 13, lineHeight: 18, color: Colors.successText },
+  scanCardPicked: { borderColor: Colors.blue600, backgroundColor: Colors.blue50 },
+  selectBar:      { borderTopWidth: 1, borderTopColor: Colors.gray200, backgroundColor: Colors.white, padding: 12, gap: 8 },
+  selectBarRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  selectBarTitle: { fontSize: 15, fontWeight: '800', color: Colors.gray900 },
+  selectBarSub:   { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
+  selectCount:    { flex: 1, textAlign: 'right', fontSize: 13.5, fontWeight: '700', color: Colors.gray800 },
+  selectGhost:    { paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  selectPrimary:  { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 10, paddingVertical: 10 },
+  selectPrimaryText: { fontSize: 13.5, fontWeight: '700', color: Colors.white },
+  selectOutlineDanger: { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, borderRadius: 10, paddingVertical: 10 },
+  selectDanger:   { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.errorText, borderRadius: 10, paddingVertical: 11 },
+  selectDangerText: { fontSize: 13.5, fontWeight: '700', color: Colors.white },
   scanMoreBtn:    { alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 12, marginTop: 4 },
   scanDeleteBtn:  { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, borderRadius: 10, paddingVertical: 9 },
   scanDeleteText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
@@ -2340,6 +2570,7 @@ const styles = StyleSheet.create({
   modalBody:    { padding: 20 },
   formSection:  { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.blue600, marginTop: 20, marginBottom: 14, textTransform: 'uppercase' },
   fieldLabel:   { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
+  fieldHint:    { fontSize: 11.5, color: Colors.gray400, lineHeight: 17, marginTop: -4, marginBottom: 12 },
   fieldInput:   { backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900, marginBottom: 14 },
   fieldRow:     { flexDirection: 'row' },
   // An errored input keeps its own margin; the message sits in the gap below it.
