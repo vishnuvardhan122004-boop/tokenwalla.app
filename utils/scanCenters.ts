@@ -78,6 +78,14 @@ export function filterScanCenters<T extends KindedRow>(rows: T[] | null | undefi
   return filterByKind(rows, SCAN_CENTER);
 }
 
+/**
+ * How many scan / test cards a list paints before "Show more". A centre can hold
+ * hundreds of tests (800 seen), and both lists — the hospital's Services -> Tests
+ * and the patient's centre page — sit in a plain ScrollView with no virtualising.
+ * All 800 at once is ~30,000 views: the app froze and the OS then closed it.
+ */
+export const SCAN_PAGE = 30;
+
 /** Unwrap a DRF list response, paginated or not. */
 export function asList<T = any>(data: any): T[] {
   if (Array.isArray(data)) return data;
