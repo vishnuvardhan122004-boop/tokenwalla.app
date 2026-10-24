@@ -193,12 +193,12 @@ export default function MyBookings() {
 
   usePolling(() => fetchBookings(true), 15_000, hasActive);
 
-  // Doctor Running Late: { [doctorId]: running_delay_minutes }. Bookings carry
+  // Doctor Running Late: { [doctorId]: { minutes, reason } }. Bookings carry
   // only the doctor's id, not their live delay, so it's fetched separately for
   // today's confirmed doctors — depends on `bookings` (not a memoized id list)
   // so it refetches on every bookings poll and a delay set mid-wait shows up
   // within 15s, same cadence as the queue position.
-  const [doctorDelays, setDoctorDelays] = useState<Record<string, number>>({});
+  const [doctorDelays, setDoctorDelays] = useState<Record<string, { minutes: number; reason: string }>>({});
   useEffect(() => {
     const today = toLocalISODate(new Date());
     const ids = [...new Set(
@@ -207,7 +207,7 @@ export default function MyBookings() {
     if (!ids.length) return;
     let alive = true;
     Promise.all(ids.map(id =>
-      API.get(`/doctors/${id}/`).then(({ data }) => [id, data.running_delay_minutes]).catch(() => null),
+      API.get(`/doctors/${id}/`).then(({ data }) => [id, { minutes: data.running_delay_minutes ?? 0, reason: data.delay_reason ?? '' }]).catch(() => null),
     )).then(pairs => {
       if (!alive) return;
       setDoctorDelays(prev => {
@@ -542,14 +542,14 @@ export default function MyBookings() {
                 {/* Doctor Running Late: hospital set a delay for today's confirmed
                     booking. Delay lives on the doctor record, fetched separately
                     into doctorDelays above (bookings only carry the doctor id). */}
-                {booking.status === 'CONFIRMED' && booking.date === todayISO && (doctorDelays[booking.doctor] ?? 0) > 0 && (
+                {booking.status === 'CONFIRMED' && booking.date === todayISO && (doctorDelays[booking.doctor]?.minutes ?? 0) > 0 && (
                   <View style={st.unavailBanner}>
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{formatDelay(doctorDelays[booking.doctor])} late. Adjusted time:{' '}
+                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{formatDelay(doctorDelays[booking.doctor].minutes)} late{doctorDelays[booking.doctor].reason ? ` (${doctorDelays[booking.doctor].reason})` : ''}. Adjusted time:{' '}
                       <Text style={{ textDecorationLine: 'line-through' }}>{booking.slot}</Text>
                       {' → '}
-                      {addDelayToSlot(booking.date, booking.slot, doctorDelays[booking.doctor])}
+                      {addDelayToSlot(booking.date, booking.slot, doctorDelays[booking.doctor].minutes)}
                     </Text>
                   </View>
                 )}
