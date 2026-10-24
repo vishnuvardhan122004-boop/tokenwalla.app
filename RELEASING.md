@@ -52,6 +52,17 @@ vc44/vc45 dates.
 count). Reason: ships #58 (Home's Hospitals stat → hospital list → hospital
 page with its doctors), merged after vc51 was cut.
 
+**1.7.0 is a 6th, on Vishnu's explicit request in session 2026-10-24**
+("build for aab ... to upload with playstore", after being told the count: five
+uploaded in October, and November 1 was the alternative). Reason: ships the
+website-parity features (#68: test search, tests-first browse results, the
+doctor's instructions and a test's prep on the token, select-and-bulk edit or
+delete, CSV price-list import, the GST receipt from My Bookings), the Services →
+Tests freeze fix for centres with hundreds of tests (#67), and merged work no
+build carries yet: the walk-in token (#60), QR auto-confirm (#61), the
+doctor-late timer (#63) and the quick-hours buttons (#66). Its tally row is
+added after the build, with the versionCode and the `main` commit.
+
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
 the release itself.
