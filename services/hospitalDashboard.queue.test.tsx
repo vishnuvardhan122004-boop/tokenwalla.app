@@ -48,13 +48,20 @@ const WAITING = {
   patient_name: 'Lakshmi', patient_mobile: '9800000002', is_for_other: true,
 };
 
+const EMPTY = { waiting: [], onHold: [], inProgress: [], completed: [] };
+const booking = (id: number, name: string, status: string) => ({
+  id, token: `TW-${id}`, status, date: TODAY, slot: '10:00 AM',
+  doctor_name: 'Dr. Kumar', user_name: name, user_mobile: '9800000003',
+  patient_name: name, patient_mobile: '9800000003', is_for_other: false,
+});
+
 let r: any;
-const mount = async () => {
+const mount = async (queue: object = { ...EMPTY, waiting: [WAITING] }) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting: [WAITING], onHold: [], inProgress: [], completed: [] } })
+      ? Promise.resolve({ data: queue })
       : Promise.resolve({ data: [] }));
   await act(async () => {
     r = TestRenderer.create(<ExpoRoot context={getMockContext({
@@ -90,4 +97,58 @@ test('Hold says which way, and a double tap sends one request', async () => {
   expect(API.patch).toHaveBeenCalledTimes(1);
   expect(API.patch).toHaveBeenCalledWith('/bookings/hold/5/', { action: 'hold' });
   await act(async () => { release({ data: {} }); });
+});
+
+// ── Layout (website ROADMAP item 53, slice 1: the same changes as Hdashboard.js) ──
+const control = (label: string) => r.root.findAll((n: any) =>
+  n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function')[0];
+// A heading like "Completed (1)" renders as separate children; compare without spaces.
+const flat = () => text().replace(/\s+/g, '');
+
+test('the count tiles are gone and an empty section is its heading alone', async () => {
+  await mount();
+  const t = text();
+  expect(t).toContain('Lakshmi');
+  expect(t).not.toContain('Total');
+  expect(flat()).toContain('InProgress(0)');
+  expect(flat()).toContain('Completed(0)');
+  expect(t).not.toContain('No one in progress');
+  expect(t).not.toContain('None completed yet');
+});
+
+test('Waiting still says so when nobody is waiting', async () => {
+  await mount({ ...EMPTY });
+  expect(text()).toContain('No patients waiting');
+});
+
+test('Completed stays closed, with its count, until its heading is tapped', async () => {
+  await mount({ ...EMPTY, completed: [booking(9, 'Meena', 'COMPLETED')] });
+  expect(flat()).toContain('Completed(1)');
+  expect(text()).not.toContain('Meena');
+
+  await act(async () => { control('Completed, 1 patients').props.onPress(); });
+  expect(text()).toContain('Meena');
+  expect(text()).toContain('Share');
+
+  await act(async () => { control('Completed, 1 patients').props.onPress(); });
+  expect(text()).not.toContain('Meena');
+});
+
+test('with nobody completed the heading is inert', async () => {
+  await mount();
+  expect(control('Completed, 0 patients').props.disabled).toBe(true);
+});
+
+test('In Progress and On Hold list their patients with the same actions as before', async () => {
+  await mount({
+    ...EMPTY,
+    inProgress: [booking(11, 'Geeta', 'IN_PROGRESS')],
+    onHold: [booking(12, 'Hari', 'ON_HOLD')],
+  });
+  const t = text();
+  expect(t).toContain('Geeta');
+  expect(t).toContain('Done ✓');
+  expect(flat()).toContain('OnHold(1)');
+  expect(t).toContain('Hari');
+  expect(t).toContain('Resume');
 });

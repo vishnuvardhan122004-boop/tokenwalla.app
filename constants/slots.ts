@@ -26,6 +26,21 @@ export const SLOT_SECTIONS = [
   { label: "Night",                      slots: DEFAULT_SLOTS.slice(40, 48) },
 ];
 
+/**
+ * One-tap hours for the slot picker. Mirrors SLOT_PRESETS in the website's
+ * src/hospital/Hdashboard.js: change one, change both. `to` is the LAST start
+ * time, so "9 AM – 9 PM" ends at 08:30 PM: 9 PM is closing time, not a slot.
+ */
+export const SLOT_PRESETS = [
+  { label: '9 AM – 9 PM', from: '09:00 AM', to: '08:30 PM' },
+  { label: '9 AM – 1 PM', from: '09:00 AM', to: '12:30 PM' },
+  { label: '9 AM – 6 PM', from: '09:00 AM', to: '05:30 PM' },
+  { label: '6 PM – 9 PM', from: '06:00 PM', to: '08:30 PM' },
+];
+
+export const presetSlots = ({ from, to }: { from: string; to: string }): string[] =>
+  DEFAULT_SLOTS.slice(DEFAULT_SLOTS.indexOf(from), DEFAULT_SLOTS.indexOf(to) + 1);
+
 /** Days of the week a provider is available on (separate from time slots). */
 export const DAYS_OF_WEEK: { key: string; label: string }[] = [
   { key: 'Mon', label: 'Monday'    },

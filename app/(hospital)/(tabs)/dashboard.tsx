@@ -45,6 +45,7 @@ import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
 } from '../../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
+import QuickHours from '../../../components/QuickHours';
 import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
@@ -338,6 +339,7 @@ export default function HospitalDashboard() {
   // Which day's bookings the queue shows. The queue endpoint returns bookings
   // from ALL dates mixed together, so staff need to split them by day.
   const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
+  const [showDone,   setShowDone]   = useState(false);   // Completed starts closed
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
@@ -945,7 +947,6 @@ export default function HospitalDashboard() {
     fCompleted:  queue.completed.filter(matchesDay),
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [queue, dayFilter, todayYMD, tomorrowYMD]);
-  const filteredTotal = fWaiting.length + fOnHold.length + fInProgress.length + fCompleted.length;
 
   // Counts per day for the filter pills, so staff see at a glance where the
   // patients are without switching tabs.
@@ -1416,6 +1417,8 @@ export default function HospitalDashboard() {
                 </TouchableOpacity>
               </View>
 
+              <QuickHours onPick={slots => setForm(p => ({ ...p, slots }))} />
+
               {form.slots.length === 0 && (
                 <View style={styles.walkInNote}>
                   <Text style={{ fontSize: 13, color: Colors.blue800, fontWeight: '700', marginBottom: 3 }}>
@@ -1507,22 +1510,9 @@ export default function HospitalDashboard() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.blue600} />
         }
       >
-        {/* ── STATS ── */}
-        <View style={styles.statsGrid}>
-          {[
-            { label: `${dayFilter === 'all' ? 'All' : dayFilter === 'today' ? 'Today' : 'Tomorrow'} Total`, val: filteredTotal,     color: Colors.blue600    },
-            { label: 'Waiting',      val: fWaiting.length,    color: Colors.warningText },
-            { label: 'In Progress',  val: fInProgress.length, color: Colors.blue400    },
-            { label: 'Completed',    val: fCompleted.length,  color: Colors.successText },
-          ].map(({ label, val, color }) => (
-            <View key={label} style={styles.statCard}>
-              <Text style={[styles.statNum, { color }]}>{val}</Text>
-              <Text style={styles.statLabel}>{label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ── TABS ── */}
+        {/* ── TABS ── (The 2x2 Total / Waiting / In Progress / Completed tiles that
+            sat above these repeated the day pills and the section headings below,
+            and put the first patient under the fold.) */}
         <View style={styles.tabRow}>
           <TouchableOpacity
             style={[styles.tab, activeTab === 'queue' && styles.tabActive]}
@@ -1707,12 +1697,11 @@ export default function HospitalDashboard() {
               </>
             )}
 
-            <Text style={[styles.queueSection, { marginTop: 16 }]}>
+            {/* An empty section is its heading and nothing else. */}
+            <Text style={[styles.queueSection, { marginTop: 16 }, fInProgress.length === 0 && { marginBottom: 0 }]}>
               In Progress ({fInProgress.length})
             </Text>
-            {fInProgress.length === 0
-              ? <Text style={styles.emptyMsg}>No one in progress</Text>
-              : fInProgress.map((p: Patient) => (
+            {fInProgress.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
@@ -1753,12 +1742,22 @@ export default function HospitalDashboard() {
               ))
             }
 
-            <Text style={[styles.queueSection, { marginTop: 16 }]}>
-              Completed ({fCompleted.length})
-            </Text>
-            {fCompleted.length === 0
-              ? <Text style={styles.emptyMsg}>None completed yet</Text>
-              : fCompleted.map((p: Patient) => (
+            {/* Read-only history, so it stays closed until asked for; the count
+                is on the heading either way. */}
+            <TouchableOpacity
+              style={[styles.queueFold, { marginTop: 16 }]}
+              onPress={() => setShowDone(v => !v)}
+              disabled={fCompleted.length === 0}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showDone && fCompleted.length > 0 }}
+              accessibilityLabel={`Completed, ${fCompleted.length} patients`}
+            >
+              <Text style={[styles.queueSection, { marginBottom: 0 }]}>Completed ({fCompleted.length})</Text>
+              {fCompleted.length > 0 && (
+                <Ionicons name={showDone ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.gray500} />
+              )}
+            </TouchableOpacity>
+            {showDone && fCompleted.map((p: Patient) => (
                 <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.successText, opacity: 0.7 }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
@@ -2181,12 +2180,7 @@ const styles = StyleSheet.create({
   logoutBtn: { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 9, paddingHorizontal: 14, paddingVertical: 8 },
   logoutText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
 
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
-  statCard:  { width: '47%', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 16, alignItems: 'center' },
-  statNum:   { fontSize: 28, fontWeight: '800', marginBottom: 4 },
-  statLabel: { fontSize: 12, color: Colors.gray400 },
-
-  tabRow:        { flexDirection: 'row', marginHorizontal: 16, backgroundColor: Colors.blue50, borderRadius: 12, padding: 4, gap: 4 },
+  tabRow:        { flexDirection: 'row', marginTop: 12, marginHorizontal: 16, backgroundColor: Colors.blue50, borderRadius: 12, padding: 4, gap: 4 },
   tab:           { flex: 1, flexDirection: 'row', gap: 4, paddingVertical: 10, paddingHorizontal: 2, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tabActive:     { backgroundColor: Colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, elevation: 1 },
   tabText:       { fontSize: 12, fontWeight: '500', color: Colors.gray400, flexShrink: 1 },
@@ -2203,6 +2197,7 @@ const styles = StyleSheet.create({
   dayPillAllActive:       { backgroundColor: Colors.gray600,     borderColor: Colors.gray600 },
 
   queueSection: { fontSize: 14, fontWeight: '800', color: Colors.gray800, marginBottom: 10 },
+  queueFold:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44, marginBottom: 10 },
   emptyMsg:     { fontSize: 13, color: Colors.gray400, textAlign: 'center', padding: 20, fontStyle: 'italic' },
   patientCard:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, borderLeftWidth: 4, padding: 14, marginBottom: 10, gap: 12 },
   patientName:  { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },

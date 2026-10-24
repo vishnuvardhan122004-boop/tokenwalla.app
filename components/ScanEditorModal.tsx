@@ -21,6 +21,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
+import QuickHours from './QuickHours';
 import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
@@ -367,6 +368,12 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
             </View>
 
             <Text style={s.section}>DAYS  ({form.days.length} selected)</Text>
+            <View style={s.slotActions}>
+              <TouchableOpacity style={s.slotActionBtn}
+                onPress={() => setForm(p => ({ ...p, days: DAYS_OF_WEEK.map(d => d.key) }))}>
+                <Text style={s.slotActionText}>All days</Text>
+              </TouchableOpacity>
+            </View>
             <View style={s.grid}>
               {DAYS_OF_WEEK.map(({ key, label }) => {
                 const on = form.days.includes(key);
@@ -392,6 +399,10 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
                 <Text style={[s.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
               </TouchableOpacity>
             </View>
+            {/* A time saved off the half-hour grid (09:15 AM) has no chip here,
+                so it could never be put back: keep it, as the website does. */}
+            <QuickHours onPick={slots =>
+              setForm(p => ({ ...p, slots: [...slots, ...p.slots.filter(t => !DEFAULT_SLOTS.includes(t))] }))} />
             {form.slots.length === 0 && (
               <View style={s.note}>
                 <Text style={s.noteTitle}>No online slots</Text>
