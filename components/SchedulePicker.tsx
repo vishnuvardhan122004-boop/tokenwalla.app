@@ -8,8 +8,10 @@
  * what an empty list means differs: a doctor with no slots is walk-in, a bulk edit
  * must not save an empty one at all.
  *
- * Both pickers hand back the whole next array, so a caller can do more than store
- * it (the doctor form also clears that field's validation error).
+ * onChange takes what a state setter takes: the next array, or an updater from the
+ * previous one. Toggles use the updater, so two quick taps before a re-render both
+ * count (the doctor form this replaced toggled inside setForm(prev => ...) too). A
+ * caller that stores it in a form object resolves it with applyUpdate().
  */
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -19,6 +21,10 @@ import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../constants/slots';
 import QuickHours from './QuickHours';
 
 const WEEK = DAYS_OF_WEEK.map(d => d.key);
+
+/** A list, or a function from the previous list to the next (like setState). */
+export type Update = string[] | ((prev: string[]) => string[]);
+export const applyUpdate = (u: Update, prev: string[]): string[] => (typeof u === 'function' ? u(prev) : u);
 
 function Actions({ allLabel, onAll, onClear }: { allLabel: string; onAll: () => void; onClear?: () => void }) {
   return (
@@ -46,7 +52,7 @@ function Chip({ label, on, onPress, wide }: { label: string; on: boolean; onPres
 
 export function DayPicker({ days, onChange, allLabel = 'Select All', clearable = true, note }: {
   days: string[];
-  onChange: (days: string[]) => void;
+  onChange: (days: Update) => void;
   /** Wording of the pick-everything button. */
   allLabel?: string;
   /** Show Clear All too. */
@@ -55,7 +61,7 @@ export function DayPicker({ days, onChange, allLabel = 'Select All', clearable =
   note?: ReactNode;
 }) {
   // Kept in week order whatever order they were tapped in.
-  const toggle = (d: string) => onChange(WEEK.filter(x => (x === d ? !days.includes(d) : days.includes(x))));
+  const toggle = (d: string) => onChange(prev => WEEK.filter(x => (x === d ? !prev.includes(d) : prev.includes(x))));
   return (
     <>
       <Actions allLabel={allLabel} onAll={() => onChange([...WEEK])} onClear={clearable ? () => onChange([]) : undefined} />
@@ -71,7 +77,7 @@ export function DayPicker({ days, onChange, allLabel = 'Select All', clearable =
 
 export function SlotPicker({ slots, onChange, keepOffGrid = false, note }: {
   slots: string[];
-  onChange: (slots: string[]) => void;
+  onChange: (slots: Update) => void;
   /** A time saved off the half-hour grid (09:15 AM) has no chip, so Quick hours must
    *  keep it or it could never be put back. */
   keepOffGrid?: boolean;
@@ -80,13 +86,13 @@ export function SlotPicker({ slots, onChange, keepOffGrid = false, note }: {
 }) {
   const rank = (x: string) => { const i = DEFAULT_SLOTS.indexOf(x); return i < 0 ? Infinity : i; };
   // Kept in clock order whatever order they were tapped in: patients see them as stored.
-  const toggle = (slot: string) => onChange(
-    (slots.includes(slot) ? slots.filter(x => x !== slot) : [...slots, slot]).sort((a, b) => rank(a) - rank(b)));
+  const toggle = (slot: string) => onChange(prev =>
+    (prev.includes(slot) ? prev.filter(x => x !== slot) : [...prev, slot]).sort((a, b) => rank(a) - rank(b)));
   return (
     <>
       <Actions allLabel="Select All" onAll={() => onChange([...DEFAULT_SLOTS])} onClear={() => onChange([])} />
       <QuickHours onPick={picked =>
-        onChange(keepOffGrid ? [...picked, ...slots.filter(x => !DEFAULT_SLOTS.includes(x))] : picked)} />
+        onChange(prev => (keepOffGrid ? [...picked, ...prev.filter(x => !DEFAULT_SLOTS.includes(x))] : picked))} />
       {slots.length === 0 && note}
       {SLOT_SECTIONS.map(section => (
         <View key={section.label} style={{ marginBottom: 14 }}>

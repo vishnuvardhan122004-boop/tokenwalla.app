@@ -360,6 +360,26 @@ describe('review fixes', () => {
     } finally { spy.mockRestore(); }
   });
 
+  test('switching to Doctors inside Services ends select mode, and Tests comes back clean', async () => {
+    await mount(many(3));
+    await press(/^Select$/);
+    expect(has(/0 selected/)).toBe(true);
+    await press(/^Doctors/);
+    expect(has(/selected/)).toBe(false);
+    await press(/^Tests/);
+    expect(has(/^Select$/)).toBe(true);
+    expect(has(/selected/)).toBe(false);
+  });
+
+  test('the scroll view holding the search box keeps taps while the keyboard is up', async () => {
+    await mount(many(8));
+    const box = r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Search your tests'
+      && typeof n.props.onChangeText === 'function')[0];
+    let p = box.parent;
+    while (p && p.props.keyboardShouldPersistTaps === undefined) p = p.parent;
+    expect(p?.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
   test('leaving the Services tab ends select mode', async () => {
     await mount(many(3));
     await press(/^Select$/);

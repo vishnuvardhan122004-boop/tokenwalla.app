@@ -129,3 +129,10 @@ test('a different ?scan= at the same centre clears an old query that would hide 
   expect(names()[0]).toBe('Panel 9');
   expect(names()).toHaveLength(12);
 });
+
+test('the scroll view holding the search box keeps taps while the keyboard is up', async () => {
+  await mount([1, 2, 3, 4, 5, 6].map(i => scan(i)));
+  let p = box().parent;
+  while (p && p.props.keyboardShouldPersistTaps === undefined) p = p.parent;
+  expect(p?.props.keyboardShouldPersistTaps).toBe('handled');
+});

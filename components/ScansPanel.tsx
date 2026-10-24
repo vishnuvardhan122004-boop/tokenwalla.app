@@ -13,7 +13,7 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import {
-  memo, type ReactNode, useEffect, useState,
+  memo, type ReactNode, useEffect, useLayoutEffect, useState,
 } from 'react';
 import {
   ActivityIndicator, BackHandler, StyleSheet, Text, TextInput, TouchableOpacity, View,
@@ -37,14 +37,16 @@ interface Props {
   bloodOnly: boolean;
   onAdd: () => void;
   onEdit: (scan: ScanRecord) => void;
-  /** Receives the pinned Select bar (or null). Called from an effect. */
+  /** Receives the pinned Select bar (or null), from a layout effect so it lands before
+   *  paint. MUST be a stable function (a state setter): the panel is memoised on its
+   *  props, and an unstable one would re-render it after every bar update, forever. */
   onBar: (bar: ReactNode) => void;
 }
 
 type Id = number | string;
 
 function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit, onBar }: Props) {
-  const Unit = `${unit[0].toUpperCase()}${unit.slice(1)}`;
+  const Noun = `${unit[0].toUpperCase()}${unit.slice(1)}`;
   const many = `${unit}s`;
 
   const [query,        setQuery]        = useState('');
@@ -189,8 +191,9 @@ function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit
   ) : null;
 
   // Runs on every render of the panel, which is rare (its own state, or new
-  // props): the dashboard's setState bails out when the bar is still null.
-  useEffect(() => { onBar(bar); });
+  // props). A layout effect, so the bar the dashboard draws is never a commit behind
+  // the panel; the dashboard's setState bails out while the bar is still null.
+  useLayoutEffect(() => { onBar(bar); });
   useEffect(() => () => onBar(null), [onBar]);
 
   return (
@@ -201,7 +204,7 @@ function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit
 
       {!selecting && (
         <TouchableOpacity style={s.addBtn} onPress={onAdd}>
-          <Text style={s.addBtnText}>+ Add New {Unit}</Text>
+          <Text style={s.addBtnText}>+ Add New {Noun}</Text>
         </TouchableOpacity>
       )}
 

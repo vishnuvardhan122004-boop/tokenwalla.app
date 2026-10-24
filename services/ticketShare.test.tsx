@@ -66,22 +66,28 @@ const press = async (re: RegExp) => {
   while (p && typeof p.props.onPress !== 'function') p = p.parent;
   await act(async () => { p.props.onPress(); });
 };
-const settle = async (ms = 700) => { await act(async () => { await new Promise(res => setTimeout(res, ms)); }); };
+// The My Bookings screen waits 450 ms for the off-screen ticket to paint. Fake timers
+// jump it; the awaits flush the capture and share promises that follow.
+const settle = async () => {
+  await act(async () => { jest.advanceTimersByTime(500); });
+  for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); });
+};
 let alert: jest.SpyInstance;
 beforeEach(() => {
+  jest.useFakeTimers();
   jest.clearAllMocks();
   alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   (captureRef as jest.Mock).mockResolvedValue('/cache/ticket.png');
   (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(true);
 });
-afterEach(async () => { alert.mockRestore(); await act(async () => r.unmount()); });
+afterEach(async () => { alert.mockRestore(); await act(async () => r.unmount()); jest.useRealTimers(); });
 
 const TOKEN = '/booking-token?token=12&doctorName=Rao&providerKind=DOCTOR&hospital=City&date=2026-10-30&slot=10:00+AM&userName=Asha';
 
 test('the token screen saves the ticket through the share sheet', async () => {
   await mount(TOKEN);
   await press(/^Download Ticket$/);
-  await settle(50);
+  await settle();
   expect(captureRef).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ format: 'png' }));
   expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/ticket.png', expect.objectContaining({ mimeType: 'image/png' }));
   expect(alert).not.toHaveBeenCalled();
@@ -91,7 +97,7 @@ test('the token screen says so when the device cannot share', async () => {
   (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(false);
   await mount(TOKEN);
   await press(/^Download Ticket$/);
-  await settle(50);
+  await settle();
   expect(alert).toHaveBeenCalledWith('Not available', 'Saving is not available on this device.');
   expect(Sharing.shareAsync).not.toHaveBeenCalled();
 });
@@ -100,7 +106,7 @@ test('the token screen shows its own error when the capture fails', async () => 
   (captureRef as jest.Mock).mockRejectedValue(new Error('no view'));
   await mount(TOKEN);
   await press(/^Download Ticket$/);
-  await settle(50);
+  await settle();
   expect(alert.mock.calls[0][0]).toBe('Error');
 });
 

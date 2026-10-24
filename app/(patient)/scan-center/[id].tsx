@@ -250,7 +250,9 @@ export default function ScanCenterScreen() {
         <Text style={st.headerTitle} numberOfLines={1}>{centre.name}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* "handled": the search box is in here, and the first tap after typing must open
+          the test rather than only dismiss the keyboard. */}
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         {/* Banner. Mirrors the doctor screen: a centre is chosen largely on
             whether it looks like somewhere you would walk into, and
             Hospital.image was already being uploaded and never displayed. */}

@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { Text } from 'react-native';
-import { DayPicker, SlotPicker } from '../components/SchedulePicker';
+import { applyUpdate, DayPicker, SlotPicker, type Update } from '../components/SchedulePicker';
 import { DEFAULT_SLOTS } from '../constants/slots';
 
 // Arrives with jest-expo (not a direct dependency) and ships no types.
@@ -17,6 +17,8 @@ const act = (React as any).act;
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 let r: any;
+/** What the form would store after the picker's last onChange, given the list it had. */
+const next = (fn: jest.Mock, prev: string[]) => applyUpdate(fn.mock.lastCall![0] as Update, prev);
 const textsOf = (n: any) => [n.props.children].flat(Infinity)
   .filter((c: unknown) => typeof c === 'string' || typeof c === 'number').join('');
 const texts = (re: RegExp) => r.root.findAll((n: any) => n.type === 'Text' && re.test(textsOf(n)));
@@ -33,18 +35,27 @@ describe('DayPicker', () => {
     const onChange = jest.fn();
     await mount(<DayPicker days={['Wed']} onChange={onChange} />);
     await press(/^Monday$/);
-    expect(onChange).toHaveBeenLastCalledWith(['Mon', 'Wed']);
+    expect(next(onChange, ['Wed'])).toEqual(['Mon', 'Wed']);
     await press(/^Wednesday$/);                                  // un-tick
-    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(next(onChange, ['Wed'])).toEqual([]);
   });
 
   test('Select All picks all seven, Clear All none', async () => {
     const onChange = jest.fn();
     await mount(<DayPicker days={['Mon']} onChange={onChange} />);
     await press(/^Select All$/);
-    expect(onChange).toHaveBeenLastCalledWith(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+    expect(next(onChange, ['Mon'])).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
     await press(/^Clear All$/);
-    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(next(onChange, ['Mon'])).toEqual([]);
+  });
+
+  test('two taps before a re-render both count (each is applied to the latest list, not the rendered one)', async () => {
+    let stored: string[] = [];
+    const onChange = jest.fn((u: Update) => { stored = applyUpdate(u, stored); });
+    await mount(<DayPicker days={[]} onChange={onChange} />);   // props still say [] for both taps
+    await press(/^Tuesday$/);
+    await press(/^Monday$/);
+    expect(stored).toEqual(['Mon', 'Tue']);
   });
 
   test('the centre forms\' wording: "All days", and no Clear All', async () => {
@@ -68,35 +79,35 @@ describe('SlotPicker', () => {
     const onChange = jest.fn();
     await mount(<SlotPicker slots={['10:00 AM']} onChange={onChange} />);
     await press(/^08:00 AM$/);
-    expect(onChange).toHaveBeenLastCalledWith(['08:00 AM', '10:00 AM']);
+    expect(next(onChange, ['10:00 AM'])).toEqual(['08:00 AM', '10:00 AM']);
     await press(/^10:00 AM$/);
-    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(next(onChange, ['10:00 AM'])).toEqual([]);
   });
 
   test('a time saved off the grid stays put when another is tapped, and sorts last', async () => {
     const onChange = jest.fn();
     await mount(<SlotPicker slots={['09:15 AM', '10:00 AM']} onChange={onChange} />);
     await press(/^08:00 AM$/);
-    expect(onChange).toHaveBeenLastCalledWith(['08:00 AM', '10:00 AM', '09:15 AM']);
+    expect(next(onChange, ['09:15 AM', '10:00 AM'])).toEqual(['08:00 AM', '10:00 AM', '09:15 AM']);
   });
 
   test('Select All is the whole grid, Clear All is empty', async () => {
     const onChange = jest.fn();
     await mount(<SlotPicker slots={[]} onChange={onChange} />);
     await press(/^Select All$/);
-    expect(onChange).toHaveBeenLastCalledWith(DEFAULT_SLOTS);
+    expect(next(onChange, [])).toEqual(DEFAULT_SLOTS);
     await press(/^Clear All$/);
-    expect(onChange).toHaveBeenLastCalledWith([]);
+    expect(next(onChange, [])).toEqual([]);
   });
 
   test('Quick hours replaces the slots; keepOffGrid carries an off-grid time through', async () => {
     const onChange = jest.fn();
     await mount(<SlotPicker slots={['10:00 AM', '09:15 AM']} onChange={onChange} />);
     r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Quick hours 6 PM – 9 PM' && n.props.onPress)[0].props.onPress();
-    expect(onChange).toHaveBeenLastCalledWith(['06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM']);
+    expect(next(onChange, ['10:00 AM', '09:15 AM'])).toEqual(['06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM']);
     await act(async () => { r.update(<SlotPicker slots={['10:00 AM', '09:15 AM']} onChange={onChange} keepOffGrid />); });
     r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Quick hours 6 PM – 9 PM' && n.props.onPress)[0].props.onPress();
-    expect(onChange).toHaveBeenLastCalledWith(['06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:15 AM']);
+    expect(next(onChange, ['10:00 AM', '09:15 AM'])).toEqual(['06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM', '08:00 PM', '08:30 PM', '09:15 AM']);
   });
 
   test('chips report whether they are chosen, and the note shows only while none is', async () => {

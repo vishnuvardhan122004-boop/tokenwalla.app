@@ -45,7 +45,7 @@ import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
 } from '../../../utils/scanCenters';
 import { DAYS_OF_WEEK, DEFAULT_SLOTS } from '../../../constants/slots';
-import { DayPicker, SlotPicker } from '../../../components/SchedulePicker';
+import { applyUpdate, DayPicker, SlotPicker } from '../../../components/SchedulePicker';
 import ScanEditorModal, { type ScanRecord } from '../../../components/ScanEditorModal';
 import ScansPanel from '../../../components/ScansPanel';
 import { suggestionsFor } from '../../../constants/testSuggestions';
@@ -1369,7 +1369,7 @@ export default function HospitalDashboard() {
               <DayPicker
                 days={form.days}
                 onChange={days => {
-                  setForm(p => ({ ...p, days }));
+                  setForm(p => ({ ...p, days: applyUpdate(days, p.days) }));
                   setErrors(p => (p.days ? { ...p, days: '' } : p));
                 }}
                 note={(
@@ -1389,7 +1389,7 @@ export default function HospitalDashboard() {
               <SlotPicker
                 slots={form.slots}
                 onChange={slots => {
-                  setForm(p => ({ ...p, slots }));
+                  setForm(p => ({ ...p, slots: applyUpdate(slots, p.slots) }));
                   setErrors(p => (p.slots ? { ...p, slots: '' } : p));
                 }}
                 note={(
@@ -1458,6 +1458,9 @@ export default function HospitalDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       <ScrollView
         showsVerticalScrollIndicator={false}
+        // The tests search box is in here: without this the first tap after typing
+        // (on Select, Edit, a card) only dismisses the keyboard.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.blue600} />
         }
@@ -1792,10 +1795,9 @@ export default function HospitalDashboard() {
         )}
 
         {activeTab === 'doctors' && isCentre && (
-          // key={seg}: SCAN and BLOOD are two tabs over one list, and a fresh
-          // panel is what clears a half-made selection when the tab changes.
+          // Mounted only on this tab, so leaving it (to Queue, or to Doctors inside
+          // Services) unmounts the panel and clears a half-made selection.
           <ScansPanel
-            key={seg}
             scans={scans}
             loadScans={loadScans}
             centerId={hospital?.id}

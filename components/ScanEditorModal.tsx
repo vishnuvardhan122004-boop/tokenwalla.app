@@ -21,7 +21,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
-import { DayPicker, SlotPicker } from './SchedulePicker';
+import { applyUpdate, DayPicker, SlotPicker } from './SchedulePicker';
 import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
 import { DEFAULT_SLOTS } from '../constants/slots';
@@ -385,13 +385,13 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
             </View>
 
             <Text style={s.section}>DAYS  ({form.days.length} selected)</Text>
-            <DayPicker days={form.days} onChange={days => setForm(p => ({ ...p, days }))}
+            <DayPicker days={form.days} onChange={days => setForm(p => ({ ...p, days: applyUpdate(days, p.days) }))}
               allLabel="All days" clearable={false} />
 
             <Text style={s.section}>
               TIME SLOTS  ({form.slots.length} of {DEFAULT_SLOTS.length} selected)
             </Text>
-            <SlotPicker slots={form.slots} onChange={slots => setForm(p => ({ ...p, slots }))} keepOffGrid
+            <SlotPicker slots={form.slots} onChange={slots => setForm(p => ({ ...p, slots: applyUpdate(slots, p.slots) }))} keepOffGrid
               note={(
                 <View style={s.note}>
                   <Text style={s.noteTitle}>No online slots</Text>

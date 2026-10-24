@@ -50,8 +50,8 @@ export default function ReceiptModal({ booking, onClose }: {
 }) {
   const { t } = useI18n();
   const [data, setData] = useState<Receipt | null>(null);
-  // null = fine; '' = failed with no server message (the fallback is applied at
-  // render, so the effect does not depend on t, which changes every render).
+  // null = fine; '' = failed with no server message. The fallback text is applied at
+  // render, so it follows the language and the fetch never re-runs when t() changes.
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
