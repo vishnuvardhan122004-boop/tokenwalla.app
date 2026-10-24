@@ -26,7 +26,7 @@ export default function BookingTokenScreen() {
   // the doctor/payment screens the patient has just finished paying through.
   useAndroidBack(() => router.replace('/(patient)/my-bookings'));
   const { t } = useI18n();
-  const { token, doctorName, providerKind, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee } = useLocalSearchParams();
+  const { token, doctorName, providerKind, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee, instructions } = useLocalSearchParams();
   // Consultation fee still payable at the hospital. 0 when it was collected
   // online (FULL) — nothing is owed at the desk, so the disclaimer is dropped.
   const dueAtHospital = Number(offlineFee || 0);
@@ -150,6 +150,15 @@ export default function BookingTokenScreen() {
             ))}
           </View>
 
+          {/* The provider's own words: a doctor's note, or a test's prep. Inside
+              the card, so the downloaded ticket carries it too. */}
+          {!!instructions && (
+            <View style={styles.instructions}>
+              <Text style={styles.instructionsTitle}>{t('sc_before_you_come')}</Text>
+              <Text style={styles.instructionsBody}>{String(instructions)}</Text>
+            </View>
+          )}
+
           {/* Queue Access */}
           <View style={styles.queueRow}>
             <Ionicons name="navigate" size={18} color={Colors.blue600} style={{ marginRight: 10 }} />
@@ -234,6 +243,10 @@ const styles = StyleSheet.create({
   infoRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   infoLabel: { fontSize: 12, color: Colors.gray500 },
   infoValue: { fontSize: 13, fontWeight: '600', color: Colors.gray900, maxWidth: '60%', textAlign: 'right' },
+
+  instructions:      { marginHorizontal: 16, marginBottom: 14, padding: 11, borderRadius: 10, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A' },
+  instructionsTitle: { fontSize: 12.5, fontWeight: '800', color: '#92400E' },
+  instructionsBody:  { fontSize: 13, color: '#78350F', marginTop: 3, lineHeight: 18 },
 
   queueRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.blue50, borderTopWidth: 1, borderTopColor: Colors.blue100, padding: 16 },
   queueTitle: { fontSize: 13, fontWeight: '700', color: Colors.blue700, marginBottom: 2 },
