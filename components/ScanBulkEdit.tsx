@@ -28,8 +28,9 @@ interface Props {
   visible: boolean;
   scans: ScanRecord[];
   unit: Unit;
-  /** `failure` is set when only part of a big selection was saved. */
-  onDone: (summary: string, failure?: boolean) => void;
+  /** `failure` is set when only part of a big selection was saved. Awaited, so
+   *  Update stays disabled until the parent has reloaded its list. */
+  onDone: (summary: string, failure?: boolean) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -72,13 +73,13 @@ export default function ScanBulkEdit({ visible, scans, unit, onDone, onClose }: 
     }));
     try {
       const done = await postInBatches('/scans/bulk-update/', 'rows', rows);
-      onDone(bulkEditSummary({ updated: done.updated }, unit));
+      await onDone(bulkEditSummary({ updated: done.updated }, unit));
     } catch (err: any) {
       const msg = bulkError(err, 'Could not save the changes.');
       if (err?.doneCount) {
         // Part of it is saved, so a retry would apply a % change twice to those:
         // close (the parent reloads the list) and say how far it got.
-        onDone(`${msg} Only the first ${err.doneCount} of ${rows.length} were updated.`, true);
+        await onDone(`${msg} Only the first ${err.doneCount} of ${rows.length} were updated.`, true);
         return;
       }
       setError(msg);

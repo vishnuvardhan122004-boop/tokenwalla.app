@@ -90,3 +90,8 @@ describe('wording', () => {
     expect(bulkError({}, 'Could not save the changes.')).toBe('Could not save the changes.');
   });
 });
+
+test('an empty response body after a saved batch is not mistaken for a failure', async () => {
+  post.mockResolvedValue({ data: undefined });
+  expect(await postInBatches('/x/', 'rows', [{}])).toEqual({});
+});

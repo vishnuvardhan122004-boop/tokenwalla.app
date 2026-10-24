@@ -116,3 +116,16 @@ test('typing while a test is pinned searches normally', async () => {
   await typeInto('sugar');
   expect(names()).toEqual(['Panel 2']);
 });
+
+test('a different ?scan= at the same centre clears an old query that would hide it', async () => {
+  const { router } = require('expo-router');   // eslint-disable-line @typescript-eslint/no-require-imports
+  const many = Array.from({ length: 12 }, (_, i) => scan(i + 1, i === 1 ? { keywords: 'sugar' } : {}));
+  await mount(many, 'BLOOD_CENTER', '?scan=2');
+  await typeInto('sugar');
+  expect(names()).toEqual(['Panel 2']);
+  await typeInto('zzz');
+  expect(names()).toEqual([]);
+  await act(async () => { router.setParams({ scan: '9' }); });
+  expect(names()[0]).toBe('Panel 9');
+  expect(names()).toHaveLength(12);
+});

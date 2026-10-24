@@ -179,6 +179,10 @@ export default function ScanCenterScreen() {
     if (!same) API.post(`/scans/${scan.id}/view/`).catch(() => {});
   }, [openScan]);
 
+  // A different test linked at the same centre starts from a clean menu: an old
+  // query would hide the test the link just opened.
+  useEffect(() => { setQuery(''); setShown(SCAN_PAGE); }, [scanParam]);
+
   // Open the test a browse result pointed at, once per centre+test. A ref, not
   // state: the patient may close it again and it must stay closed.
   useEffect(() => {

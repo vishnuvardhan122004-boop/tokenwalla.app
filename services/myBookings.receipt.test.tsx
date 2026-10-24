@@ -114,3 +114,16 @@ test('a pass receipt says which side of the pass it is', async () => {
   expect(texts(/Appointment Pass #9 — redeemed against this booking/)).not.toHaveLength(0);
   expect(texts(/Service fee already paid on Appointment Pass #9\./)).not.toHaveLength(0);
 });
+
+test('Save receipt snapshots the whole scroll content and opens the share sheet', async () => {
+  const { captureRef } = require('react-native-view-shot');   // eslint-disable-line @typescript-eslint/no-require-imports
+  const Sharing = require('expo-sharing');                     // eslint-disable-line @typescript-eslint/no-require-imports
+  (captureRef as jest.Mock).mockResolvedValue('/tmp/receipt.png');
+  (Sharing.isAvailableAsync as jest.Mock).mockResolvedValue(true);
+  await mount([booking(1, 311)]);
+  await press(/^Receipt$/);
+  await press(/^Save receipt$/);
+  // snapshotContentContainer: a long receipt must not lose its Total below the fold.
+  expect(captureRef).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ snapshotContentContainer: true, format: 'png' }));
+  expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///tmp/receipt.png', expect.objectContaining({ mimeType: 'image/png' }));
+});

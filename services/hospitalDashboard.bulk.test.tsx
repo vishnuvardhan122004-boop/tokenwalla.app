@@ -5,6 +5,7 @@
  * and 54). The endpoints are live: POST /scans/bulk-update/ and /bulk-delete/.
  */
 import React from 'react';
+import { BackHandler } from 'react-native';
 import { Stack } from 'expo-router';
 import 'expo-router/build/testing-library/mocks';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
@@ -302,5 +303,143 @@ describe('import from a file', () => {
     await mount(many(3));
     await press(/^Select$/);
     expect(has(/^Import from file$/)).toBe(false);
+  });
+});
+
+describe('review fixes', () => {
+  const card = (name: string) => r.root.findAll((n: any) => typeof n.props?.onPress === 'function'
+    && n.props.accessible !== undefined && n.props.disabled !== undefined
+    && [n.props.accessibilityLabel].includes(name) || false);
+
+  test('outside select mode a card is not an accessible group, so Edit and Delete stay reachable', async () => {
+    await mount(many(3));
+    const cards = r.root.findAll((n: any) => n.props?.accessible === false && n.props?.disabled === true
+      && typeof n.props.onPress === 'function');
+    expect(cards.length).toBeGreaterThanOrEqual(3);
+    await press(/^Select$/);
+    expect(card('Select Panel 1').length).toBeGreaterThan(0);
+  });
+
+  test('a query typed before the list shrank to 5 does not keep filtering with no box to clear it', async () => {
+    await mount([
+      ...many(5),
+      scan(6, { name: 'HbA1c', keywords: 'sugar' }), scan(7, { name: 'TSH', keywords: 'sugar' }),
+    ]);
+    await type('Search your tests', 'sugar');
+    await press(/^Select$/);
+    await press(/^Select all \(2\)$/);
+    await pressLabel('Delete selected');
+    // After the delete the mock still serves all 7; shrink the server list to 5 first.
+    (API.get as jest.Mock).mockImplementation((url: string) =>
+      Promise.resolve({ data: url.startsWith('/scans/') ? many(5) : [] }));
+    await press(/^Delete 2$/);
+    expect(r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Search your tests')).toHaveLength(0);
+    expect(cardNames()).toHaveLength(5);
+    expect(has(/Nothing matches your search/)).toBe(false);
+  });
+
+  test('Android back leaves the delete prompt, then select mode, and is not trapped outside it', async () => {
+    const handlers: (() => boolean)[] = [];
+    const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_e: any, h: any) => {
+      handlers.push(h); return { remove: () => { handlers.splice(handlers.indexOf(h), 1); } } as any;
+    });
+    try {
+      await mount(many(3));
+      const base = handlers.length;                            // the navigator's own listener
+      await press(/^Select$/);
+      expect(handlers).toHaveLength(base + 1);                 // back is only taken once selecting
+      await press(/^Select all \(3\)$/);
+      await pressLabel('Delete selected');
+      expect(has(/Delete 3 tests\?/)).toBe(true);
+      await act(async () => { handlers[handlers.length - 1](); });
+      expect(has(/Delete 3 tests\?/)).toBe(false);            // prompt gone
+      expect(has(/3 selected/)).toBe(true);                    // still selecting
+      await act(async () => { handlers[handlers.length - 1](); });
+      expect(has(/selected/)).toBe(false);                     // select mode ended
+      expect(handlers).toHaveLength(base);                     // and back is released
+    } finally { spy.mockRestore(); }
+  });
+
+  test('leaving the Services tab ends select mode', async () => {
+    await mount(many(3));
+    await press(/^Select$/);
+    expect(has(/0 selected/)).toBe(true);
+    await press(/^Queue/);
+    await press(/^Services$/);
+    await press(/^Tests/);
+    expect(has(/selected/)).toBe(false);
+    expect(has(/^Select$/)).toBe(true);
+  });
+});
+
+describe('bulk edit: days and time slots', () => {
+  const openEdit = async (n: number) => {
+    await press(/^Select$/);
+    await press(new RegExp(`^Select all \\(${n}\\)$`));
+    await pressLabel('Edit selected');
+  };
+
+  test('tick Days, pick two: they go up in week order whatever order they were tapped', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Days');
+    await press(/^Wednesday$/);
+    await press(/^Monday$/);
+    await pressLabel('Update 2 tests');
+    expect(API.post).toHaveBeenCalledWith('/scans/bulk-update/', {
+      rows: [{ id: 1, days: ['Mon', 'Wed'] }, { id: 2, days: ['Mon', 'Wed'] }],
+    });
+  });
+
+  test('All days ticks all seven', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Days');
+    await press(/^All days$/);
+    await pressLabel('Update 2 tests');
+    expect((API.post as jest.Mock).mock.calls[0][1].rows[0].days).toEqual(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+  });
+
+  test('a quick-hours button replaces the slots, kept in clock order', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Time slots');
+    await pressLabel('Quick hours 9 AM – 1 PM');
+    await press(/^08:00 AM$/);     // an extra slot tapped out of order
+    await pressLabel('Update 2 tests');
+    const slots = (API.post as jest.Mock).mock.calls[0][1].rows[0].slots;
+    expect(slots[0]).toBe('08:00 AM');
+    expect(slots).toHaveLength(9);
+    expect(slots[slots.length - 1]).toBe('12:30 PM');
+  });
+
+  test('Clear All sends an empty list (walk-in), and the form says so first', async () => {
+    await mount(many(2));
+    await openEdit(2);
+    await pressLabel('Time slots');
+    expect(has(/Walk-in mode\./)).toBe(true);
+    await pressLabel('Update 2 tests');
+    expect((API.post as jest.Mock).mock.calls[0][1].rows[0].slots).toEqual([]);
+  });
+
+  test('Update stays disabled until the parent has finished reloading the list', async () => {
+    await mount(many(2));
+    let release: () => void = () => {};
+    const reload = new Promise<void>(res => { release = res; });
+    // The reload after the save hangs until released.
+    (API.get as jest.Mock).mockImplementation((url: string) =>
+      url.startsWith('/scans/') ? reload.then(() => ({ data: many(2) })) : Promise.resolve({ data: [] }));
+    await openEdit(2);
+    await pressLabel('Price');
+    await type('New price', '500');
+    await act(async () => {
+      r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Update 2 tests'
+        && typeof n.props.onPress === 'function')[0].props.onPress();
+    });
+    const update = () => r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Update 2 tests'
+      && typeof n.props.onPress === 'function')[0];
+    expect(update().props.disabled).toBe(true);               // saved, list still reloading
+    expect((API.post as jest.Mock).mock.calls).toHaveLength(1);
+    await act(async () => { release(); await reload; });
   });
 });

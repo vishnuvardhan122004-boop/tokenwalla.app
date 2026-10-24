@@ -51,7 +51,7 @@ export default function ReceiptModal({ booking, onClose }: {
   const [data, setData] = useState<Receipt | null>(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const sheetRef = useRef<View>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +66,9 @@ export default function ReceiptModal({ booking, onClose }: {
   const save = async () => {
     try {
       setSaving(true);
-      const uri = await captureRef(sheetRef, { format: 'png', quality: 1, result: 'tmpfile' });
+      // The scroll view's whole content, not just the part on screen: a long receipt
+      // (a pass note, several lines) must not lose its Total below the fold.
+      const uri = await captureRef(scrollRef, { format: 'png', quality: 1, result: 'tmpfile', snapshotContentContainer: true });
       const shareUri = uri.startsWith('file') ? uri : `file://${uri}`;
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(shareUri, { mimeType: 'image/png', dialogTitle: 'Save your receipt', UTI: 'public.png' });
@@ -91,11 +93,11 @@ export default function ReceiptModal({ booking, onClose }: {
           </TouchableOpacity>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, backgroundColor: Colors.white }}>
           {!data && !error && <ActivityIndicator style={{ marginTop: 40 }} color={Colors.blue600} />}
           {!!error && <Text style={s.error}>{error}</Text>}
           {data && b && (
-            <View ref={sheetRef} collapsable={false} style={s.sheet}>
+            <View style={s.sheet}>
               <View style={s.head}>
                 <View style={{ flex: 1 }}>
                   <Text style={s.brand}>TokenWalla</Text>

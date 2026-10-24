@@ -29,7 +29,7 @@ export async function postInBatches(
   for (let i = 0; i < items.length; i += BATCH) {
     try {
       const { data } = await API.post(url, { [key]: items.slice(i, i + BATCH) });
-      Object.entries(data as Record<string, number>).forEach(([k, v]) => { total[k] = (total[k] || 0) + v; });
+      Object.entries((data || {}) as Record<string, number>).forEach(([k, v]) => { total[k] = (total[k] || 0) + v; });
     } catch (err: any) {
       err.doneCount = i;
       throw err;

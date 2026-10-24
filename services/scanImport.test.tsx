@@ -157,3 +157,15 @@ test('Get template shares a CSV with the heading row and the centre\'s own examp
   expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/tokenwalla-tests-template.csv',
     expect.objectContaining({ mimeType: 'text/csv' }));
 });
+
+test('a fast double tap on Add sends the import once', async () => {
+  await mount();
+  await choose();
+  let finish: (v: unknown) => void = () => {};
+  (API.post as jest.Mock).mockImplementationOnce(() => new Promise(res => { finish = res; }));
+  const add = () => r.root.findAll((n: any) => n.props?.accessibilityLabel === 'Add 2 tests'
+    && typeof n.props.onPress === 'function')[0];
+  await act(async () => { add().props.onPress(); add().props.onPress(); });
+  expect((API.post as jest.Mock).mock.calls.filter(c => c[0] === '/scans/import/')).toHaveLength(1);
+  await act(async () => { finish({ data: { created: 2, skipped: [] } }); });
+});

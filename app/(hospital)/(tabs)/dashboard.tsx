@@ -21,6 +21,7 @@ import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } fro
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -516,22 +517,40 @@ export default function HospitalDashboard() {
   }, [sellsScans, sellsBlood, activeTab, loadScans]);
 
   const scanUnit = unit.one.toLowerCase() as 'scan' | 'test';
-  const matchedScans = scans.filter(sc => matchesTest(sc, scanQuery));
+  // The box only exists past SEARCH_ABOVE tests; a query typed before the list
+  // shrank (a bulk delete) must not keep filtering with nothing to clear it.
+  const matchedScans = scans.filter(sc => matchesTest(sc, scans.length > SEARCH_ABOVE ? scanQuery : ''));
+  // Sets, not includes(): 800 selected tests would be ~640k comparisons per render.
+  const pickedSet = new Set(picked);
+  const confirmSet = new Set(confirmIds || []);
   // Only what the search is showing is acted on: a test ticked and then filtered
   // out is not edited or deleted behind the user's back.
-  const pickedScans = matchedScans.filter(sc => picked.includes(sc.id));
+  const pickedScans = matchedScans.filter(sc => pickedSet.has(sc.id));
   const allPicked = matchedScans.length > 0 && pickedScans.length === matchedScans.length;
   const togglePick = (id: number | string) =>
     setPicked(p => (p.includes(id) ? p.filter(x => x !== id) : [...p, id]));
-  const toggleAllPicked = () => setPicked(p => (allPicked
-    ? p.filter(id => !matchedScans.some(sc => sc.id === id))
-    : [...new Set([...p, ...matchedScans.map(sc => sc.id)])]));
+  const toggleAllPicked = () => setPicked(p => {
+    const shown = new Set(matchedScans.map(sc => sc.id));
+    return allPicked ? p.filter(id => !shown.has(id)) : [...new Set([...p, ...shown])];
+  });
   const endSelecting = () => {
     setSelecting(false); setPicked([]); setBulkEditOpen(false); setConfirmIds(null);
   };
   // Leaving the tab ends select mode: the cards unmount and would come back
   // ticked but out of view.
   useEffect(() => { setSelecting(false); setPicked([]); setBulkEditOpen(false); setConfirmIds(null); }, [activeTab, seg]);
+  // Android back steps out one level at a time, as Esc does on the website: the
+  // delete prompt, then select mode. Only while selecting, so back keeps its
+  // normal meaning on the rest of the dashboard.
+  useEffect(() => {
+    if (!selecting) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (confirmIds) setConfirmIds(null);
+      else { setSelecting(false); setPicked([]); setBulkEditOpen(false); }
+      return true;
+    });
+    return () => sub.remove();
+  }, [selecting, confirmIds]);
 
   const onBulkEdited = async (text: string, failure?: boolean) => {
     await loadScans();
@@ -2030,19 +2049,22 @@ export default function HospitalDashboard() {
             ) : matchedScans.slice(0, scanShown).map(sc => (
               <TouchableOpacity
                 key={String(sc.id)}
-                style={[styles.scanCard, selecting && picked.includes(sc.id) && styles.scanCardPicked]}
+                style={[styles.scanCard, selecting && pickedSet.has(sc.id) && styles.scanCardPicked]}
                 activeOpacity={selecting ? 0.8 : 1}
                 disabled={!selecting || !!confirmIds}
                 onPress={() => togglePick(sc.id)}
+                // Not accessible outside select mode: an accessible parent hides the
+                // Edit and Delete buttons inside it from VoiceOver.
+                accessible={selecting}
                 accessibilityRole={selecting ? 'checkbox' : undefined}
-                accessibilityState={selecting ? { checked: picked.includes(sc.id) } : undefined}
+                accessibilityState={selecting ? { checked: pickedSet.has(sc.id) } : undefined}
                 accessibilityLabel={selecting ? `Select ${sc.name}` : undefined}
               >
                 <View style={styles.scanTop}>
                   {selecting && (
                     <Ionicons
-                      name={picked.includes(sc.id) ? 'checkbox' : 'square-outline'} size={22}
-                      color={picked.includes(sc.id) ? Colors.blue600 : Colors.gray400} />
+                      name={pickedSet.has(sc.id) ? 'checkbox' : 'square-outline'} size={22}
+                      color={pickedSet.has(sc.id) ? Colors.blue600 : Colors.gray400} />
                   )}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.scanName}>{sc.name}</Text>
@@ -2359,7 +2381,7 @@ export default function HospitalDashboard() {
                 Delete {confirmIds.length} {confirmIds.length === 1 ? scanUnit : `${scanUnit}s`}?
               </Text>
               <Text style={styles.selectBarSub} numberOfLines={2}>
-                {scans.filter(sc => confirmIds.includes(sc.id)).slice(0, 3).map(sc => sc.name).join(', ')}
+                {scans.filter(sc => confirmSet.has(sc.id)).slice(0, 3).map(sc => sc.name).join(', ')}
                 {confirmIds.length > 3 && ` and ${confirmIds.length - 3} more`}
               </Text>
               <Text style={styles.selectBarSub}>
