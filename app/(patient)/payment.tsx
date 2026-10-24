@@ -216,6 +216,7 @@ export default function PaymentScreen() {
           userName:     bookedForName || user?.name || user?.username,
           queue_access: 'true',
           offlineFee:   String(breakdown?.offline_doctor_fee ?? 0),
+          instructions: String(data.booking?.instructions || ''),
         },
       });
     } catch (e: any) {
@@ -491,6 +492,8 @@ export default function PaymentScreen() {
               // fee was collected online (FULL), so the ticket can drop the
               // "pay the doctor at the hospital" note.
               offlineFee:   String(breakdown?.offline_doctor_fee ?? 0),
+              // The provider's note (a doctor's instructions, or a test's prep).
+              instructions: String(verifyData.booking?.instructions || ''),
             },
           });
         } else {

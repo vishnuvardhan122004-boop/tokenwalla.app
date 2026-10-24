@@ -21,6 +21,7 @@ import { isTestHospital } from '../../constants/config';
 import { suggestKeywords } from '../../constants/searchKeywords';
 import API from '../../services/api';
 import { providerLabel } from '../../utils/booking';
+import { matchesTest } from '../../utils/matchTest';
 import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from '../../utils/scanCenters';
 import { SkeletonList } from '../../components/Skeleton';
 import { useI18n } from '../../services/i18n';
@@ -276,7 +277,7 @@ export default function DoctorsScreen() {
     .map(c => ({ ...c, scans: scansByCentre[c.id] || [] }))
     .filter(c => {
       const hay = [c.name, c.city, c.address,
-                   ...c.scans.map((sc: any) => `${sc.name} ${sc.modality}`)]
+                   ...c.scans.map((sc: any) => [sc.name, sc.modality, sc.keywords].filter(Boolean).join(' '))]
         .filter(Boolean).join(' ').toLowerCase();
       const words = search.toLowerCase().split(/\s+/).filter(Boolean);
       const matchSearch = words.every(w => hay.includes(w));
@@ -288,6 +289,18 @@ export default function DoctorsScreen() {
     .sort((a, b) => (b.scans.length > 0 ? 1 : 0) - (a.scans.length > 0 ? 1 : 0)
                  || b.scans.length - a.scans.length),
     [centres, scansByCentre, search, city]);
+
+  // Test-first results: someone typing "brain" is shopping for a test, so the
+  // matching tests (cheapest first) sit above the centre cards. Taken from
+  // filteredCentres, so the city filter applies. A row matches on the test's OWN
+  // name, type and synonyms: a place name alone gives centre cards only. The
+  // website's AllDoctor.js does the same, ten rows.
+  const TEST_ROWS = 10;
+  const testHits = useMemo(() => (isCentreMode && search.trim()
+    ? filteredCentres
+        .flatMap(c => c.scans.filter((sc: any) => matchesTest(sc, search)).map((sc: any) => ({ sc, c })))
+        .sort((a, b) => Number(a.sc.price) - Number(b.sc.price) || String(a.sc.name).localeCompare(String(b.sc.name)))
+    : []), [isCentreMode, search, filteredCentres]);
 
   const loadDoctors = useCallback(async () => {
     setError(false);
@@ -699,6 +712,34 @@ export default function DoctorsScreen() {
           </TouchableOpacity>
         )}
       </View>
+
+      {testHits.length > 0 && (
+        <View style={styles.hits}>
+          <Text style={styles.hitsTitle}>
+            {t(mode === BLOOD_CENTER ? 'tests_matching_blood' : 'tests_matching_scan')}
+          </Text>
+          {testHits.slice(0, TEST_ROWS).map(({ sc, c }) => (
+            <TouchableOpacity
+              key={String(sc.id)}
+              style={styles.hit}
+              activeOpacity={0.8}
+              // ?scan= opens this test on the centre page, not at the top of a
+              // long menu.
+              onPress={() => router.push(`/(patient)/scan-center/${c.id}?scan=${sc.id}` as never)}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.hitName} numberOfLines={1}>{sc.name}</Text>
+                <Text style={styles.hitSub} numberOfLines={1}>{c.name}{c.city ? ` · ${c.city}` : ''}</Text>
+              </View>
+              <Text style={styles.hitPrice}>₹{sc.price}</Text>
+            </TouchableOpacity>
+          ))}
+          {testHits.length > TEST_ROWS && (
+            <Text style={styles.hitsMore}>{t('tests_more', { shown: TEST_ROWS, total: testHits.length })}</Text>
+          )}
+          <Text style={[styles.hitsTitle, { marginTop: 10 }]}>{t('centres_heading')}</Text>
+        </View>
+      )}
     </>
   );
 
@@ -972,6 +1013,16 @@ const styles = StyleSheet.create({
   modeText:       { fontSize: 12, fontWeight: '600', color: Colors.gray500 },
   modeTextActive: { color: Colors.blue700 },
 
+  hits:      { paddingHorizontal: 16, paddingTop: 12 },
+  hitsTitle: { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 8 },
+  hit: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12,
+  },
+  hitName:  { fontSize: 14.5, fontWeight: '700', color: Colors.gray900 },
+  hitSub:   { fontSize: 12.5, color: Colors.gray500, marginTop: 2 },
+  hitPrice: { fontSize: 15, fontWeight: '800', color: Colors.blue700 },
+  hitsMore: { fontSize: 12.5, color: Colors.gray500, marginBottom: 6 },
   centreCard: {
     marginHorizontal: 16,
     backgroundColor: Colors.white, borderRadius: 16, padding: 14,

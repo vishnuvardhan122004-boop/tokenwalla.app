@@ -125,3 +125,81 @@ test('the doctor form has the same quick hours, and a second one replaces the fi
   await tap(control('Quick hours 9 AM – 1 PM'));
   expect(flat()).toContain('TIMESLOTS(8of48selected)');
 });
+
+// ── Name / Type quick picks (web #179) ────────────────────────────────────────
+const mountPicks = async (suggestions?: { names: string[]; types: string[] }) => {
+  (API.post as jest.Mock).mockResolvedValue({ data: {} });
+  await act(async () => {
+    r = TestRenderer.create(
+      <ScanEditorModal visible scan={null} centerId={1} unit="test" suggestions={suggestions}
+        onClose={jest.fn()} onSaved={jest.fn()} />);
+  });
+};
+const input = (placeholder: string) => r.root.findAll((n: any) =>
+  n.props?.placeholder === placeholder && typeof n.props.onChangeText === 'function')[0];
+const pick = (label: string) => r.root.findAll((n: any) =>
+  n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function')[0];
+const picks = { names: ['Complete Blood Count (CBC)', 'Lipid Profile'], types: ['Blood Test', 'Urine Test'] };
+
+test('typing a name offers matching picks, and tapping one fills the box', async () => {
+  await mountPicks(picks);
+  await act(async () => { input('e.g. MRI Brain').props.onChangeText('cbc'); });
+  expect(pick('Use Complete Blood Count (CBC)')).toBeDefined();
+  expect(pick('Use Lipid Profile')).toBeUndefined();
+  await tap(pick('Use Complete Blood Count (CBC)'));
+  expect(input('e.g. MRI Brain').props.value).toBe('Complete Blood Count (CBC)');
+  expect(pick('Use Complete Blood Count (CBC)')).toBeUndefined();      // an exact pick offers none
+});
+
+test('the Type box has its own picks', async () => {
+  await mountPicks(picks);
+  await tap(pick('Use Urine Test'));
+  expect(input('e.g. MRI, CT, X-ray, Blood Test').props.value).toBe('Urine Test');
+});
+
+test('with no suggestions passed the form is unchanged', async () => {
+  await mountPicks(undefined);
+  expect(pick('Use Lipid Profile')).toBeUndefined();
+  expect(pick('Use Blood Test')).toBeUndefined();
+});
+
+// ── The doctor form uses the shared day / slot picker (web-parity review) ─────
+const openDoctorForm = async () => {
+  process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
+  await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
+  (API.get as jest.Mock).mockImplementation((url: string) =>
+    url.startsWith('/bookings/queue/')
+      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress: [], completed: [] } })
+      : Promise.resolve({ data: [] }));
+  await act(async () => {
+    r = TestRenderer.create(<ExpoRoot context={getMockContext({
+      _layout: () => <Stack screenOptions={{ headerShown: false }} />,
+      dashboard: Dashboard,
+    })} location="/dashboard" />);
+  });
+  for (let i = 0; i < 5; i++) await act(async () => { await Promise.resolve(); });
+  await tap(pressableByText('Doctors 0'));
+  await tap(pressableByText('+ Add New Doctor'));
+};
+
+test('the doctor form: days count up in week order, and the "pick a day" warning goes once one is chosen', async () => {
+  await openDoctorForm();
+  expect(flat()).toContain('AVAILABLEDAYS(0of7selected)');
+  expect(flat()).toContain('Pleaseselectatleastoneday');
+  await tap(pressableByText('Wednesday'));
+  await tap(pressableByText('Monday'));
+  expect(flat()).toContain('AVAILABLEDAYS(2of7selected)');
+  expect(flat()).not.toContain('Pleaseselectatleastoneday');
+  await tap(pressableByText('Clear All'));                       // first Clear All is the days one
+  expect(flat()).toContain('AVAILABLEDAYS(0of7selected)');
+  await tap(pressableByText('Select All'));
+  expect(flat()).toContain('AVAILABLEDAYS(7of7selected)');
+});
+
+test('the doctor form: no slots is Walk-in mode, and any slot ends it', async () => {
+  await openDoctorForm();
+  expect(flat()).toContain('Walk-inmode');
+  await tap(pressableByText('08:00 AM'));
+  expect(flat()).toContain('TIMESLOTS(1of48selected)');
+  expect(flat()).not.toContain('Walk-inmode');
+});

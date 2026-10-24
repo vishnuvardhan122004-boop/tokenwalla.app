@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ComponentProps, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -42,11 +42,13 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
-  asList, KIND_TO_SEGMENT, SCAN_PAGE, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
+  asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
 } from '../../../utils/scanCenters';
-import { DAYS_OF_WEEK, DEFAULT_SLOTS, SLOT_SECTIONS } from '../../../constants/slots';
-import QuickHours from '../../../components/QuickHours';
-import ScanEditorModal, { confirmDeleteScan, type ScanRecord } from '../../../components/ScanEditorModal';
+import { DAYS_OF_WEEK, DEFAULT_SLOTS } from '../../../constants/slots';
+import { applyUpdate, DayPicker, SlotPicker } from '../../../components/SchedulePicker';
+import ScanEditorModal, { type ScanRecord } from '../../../components/ScanEditorModal';
+import ScansPanel from '../../../components/ScansPanel';
+import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
 import WalkInForm from '../../../components/WalkInForm';
@@ -91,6 +93,8 @@ interface Doctor {
   // Priority booking (0 = off). Absent on a backend that predates it.
   priority_fee?: number;
   priority_per_slot?: number;
+  /** The doctor's note to patients, shown on their token. */
+  instructions?: string;
   available: boolean;
   running_delay_minutes?: number;
   slots: string[];
@@ -140,6 +144,7 @@ interface FormState {
   booking_cutoff_hours: string;   // '' = use the platform default
   priority_fee: string;           // '' / '0' = no priority booking
   priority_per_slot: string;
+  instructions: string;
   available: boolean;
   slots: string[];
   days: string[];
@@ -191,6 +196,7 @@ const EMPTY_FORM: FormState = {
   booking_cutoff_hours: '',
   priority_fee:   '',
   priority_per_slot: '2',
+  instructions:   '',
   available:      true,
   slots:          [],
   days:           [],
@@ -343,7 +349,9 @@ export default function HospitalDashboard() {
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
-  const [scanShown,  setScanShown]  = useState(SCAN_PAGE);
+  // The tests list's pinned Select bar, drawn here because it sits under the page's
+  // ScrollView (see components/ScansPanel.tsx).
+  const [scanBar, setScanBar] = useState<ReactNode>(null);
   // null + open = adding; a record + open = editing. Two pieces of state rather
   // than one nullable, so closing the sheet does not blank the row mid-animation.
   // Which completed booking is mid-upload, so only that card shows a spinner.
@@ -496,6 +504,11 @@ export default function HospitalDashboard() {
     // until you clicked through, which looks like an empty price list.
     if ((sellsScans || sellsBlood) && activeTab === 'doctors') loadScans();
   }, [sellsScans, sellsBlood, activeTab, loadScans]);
+
+  const scanUnit = unit.one.toLowerCase() as 'scan' | 'test';
+  // Stable, so the memoised tests panel is not re-rendered by the queue poll.
+  const addScan = useCallback(() => { setEditScan(null); setScanModalOpen(true); }, []);
+  const editScanRow = useCallback((sc: ScanRecord) => { setEditScan(sc); setScanModalOpen(true); }, []);
 
   // ── Load Doctors ──────────────────────────────────────────────────────────
   const loadDoctors = useCallback(async () => {
@@ -782,6 +795,7 @@ export default function HospitalDashboard() {
       booking_cutoff_hours: doc.booking_cutoff_hours == null ? '' : String(doc.booking_cutoff_hours),
       priority_fee:   doc.priority_fee ? String(doc.priority_fee) : '',
       priority_per_slot: String(doc.priority_per_slot ?? 2),
+      instructions:   doc.instructions    || '',
       available:      doc.available       ?? true,
       slots:          doc.slots           || [],
       days:           doc.days            || [],
@@ -813,28 +827,6 @@ export default function HospitalDashboard() {
   const setField = (field: keyof FormState, value: string) => {
     setForm(p => ({ ...p, [field]: value }));
     setErrors(p => (p[field] ? { ...p, [field]: '' } : p));
-  };
-
-  // ── Slot toggle ───────────────────────────────────────────────────────────
-  const toggleSlot = (slot: string) => {
-    setForm(prev => ({
-      ...prev,
-      slots: prev.slots.includes(slot)
-        ? prev.slots.filter((s: string) => s !== slot)
-        : [...prev.slots, slot],
-    }));
-    setErrors(p => (p.slots ? { ...p, slots: '' } : p));
-  };
-
-  // ── Day toggle ────────────────────────────────────────────────────────────
-  const toggleDay = (day: string) => {
-    setForm(prev => ({
-      ...prev,
-      days: prev.days.includes(day)
-        ? prev.days.filter((d: string) => d !== day)
-        : [...prev.days, day],
-    }));
-    setErrors(p => (p.days ? { ...p, days: '' } : p));
   };
 
   const specSuggestions    = suggestSpecializations(form.specialization);
@@ -874,6 +866,8 @@ export default function HospitalDashboard() {
       // writes NULL. Sending nothing at all would leave a previously-set
       // override in place, so clearing the box would silently do nothing.
       payload.append('booking_cutoff_hours', form.booking_cutoff_hours.trim());
+      // Always sent, blank included, so clearing the box clears it.
+      payload.append('instructions',   form.instructions.trim());
       payload.append('available',      String(form.available));
       payload.append('slots',          JSON.stringify(form.slots));
       payload.append('days',           JSON.stringify(form.days));
@@ -1009,6 +1003,8 @@ export default function HospitalDashboard() {
           visible={scanModalOpen}
           scan={editScan}
           unit={unit.one.toLowerCase() as 'scan' | 'test'}
+          // A hybrid centre gets both lists, a blood-only lab never an MRI.
+          suggestions={suggestionsFor(sellsBlood, sellsScans)}
           centerId={hospital.id}
           onClose={() => setScanModalOpen(false)}
           onSaved={loadScans}
@@ -1305,6 +1301,18 @@ export default function HospitalDashboard() {
                 onChange={(v: string) => setField('booking_cutoff_hours', v)}
               />
 
+              <Text style={styles.fieldLabel}>Instructions for patients (optional)</Text>
+              <TextInput
+                style={[styles.fieldInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                multiline
+                maxLength={1000}
+                placeholder="e.g. Bring your previous reports and prescriptions"
+                placeholderTextColor={Colors.gray400}
+                value={form.instructions}
+                onChangeText={(v: string) => setField('instructions', v)}
+              />
+              <Text style={styles.fieldHint}>Shown to the patient on their token after they book.</Text>
+
               {editDoc && editDoc.priority_fee !== undefined && (
                 <View style={styles.fieldRow}>
                   <View style={{ flex: 1, marginRight: 8 }}>
@@ -1358,102 +1366,45 @@ export default function HospitalDashboard() {
                 AVAILABLE DAYS  ({form.days.length} of {DAYS_OF_WEEK.length} selected)
               </Text>
 
-              <View style={styles.slotActions}>
-                <TouchableOpacity
-                  style={styles.slotActionBtn}
-                  onPress={() => setForm(p => ({ ...p, days: DAYS_OF_WEEK.map(d => d.key) }))}
-                >
-                  <Text style={styles.slotActionText}>Select All</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
-                  onPress={() => setForm(p => ({ ...p, days: [] }))}
-                >
-                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
-                </TouchableOpacity>
-              </View>
-
-              {form.days.length === 0 && (
-                <View style={styles.slotWarning}>
-                  <Text style={{ fontSize: 13, color: Colors.errorText }}>
-                    Please select at least one day
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.slotGrid}>
-                {DAYS_OF_WEEK.map(({ key, label }) => {
-                  const selected = form.days.includes(key);
-                  return (
-                    <TouchableOpacity
-                      key={key}
-                      style={[styles.dayChip, selected && styles.slotChipActive]}
-                      onPress={() => toggleDay(key)}
-                    >
-                      <Text style={[styles.slotChipText, selected && styles.slotChipTextActive]}>
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <DayPicker
+                days={form.days}
+                onChange={days => {
+                  setForm(p => ({ ...p, days: applyUpdate(days, p.days) }));
+                  setErrors(p => (p.days ? { ...p, days: '' } : p));
+                }}
+                note={(
+                  <View style={styles.slotWarning}>
+                    <Text style={{ fontSize: 13, color: Colors.errorText }}>
+                      Please select at least one day
+                    </Text>
+                  </View>
+                )}
+              />
 
               {/* ── SLOTS ─────────────────────────────────────────────── */}
               <Text style={styles.formSection}>
                 TIME SLOTS  ({form.slots.length} of {DEFAULT_SLOTS.length} selected)
               </Text>
 
-              <View style={styles.slotActions}>
-                <TouchableOpacity
-                  style={styles.slotActionBtn}
-                  onPress={() => setForm(p => ({ ...p, slots: [...DEFAULT_SLOTS] }))}
-                >
-                  <Text style={styles.slotActionText}>Select All</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.slotActionBtn, { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg }]}
-                  onPress={() => setForm(p => ({ ...p, slots: [] }))}
-                >
-                  <Text style={[styles.slotActionText, { color: Colors.errorText }]}>Clear All</Text>
-                </TouchableOpacity>
-              </View>
-
-              <QuickHours onPick={slots => setForm(p => ({ ...p, slots }))} />
-
-              {form.slots.length === 0 && (
-                <View style={styles.walkInNote}>
-                  <Text style={{ fontSize: 13, color: Colors.blue800, fontWeight: '700', marginBottom: 3 }}>
-                    Walk-in mode
-                  </Text>
-                  <Text style={{ fontSize: 13, color: Colors.blue800, lineHeight: 18 }}>
-                    With no slots selected, patients see this doctor as available along with
-                    your hospital timings and notice, and call you to visit — there is no
-                    online token booking.
-                  </Text>
-                </View>
-              )}
-
-              {SLOT_SECTIONS.map(section => (
-                <View key={section.label} style={{ marginBottom: 14 }}>
-                  <Text style={styles.slotSectionLabel}>{section.label}</Text>
-                  <View style={styles.slotGrid}>
-                    {section.slots.map((slot: string) => {
-                      const selected = form.slots.includes(slot);
-                      return (
-                        <TouchableOpacity
-                          key={slot}
-                          style={[styles.slotChip, selected && styles.slotChipActive]}
-                          onPress={() => toggleSlot(slot)}
-                        >
-                          <Text style={[styles.slotChipText, selected && styles.slotChipTextActive]}>
-                            {slot}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+              <SlotPicker
+                slots={form.slots}
+                onChange={slots => {
+                  setForm(p => ({ ...p, slots: applyUpdate(slots, p.slots) }));
+                  setErrors(p => (p.slots ? { ...p, slots: '' } : p));
+                }}
+                note={(
+                  <View style={styles.walkInNote}>
+                    <Text style={{ fontSize: 13, color: Colors.blue800, fontWeight: '700', marginBottom: 3 }}>
+                      Walk-in mode
+                    </Text>
+                    <Text style={{ fontSize: 13, color: Colors.blue800, lineHeight: 18 }}>
+                      With no slots selected, patients see this doctor as available along with
+                      your hospital timings and notice, and call you to visit — there is no
+                      online token booking.
+                    </Text>
                   </View>
-                </View>
-              ))}
+                )}
+              />
 
               <View style={{ height: 50 }} />
             </ScrollView>
@@ -1507,6 +1458,9 @@ export default function HospitalDashboard() {
       ══════════════════════════════════════════════════════════════════════ */}
       <ScrollView
         showsVerticalScrollIndicator={false}
+        // The tests search box is in here: without this the first tap after typing
+        // (on Select, Edit, a card) only dismisses the keyboard.
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.blue600} />
         }
@@ -1841,84 +1795,18 @@ export default function HospitalDashboard() {
         )}
 
         {activeTab === 'doctors' && isCentre && (
-          <View style={{ padding: 16 }}>
-            <Text style={styles.scanLead}>
-              Patients see these, with prices, on your centre page.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.addDoctorBtn}
-              onPress={() => { setEditScan(null); setScanModalOpen(true); }}
-            >
-              <Text style={styles.addDoctorBtnText}>+ Add New {unit.one}</Text>
-            </TouchableOpacity>
-
-            {scans.length === 0 ? (
-              <View style={styles.scanEmpty}>
-                <Ionicons
-                  name={sellsBlood && !sellsScans ? 'water-outline' : 'pulse-outline'}
-                  size={38} color={Colors.gray400} />
-                <Text style={styles.scanEmptyTitle}>No {unit.many.toLowerCase()} listed yet</Text>
-                <Text style={styles.scanEmptySub}>
-                  Patients can find your centre but cannot see what you offer
-                  until you add one.
-                </Text>
-              </View>
-            ) : scans.slice(0, scanShown).map(sc => (
-              <View key={String(sc.id)} style={styles.scanCard}>
-                <View style={styles.scanTop}>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.scanName}>{sc.name}</Text>
-                    <Text style={styles.scanMeta}>
-                      {[sc.modality, `${sc.duration_minutes} min`,
-                        `${sc.slots?.length || 0} slot${sc.slots?.length === 1 ? '' : 's'}`]
-                        .filter(Boolean).join(' · ')}
-                    </Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.scanPrice}>₹{sc.price}</Text>
-                    <Text style={styles.scanPayMode}>
-                      {sc.payment_collection_mode === 'FULL' ? 'Paid online' : 'Paid at centre'}
-                    </Text>
-                    <Text style={[styles.scanBadge, !sc.available && styles.scanBadgeOff]}>
-                      {sc.available ? 'Listed' : 'Hidden'}
-                    </Text>
-                  </View>
-                </View>
-                {!!sc.prep_instructions && (
-                  <Text style={styles.scanPrep}>⚠ {sc.prep_instructions}</Text>
-                )}
-                <View style={styles.scanActions}>
-                  <TouchableOpacity
-                    style={styles.scanEditBtn}
-                    onPress={() => { setEditScan(sc); setScanModalOpen(true); }}
-                  >
-                    <Ionicons name="create-outline" size={15} color={Colors.blue700} />
-                    <Text style={styles.scanEditText}>Edit</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.scanDeleteBtn}
-                    onPress={() => confirmDeleteScan(sc, loadScans, unit.one.toLowerCase() as 'scan' | 'test')}
-                  >
-                    <Ionicons name="trash-outline" size={15} color={Colors.errorText} />
-                    <Text style={styles.scanDeleteText}>Delete</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {scans.length > scanShown && (
-              <TouchableOpacity
-                style={styles.scanMoreBtn}
-                onPress={() => setScanShown(n => n + SCAN_PAGE)}
-                accessibilityRole="button"
-              >
-                <Text style={styles.scanEditText}>
-                  Show more ({scans.length - scanShown} left)
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          // Mounted only on this tab, so leaving it (to Queue, or to Doctors inside
+          // Services) unmounts the panel and clears a half-made selection.
+          <ScansPanel
+            scans={scans}
+            loadScans={loadScans}
+            centerId={hospital?.id}
+            unit={scanUnit}
+            bloodOnly={sellsBlood && !sellsScans}
+            onAdd={addScan}
+            onEdit={editScanRow}
+            onBar={setScanBar}
+          />
         )}
 
         {activeTab === 'doctors' && !isCentre && (
@@ -2169,6 +2057,8 @@ export default function HospitalDashboard() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {scanBar}
     </SafeAreaView>
   );
 }
@@ -2252,34 +2142,8 @@ const styles = StyleSheet.create({
   completedBadge: { flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: Colors.successBg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   completedText:  { fontSize: 12, fontWeight: '600', color: Colors.successText },
 
-  scanLead:  { fontSize: 12.5, color: Colors.gray500, lineHeight: 18, marginBottom: 14 },
-  scanEmpty: { alignItems: 'center', gap: 6, paddingVertical: 40 },
-  scanEmptyTitle: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
-  scanEmptySub:   { fontSize: 12.5, color: Colors.gray500, textAlign: 'center', lineHeight: 18, paddingHorizontal: 24 },
-  scanCard: {
-    backgroundColor: Colors.white, borderRadius: 14, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: Colors.gray200,
-  },
-  scanTop:   { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  scanName:  { fontSize: 15, fontWeight: '700', color: Colors.gray900 },
-  scanMeta:  { fontSize: 12.5, color: Colors.gray500, marginTop: 3 },
-  scanPrice: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
-  scanBadge: {
-    fontSize: 10.5, fontWeight: '700', color: Colors.successText,
-    backgroundColor: Colors.successBg, paddingVertical: 2, paddingHorizontal: 8,
-    borderRadius: 6, overflow: 'hidden', marginTop: 4,
-  },
-  scanBadgeOff: { color: Colors.gray500, backgroundColor: Colors.gray100 },
-  scanPayMode:  { fontSize: 11, color: Colors.gray500, marginTop: 3, fontWeight: '600' },
-  scanPrep: { fontSize: 12, color: '#92400E', marginTop: 9, lineHeight: 17 },
   uploadBtn:      { flexDirection: 'row', gap: 5, alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 9, paddingHorizontal: 10, paddingVertical: 6, minWidth: 82, justifyContent: 'center' },
   uploadBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
-  scanActions:    { flexDirection: 'row', gap: 10, marginTop: 12 },
-  scanEditBtn:    { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 9 },
-  scanEditText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
-  scanMoreBtn:    { alignItems: 'center', borderWidth: 1, borderColor: Colors.blue200, backgroundColor: Colors.blue50, borderRadius: 10, paddingVertical: 12, marginTop: 4 },
-  scanDeleteBtn:  { flex: 1, flexDirection: 'row', gap: 5, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg, borderRadius: 10, paddingVertical: 9 },
-  scanDeleteText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
 
   addDoctorBtn:      { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 14, alignItems: 'center', marginBottom: 16, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   addDoctorBtnText:  { color: Colors.white, fontWeight: '700', fontSize: 15 },
@@ -2340,6 +2204,7 @@ const styles = StyleSheet.create({
   modalBody:    { padding: 20 },
   formSection:  { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.blue600, marginTop: 20, marginBottom: 14, textTransform: 'uppercase' },
   fieldLabel:   { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7 },
+  fieldHint:    { fontSize: 11.5, color: Colors.gray400, lineHeight: 17, marginTop: -4, marginBottom: 12 },
   fieldInput:   { backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900, marginBottom: 14 },
   fieldRow:     { flexDirection: 'row' },
   // An errored input keeps its own margin; the message sits in the gap below it.
@@ -2367,16 +2232,6 @@ const styles = StyleSheet.create({
   bannerRemoveBtnText:       { fontSize: 12, fontWeight: '700', color: '#fff' },
   hospitalBannerPlaceholder: { width: '100%', height: 90, borderRadius: 12, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
 
-  slotActions:      { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  slotActionBtn:    { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 9, paddingHorizontal: 16, paddingVertical: 8 },
-  slotActionText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
   slotWarning:      { backgroundColor: Colors.errorBg, borderRadius: 10, padding: 10, marginBottom: 12 },
   walkInNote:       { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 10, padding: 12, marginBottom: 12 },
-  slotSectionLabel: { fontSize: 11, fontWeight: '700', color: Colors.gray500, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  slotGrid:             { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  slotChip:             { paddingVertical: 8, paddingHorizontal: 10, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50 },
-  dayChip:              { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 9, borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.gray50 },
-  slotChipActive:       { backgroundColor: Colors.blue600, borderColor: Colors.blue600 },
-  slotChipText:         { fontSize: 12, fontWeight: '500', color: Colors.gray600 },
-  slotChipTextActive:   { color: Colors.white, fontWeight: '700' },
 });

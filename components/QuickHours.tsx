@@ -1,10 +1,10 @@
 /**
  * components/QuickHours.tsx — one-tap hours above a slot grid.
  *
- * Shared by the doctor form (dashboard.tsx) and ScanEditorModal so the two
- * can't drift, as their Select All buttons already have. A tap REPLACES the
- * selected slots; the caller decides what else survives (a scan keeps times
- * saved off the half-hour grid, which this grid cannot show or remove).
+ * Used by SchedulePicker, so the doctor form, ScanEditorModal and ScanBulkEdit all get
+ * the same buttons. A tap REPLACES the selected slots; the caller decides what else
+ * survives (a scan keeps times saved off the half-hour grid, which this grid cannot
+ * show or remove).
  */
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
