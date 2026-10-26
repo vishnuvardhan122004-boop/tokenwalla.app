@@ -4,17 +4,23 @@
  * The app's home screen (patient tab). The old standalone landing route ("/")
  * now just redirects here, so this is the single source of truth for the home UI.
  * Includes a language switcher (globe button) wired to the i18n context.
+ *
+ * It opens on what a patient came for — search, their city, hospitals, doctors —
+ * and every number on it is derived from the public doctor list
+ * (utils/homeSummary.ts). It used to carry a hard-coded stats row ("2,400+
+ * tokens", "94% on-time", "4.8★") that no data ever supported.
  */
 
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Redirect, useFocusEffect, useRouter } from 'expo-router';
-import { ComponentProps, useCallback, useEffect, useRef, useState } from 'react';
+import { ComponentProps, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,37 +30,30 @@ import { Colors } from '../constants/colors';
 import { isTestHospital } from '../constants/config';
 import { providerLabel } from '../utils/booking';
 import { computeFeeBreakdown, money } from '../utils/fees';
+import { featuredDoctors, initials, summariseDoctors } from '../utils/homeSummary';
 import API, { getUser } from '../services/api';
 import { useI18n } from '../services/i18n';
 import { registerPushToken } from '../services/notifications';
 import LanguageModal from './LanguageModal';
 import NotificationBell from './NotificationBell';
 
-const STATS = [
-  { num: '2,400+', key: 'stat_tokens'    },
-  { num: '18',     key: 'stat_hospitals' },
-  { num: '94%',    key: 'stat_ontime'    },
-  { num: '4.8★',   key: 'stat_rating'    },
-];
-
 // Icon name typed against Ionicons' glyph set, so tsc rejects any invalid name
 // (a typo fails the build — no broken glyph boxes ever ship).
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const FEATURES: { icon: IconName; titleKey: string; descKey: string }[] = [
-  { icon: 'navigate-outline',        titleKey: 'feat_queue_title',  descKey: 'feat_queue_desc'  },
-  { icon: 'lock-closed-outline',     titleKey: 'feat_pay_title',    descKey: 'feat_pay_desc'    },
-  { icon: 'refresh-outline',         titleKey: 'feat_cancel_title', descKey: 'feat_cancel_desc' },
-  { icon: 'phone-portrait-outline',  titleKey: 'feat_device_title', descKey: 'feat_device_desc' },
+// Three short promises under the hero buttons, in place of the old feature cards.
+const TRUST = ['feat_queue_title', 'feat_pay_title', 'feat_cancel_title'];
+
+const STEPS: { icon: IconName; titleKey: string }[] = [
+  { icon: 'search-outline',   titleKey: 'step_find_title'   },
+  { icon: 'calendar-outline', titleKey: 'step_slot_title'   },
+  { icon: 'card-outline',     titleKey: 'step_pay_title'    },
+  { icon: 'walk-outline',     titleKey: 'step_walkin_title' },
 ];
 
-const STEPS_2_4: { icon: IconName; titleKey: string; descKey: string }[] = [
-  { icon: 'calendar-outline', titleKey: 'step_slot_title',   descKey: 'step_slot_desc'   },
-  { icon: 'card-outline',     titleKey: 'step_pay_title',    descKey: 'step_pay_desc'    },
-  { icon: 'walk-outline',     titleKey: 'step_walkin_title', descKey: 'step_walkin_desc' },
-];
-
-const PRICE_FEATURES = ['price_f1', 'price_f2', 'price_f3', 'price_f4', 'price_f5'];
+const MAX_CITIES    = 5;
+const MAX_HOSPITALS = 6;
+const MAX_DOCTORS   = 8;
 
 // What a booking actually costs online, computed from the same constants the
 // backend prices with (utils/fees.ts mirrors payments/fees.py). Passing 0 as
@@ -63,7 +62,7 @@ const PRICE_FEATURES = ['price_f1', 'price_f2', 'price_f3', 'price_f4', 'price_f
 // way the old hardcoded "₹20" did.
 const SERVICE_BILL = computeFeeBreakdown(0);
 
-// Quick-access specialty chips. `key` is the search term deep-linked to the
+// Quick-access specialty tiles. `key` is the search term deep-linked to the
 // doctors tab (?q=key); doctors.tsx expands it via SPEC_SYNONYMS so e.g. "skin"
 // also finds doctors stored as "Dermatologist". Labels are translated (spec_*).
 // Icons mirror the web app's specialty chips (src/componets/AllDoctor.js).
@@ -112,7 +111,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t, lang } = useI18n();
 
-  const [doctors, setDoctors] = useState<any[]>([]);
+  // Every real doctor; the cities, hospitals and cards below are all derived
+  // from this one list.
+  const [allDoctors, setAllDoctors] = useState<any[]>([]);
+  const [query,   setQuery]   = useState('');
   const [user,    setUser]    = useState<{ name?: string; username?: string; role?: string; hospital?: unknown } | null>(null);
   const [loading, setLoading] = useState(true);
   const [navBusy, setNavBusy] = useState<'patient' | null>(null);
@@ -185,12 +187,21 @@ export default function HomeScreen() {
         // older versions returned a plain array — handle both.
         const list = Array.isArray(data) ? data : (data.results || []);
         // Hide test/demo hospitals from the patient app.
-        const real = list.filter((d: any) => !isTestHospital(d.hospital_name));
-        setDoctors(real.slice(0, 6));
+        setAllDoctors(list.filter((d: any) => !isTestHospital(d.hospital_name)));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const { cities, hospitals } = useMemo(() => summariseDoctors(allDoctors), [allDoctors]);
+  const doctors = useMemo(() => featuredDoctors(allDoctors, MAX_DOCTORS), [allDoctors]);
+
+  // `q` is the doctors tab's search box: a city, a hospital or a specialty all
+  // match the doctor's searchable text there.
+  const openDoctors = (q?: string) =>
+    q
+      ? router.push({ pathname: '/(patient)/doctors', params: { q } })
+      : router.push('/(patient)/doctors');
 
   // Only render the pass when the server says it is on sale. `credits` is what
   // the patient is holding right now; when they hold one we show that instead
@@ -225,7 +236,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <LanguageModal visible={langOpen} onClose={() => setLangOpen(false)} />
-      <ScrollView style={styles.root} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ── Navbar ── */}
         <View style={styles.navbar}>
@@ -284,12 +295,84 @@ export default function HomeScreen() {
           <Text style={styles.heroSub}>{t('hero_sub')}</Text>
 
           {!isHospital && (
-            <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => router.push('/(patient)/doctors')}
-            >
+            <View style={styles.searchRow}>
+              <Ionicons name="search-outline" size={18} color={Colors.gray400} />
+              <TextInput
+                style={styles.searchInput}
+                value={query}
+                onChangeText={setQuery}
+                placeholder={t('search_placeholder')}
+                placeholderTextColor={Colors.gray400}
+                returnKeyType="search"
+                onSubmitEditing={() => openDoctors(query.trim())}
+                accessibilityLabel={t('search_placeholder')}
+              />
+              <TouchableOpacity
+                style={styles.searchBtn}
+                onPress={() => openDoctors(query.trim())}
+                accessibilityRole="button"
+                accessibilityLabel={t('find_doctors')}
+              >
+                <Ionicons name="arrow-forward" size={18} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* The city buttons: one per city that has doctors, so a new city
+              appears with no code change. */}
+          {!isHospital && (loading || cities.length > 0) && (
+            <View style={styles.cityBlock}>
+              <View style={styles.cityLabelRow}>
+                <Ionicons name="location" size={13} color={Colors.blue600} />
+                <Text style={styles.cityLabel}>{t('choose_your_city')}</Text>
+              </View>
+              {loading && <View style={[styles.cityBtn, styles.skel]} />}
+              {cities.slice(0, MAX_CITIES).map((c) => (
+                <TouchableOpacity
+                  key={c.key}
+                  style={styles.cityBtn}
+                  activeOpacity={0.8}
+                  onPress={() => openDoctors(c.name)}
+                  accessibilityRole="button"
+                  accessibilityLabel={c.name}
+                >
+                  <View style={styles.cityPin}>
+                    <Ionicons name="location" size={20} color={Colors.white} />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.cityName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.cityMeta} numberOfLines={1}>
+                      {t('home_doctors_count', { count: c.doctors })} · {t('home_hospitals_count', { count: c.hospitals })}
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={18} color={Colors.blue600} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {!isHospital && (
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => openDoctors()}>
               <Text style={styles.primaryBtnText}>{t('book_appointment')}</Text>
             </TouchableOpacity>
+          )}
+
+          {!isHospital && (
+            <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.push('/(patient)/hospitals')}>
+              <Ionicons name="business-outline" size={17} color={Colors.blue600} />
+              <Text style={styles.secondaryBtnText}>{t('stat_hospitals')}</Text>
+            </TouchableOpacity>
+          )}
+
+          {!isHospital && (
+            <View style={styles.trustRow}>
+              {TRUST.map((k) => (
+                <View key={k} style={styles.trustItem}>
+                  <Ionicons name="checkmark" size={14} color={Colors.successText} />
+                  <Text style={styles.trustText}>{t(k)}</Text>
+                </View>
+              ))}
+            </View>
           )}
         </View>
 
@@ -297,79 +380,53 @@ export default function HomeScreen() {
         {!isHospital && (
         <View style={styles.specSection}>
           <Text style={styles.specLabel}>{t('browse_by_specialty')}</Text>
-          <View style={styles.specRow}>
+          <View style={styles.specGrid}>
             {SPECIALTIES.map((s) => (
               <TouchableOpacity
                 key={s.key}
-                style={styles.specChip}
+                style={styles.specTile}
                 activeOpacity={0.7}
-                onPress={() => router.push({ pathname: '/(patient)/doctors', params: { q: s.key } })}
+                onPress={() => openDoctors(s.key)}
               >
-                <Ionicons name={s.icon} size={14} color={Colors.blue600} />
-                <Text style={styles.specChipText}>{t(`spec_${s.key}`)}</Text>
+                <View style={styles.specIconBox}>
+                  <Ionicons name={s.icon} size={20} color={Colors.blue600} />
+                </View>
+                <Text style={styles.specTileText} numberOfLines={2}>{t(`spec_${s.key}`)}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
         )}
 
-        {/* ── Stats ── */}
-        <View style={styles.statsRow}>
-          {STATS.map((s, i) => {
-            // The hospitals stat opens the hospital list. Not for a hospital
-            // account: that route sits behind the patient-only guard.
-            const opensList = s.key === 'stat_hospitals' && !isHospital;
-            return (
-              <TouchableOpacity
-                key={s.key}
-                style={[styles.statItem, i < 3 && styles.statBorder]}
-                disabled={!opensList}
-                activeOpacity={0.7}
-                onPress={() => router.push('/(patient)/hospitals')}
-              >
-                <Text style={styles.statNum}>{s.num}</Text>
-                <Text style={[styles.statLabel, opensList && styles.statLink]}>{t(s.key)}</Text>
+        {/* ── Hospitals ── */}
+        {!isHospital && !loading && hospitals.length > 0 && (
+          <View style={[styles.section, styles.sectionAlt]}>
+            <View style={styles.sectionRow}>
+              <Text style={styles.sectionTitle}>{t('hospitals_heading')}</Text>
+              <TouchableOpacity onPress={() => router.push('/(patient)/hospitals')}>
+                <Text style={styles.viewAll}>{t('view_all')}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── How it Works ── */}
-        {!isHospital && (
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{t('how_it_works')}</Text>
-          <Text style={styles.sectionTitle}>{t('book_4_steps')}</Text>
-
-          {/* Step 1 — tappable, navigates to doctors */}
-          <TouchableOpacity
-            style={[styles.stepCard, styles.stepCardActive]}
-            onPress={() => router.push('/(patient)/doctors')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.stepNum}>01</Text>
-            <View style={[styles.stepIconBox, styles.stepIconBoxActive]}>
-              <Ionicons name="search-outline" size={19} color={Colors.blue700} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.stepTitle, styles.stepTitleActive]}>{t('step_find_title')}</Text>
-              <Text style={styles.stepDesc}>{t('step_find_desc')}</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Steps 2–4 — informational only */}
-          {STEPS_2_4.map((step, i) => (
-            <View key={step.titleKey} style={styles.stepCard}>
-              <Text style={styles.stepNum}>0{i + 2}</Text>
-              <View style={styles.stepIconBox}>
-                <Ionicons name={step.icon} size={19} color={Colors.blue600} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.stepTitle}>{t(step.titleKey)}</Text>
-                <Text style={styles.stepDesc}>{t(step.descKey)}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
+            {hospitals.slice(0, MAX_HOSPITALS).map((h) => (
+              <TouchableOpacity
+                key={String(h.id)}
+                style={styles.hospCard}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: '/(patient)/hospital/[id]', params: { id: h.id } })}
+              >
+                <View style={styles.hospIcon}>
+                  <Ionicons name="business-outline" size={22} color={Colors.blue600} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.hospName} numberOfLines={1}>{h.name}</Text>
+                  <Text style={styles.hospMeta} numberOfLines={1}>
+                    {[h.city, t('home_doctors_count', { count: h.doctors })].filter(Boolean).join(' · ')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />
+              </TouchableOpacity>
+            ))}
+          </View>
         )}
 
         {/* ── Doctor Cards ── */}
@@ -377,7 +434,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionRow}>
               <Text style={styles.sectionTitle}>{t('doctors_near_you')}</Text>
-              <TouchableOpacity onPress={() => router.push('/(patient)/doctors')}>
+              <TouchableOpacity onPress={() => openDoctors()}>
                 <Text style={styles.viewAll}>{t('view_all')}</Text>
               </TouchableOpacity>
             </View>
@@ -398,7 +455,9 @@ export default function HomeScreen() {
                         transition={180}
                       />
                     ) : (
-                      <Ionicons name="medkit-outline" size={30} color={Colors.blue400} />
+                      <View style={styles.docInitials}>
+                        <Text style={styles.docInitialsText}>{initials(doc.name)}</Text>
+                      </View>
                     )}
                     <View style={[styles.availBadge, { backgroundColor: doc.available ? Colors.successBg : Colors.errorBg }]}>
                       <Text style={{ fontSize: 9, fontWeight: '700', color: doc.available ? Colors.successText : Colors.errorText }}>
@@ -429,32 +488,27 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ── Features ── */}
-        <View style={[styles.section, { backgroundColor: Colors.bg, marginHorizontal: 0, padding: 24 }]}>
-          <Text style={styles.sectionLabel}>{t('why_tokenwalla')}</Text>
-          <Text style={styles.sectionTitle}>{t('built_for_healthcare')}</Text>
-          <View style={styles.featGrid}>
-            {FEATURES.map((f) => (
-              <View key={f.titleKey} style={styles.featCard}>
-                <View style={styles.featIconBox}>
-                  <Ionicons name={f.icon} size={22} color={Colors.blue600} />
+        {/* ── How it works: four titles, no paragraphs ── */}
+        {!isHospital && (
+          <View style={styles.stepsRow}>
+            {STEPS.map((step, i) => (
+              <View key={step.titleKey} style={styles.stepChip}>
+                <View style={styles.stepIconBox}>
+                  <Ionicons name={step.icon} size={17} color={Colors.blue600} />
                 </View>
-                <Text style={styles.featTitle}>{t(f.titleKey)}</Text>
-                <Text style={styles.featDesc}>{t(f.descKey)}</Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.stepNum}>0{i + 1}</Text>
+                  <Text style={styles.stepTitle} numberOfLines={2}>{t(step.titleKey)}</Text>
+                </View>
               </View>
             ))}
           </View>
-        </View>
+        )}
 
-        {/* ── Price Card ── */}
+        {/* ── Fee card ── */}
         {!isHospital && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{t('pricing')}</Text>
-          <Text style={styles.sectionTitle}>{t('simple_transparent')}</Text>
           <View style={styles.priceCard}>
-            <View style={styles.priceBadgeRow}>
-              <Text style={styles.priceBadge}>{t('best_value')}</Text>
-            </View>
             <Text style={styles.pricePlan}>{t('queue_view')}</Text>
             <View style={styles.priceAmtRow}>
               <Text style={styles.priceCur}>₹</Text>
@@ -519,33 +573,8 @@ export default function HomeScreen() {
                 </View>
               </>
             )}
-
-            <Text style={styles.priceIncluded}>{t('price_whats_included')}</Text>
-            {PRICE_FEATURES.map((f) => (
-              <View key={f} style={styles.priceFeatureRow}>
-                <Text style={styles.priceCheck}>✓</Text>
-                <Text style={styles.priceFeature}>{t(f)}</Text>
-              </View>
-            ))}
-            <TouchableOpacity
-              style={styles.priceCTA}
-              onPress={() => router.push('/(patient)/doctors')}
-            >
-              <Text style={styles.priceCTAText}>{t('book_appointment')}</Text>
-            </TouchableOpacity>
           </View>
         </View>
-        )}
-
-        {/* ── CTA Banner ── */}
-        {!isHospital && (
-          <View style={styles.ctaBanner}>
-            <Text style={styles.ctaTitle}>{t('cta_title')}</Text>
-            <Text style={styles.ctaSub}>{t('cta_sub')}</Text>
-            <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/(patient)/doctors')}>
-              <Text style={styles.ctaBtnText}>{t('cta_btn')}</Text>
-            </TouchableOpacity>
-          </View>
         )}
 
         {/* ── Footer ── */}
@@ -579,51 +608,72 @@ const styles = StyleSheet.create({
   avatarText: { color: Colors.white, fontWeight: '800', fontSize: 12 },
 
   // Hero
-  hero:       { padding: 24, paddingTop: 32, backgroundColor: Colors.bg },
-  badge:      { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start', marginBottom: 18 },
+  hero:       { padding: 24, paddingTop: 28, backgroundColor: Colors.bg },
+  badge:      { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 12, paddingVertical: 6, alignSelf: 'flex-start', marginBottom: 16 },
   badgeDot:   { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.successText },
   badgeText:  { fontSize: 12, color: Colors.blue700, fontWeight: '600' },
-  heroTitle:  { fontSize: 32, fontWeight: '800', color: Colors.gray900, lineHeight: 40, marginBottom: 14 },
-  heroSub:    { fontSize: 15, color: Colors.gray500, lineHeight: 24, marginBottom: 26 },
-  primaryBtn: { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginBottom: 12, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  heroTitle:  { fontSize: 32, fontWeight: '800', color: Colors.gray900, lineHeight: 40, marginBottom: 12 },
+  heroSub:    { fontSize: 15, color: Colors.gray500, lineHeight: 24, marginBottom: 20 },
+  primaryBtn: { backgroundColor: Colors.blue600, borderRadius: 13, paddingVertical: 15, alignItems: 'center', marginBottom: 10, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   primaryBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 13, paddingVertical: 14, marginBottom: 16 },
+  secondaryBtnText: { color: Colors.blue600, fontWeight: '700', fontSize: 15 },
+
+  // Search
+  searchRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, paddingLeft: 14, paddingRight: 6, paddingVertical: 6, marginBottom: 20, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.gray900, paddingVertical: 8, minWidth: 0 },
+  searchBtn:   { width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center' },
+
+  // City buttons
+  cityBlock:    { marginBottom: 16 },
+  cityLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  cityLabel:    { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, color: Colors.gray500, textTransform: 'uppercase' },
+  cityBtn:      { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, padding: 12, marginBottom: 10, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 9, elevation: 3 },
+  cityPin:      { width: 46, height: 46, borderRadius: 13, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center' },
+  cityName:     { fontSize: 18, fontWeight: '800', color: Colors.gray900 },
+  cityMeta:     { fontSize: 12.5, color: Colors.gray500, marginTop: 2 },
+  skel:         { backgroundColor: Colors.gray100, borderColor: Colors.gray100, shadowOpacity: 0, elevation: 0 },
+
+  // Trust row
+  trustRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, columnGap: 16 },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trustText: { fontSize: 12.5, color: Colors.gray500 },
 
   // Browse by specialty
-  specSection: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 26, backgroundColor: Colors.bg },
-  specLabel:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: Colors.gray400, textTransform: 'uppercase', marginBottom: 12 },
-  specRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  specChip:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 100, paddingHorizontal: 13, paddingVertical: 8 },
-  specChipText: { fontSize: 13, fontWeight: '600', color: Colors.gray900 },
-
-  // Stats
-  statsRow:   { flexDirection: 'row', backgroundColor: Colors.white, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.blue100 },
-  statItem:   { flex: 1, alignItems: 'center', paddingVertical: 18 },
-  statBorder: { borderRightWidth: 1, borderRightColor: Colors.blue100 },
-  statNum:    { fontSize: 17, fontWeight: '800', color: Colors.blue600 },
-  statLabel:  { fontSize: 11, color: Colors.gray400, marginTop: 2 },
-  statLink:   { color: Colors.blue600, textDecorationLine: 'underline' },
+  specSection: { paddingHorizontal: 24, paddingTop: 22, paddingBottom: 26, backgroundColor: Colors.white },
+  specLabel:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, color: Colors.gray400, textTransform: 'uppercase', marginBottom: 14 },
+  specGrid:    { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  specTile:    { width: '23.5%', minHeight: 88, alignItems: 'center', gap: 7, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 3 },
+  specIconBox: { width: 38, height: 38, borderRadius: 11, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
+  specTileText: { fontSize: 11.5, fontWeight: '600', color: Colors.gray900, textAlign: 'center' },
 
   // Section
   section:      { padding: 24 },
-  sectionRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 0 },
+  sectionAlt:   { backgroundColor: Colors.gray50, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.blue50 },
+  sectionRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: Colors.blue600, marginBottom: 6 },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: Colors.gray900, marginBottom: 18 },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: Colors.gray900, flexShrink: 1 },
   viewAll:      { fontSize: 13, color: Colors.blue600, fontWeight: '600' },
 
+  // Hospital cards
+  hospCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 14, marginBottom: 10 },
+  hospIcon: { width: 46, height: 46, borderRadius: 13, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
+  hospName: { fontSize: 15, fontWeight: '700', color: Colors.gray900 },
+  hospMeta: { fontSize: 12.5, color: Colors.gray500, marginTop: 3 },
+
   // Steps
-  stepCard:    { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 16, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1 },
-  stepNum:     { fontSize: 22, fontWeight: '800', color: Colors.blue100, width: 32, textAlign: 'center' },
-  stepIconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, alignItems: 'center', justifyContent: 'center' },
-  stepTitle:   { fontSize: 14, fontWeight: '700', color: Colors.gray900, marginBottom: 3 },
-  stepDesc:    { fontSize: 12, color: Colors.gray500, lineHeight: 18 },
-  stepCardActive:    { borderColor: Colors.blue200, borderWidth: 1.5, backgroundColor: Colors.blue50 },
-  stepIconBoxActive: { backgroundColor: Colors.blue100, borderColor: Colors.blue100 },
-  stepTitleActive:   { color: Colors.blue700 },
+  stepsRow:    { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, paddingHorizontal: 24, paddingVertical: 22, backgroundColor: Colors.gray50, borderTopWidth: 1, borderBottomWidth: 1, borderColor: Colors.blue50 },
+  stepChip:    { width: '48.5%', flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 13, padding: 12 },
+  stepNum:     { fontSize: 10.5, fontWeight: '700', letterSpacing: 1, color: Colors.blue400 },
+  stepIconBox: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center' },
+  stepTitle:   { fontSize: 13, fontWeight: '700', color: Colors.gray900 },
 
   // Doctor cards
   docCard:   { width: 162, backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16, marginRight: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
   docImgBox: { height: 110, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', position: 'relative' },
   docImg:    { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' },
+  docInitials: { width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.white, borderWidth: 2, borderColor: Colors.blue100, alignItems: 'center', justifyContent: 'center' },
+  docInitialsText: { fontSize: 18, fontWeight: '800', color: Colors.blue600 },
   availBadge: { position: 'absolute', top: 8, right: 8, borderRadius: 100, paddingHorizontal: 8, paddingVertical: 3 },
   docInfo:   { padding: 12 },
   docSpec:   { fontSize: 9, fontWeight: '700', color: Colors.blue600, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 3 },
@@ -632,22 +682,13 @@ const styles = StyleSheet.create({
   docMeta:   { fontSize: 11, color: Colors.gray400, flexShrink: 1 },
   docFee:    { fontSize: 12, fontWeight: '700', color: Colors.blue600 },
 
-  // Features
-  featGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
-  featCard: { width: '47%', backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 14, padding: 16 },
-  featIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  featTitle: { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
-  featDesc:  { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
-
-  // Price card
-  priceCard:    { backgroundColor: Colors.blue600, borderRadius: 22, padding: 28, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6 },
-  priceBadgeRow: { marginBottom: 16 },
-  priceBadge:   { alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 100, paddingHorizontal: 12, paddingVertical: 4, color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700', overflow: 'hidden' },
+  // Fee card
+  priceCard:    { backgroundColor: Colors.blue600, borderRadius: 22, padding: 26, shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14, elevation: 6 },
   pricePlan:    { fontSize: 14, color: 'rgba(255,255,255,0.65)', marginBottom: 8 },
   priceAmtRow:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
   priceCur:     { fontSize: 22, fontWeight: '700', color: Colors.white, marginTop: 6 },
   priceAmt:     { fontSize: 46, fontWeight: '800', color: Colors.white, lineHeight: 52, fontVariant: ['tabular-nums'] },
-  priceSub:     { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 22 },
+  priceSub:     { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20 },
   priceBreakdown:  { backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 14, padding: 16, marginBottom: 14 },
   priceRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 },
   priceRowLabel:   { fontSize: 13, color: 'rgba(255,255,255,0.7)' },
@@ -655,28 +696,15 @@ const styles = StyleSheet.create({
   priceDivider:    { height: 1, backgroundColor: 'rgba(255,255,255,0.18)', marginBottom: 11, marginTop: 2 },
   priceTotalLabel: { fontSize: 14, fontWeight: '700', color: Colors.white },
   priceTotalValue: { fontSize: 16, fontWeight: '800', color: Colors.white, fontVariant: ['tabular-nums'] },
-  priceNote:       { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18, marginBottom: 20 },
-  priceOrRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  priceNote:       { fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 18 },
+  priceOrRow:      { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18, marginBottom: 14 },
   priceOrLine:     { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.18)' },
   priceOrText:     { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 1.2 },
-  passRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 14, padding: 14, marginBottom: 22 },
+  passRow:         { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', borderRadius: 14, padding: 14 },
   passIcon:        { width: 34, height: 34, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   passName:        { fontSize: 14, fontWeight: '700', color: Colors.white },
   passTerms:       { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
   passPrice:       { fontSize: 16, fontWeight: '800', color: Colors.white, fontVariant: ['tabular-nums'] },
-  priceIncluded:   { fontSize: 11, fontWeight: '700', letterSpacing: 1.4, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', marginBottom: 12 },
-  priceFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  priceCheck:   { fontSize: 15, color: '#9FE1CB', fontWeight: '700' },
-  priceFeature: { fontSize: 14, color: 'rgba(255,255,255,0.85)' },
-  priceCTA:     { backgroundColor: Colors.white, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 20 },
-  priceCTAText: { color: Colors.blue700, fontWeight: '700', fontSize: 15 },
-
-  // CTA banner
-  ctaBanner: { backgroundColor: Colors.blue900, margin: 24, borderRadius: 20, padding: 28, alignItems: 'center' },
-  ctaTitle:  { fontSize: 20, fontWeight: '800', color: Colors.white, textAlign: 'center', marginBottom: 8 },
-  ctaSub:    { fontSize: 13, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 20, lineHeight: 19 },
-  ctaBtn:    { backgroundColor: Colors.white, borderRadius: 11, paddingHorizontal: 24, paddingVertical: 13 },
-  ctaBtnText: { color: Colors.blue700, fontWeight: '700', fontSize: 14 },
 
   // Footer
   footer:    { padding: 24, alignItems: 'center', borderTopWidth: 1, borderTopColor: Colors.blue50 },

@@ -99,13 +99,19 @@ describe('no dead booking buttons are shown to a hospital', () => {
     expect(HOME).toMatch(/useFocusEffect/);
   });
 
+  // Everything on Home that leads to browsing or booking. Search, the city
+  // buttons and the hospital list were added with the redesign, so a hospital
+  // account is told off for each of them here, not just the old sections.
   const HOME_GATES: [string, RegExp][] = [
+    ['search',                   /\{!isHospital && \(\s*<View style=\{styles\.searchRow\}>/],
+    ['city buttons',             /\{!isHospital && \(loading \|\| cities\.length > 0\) && \(\s*<View style=\{styles\.cityBlock\}>/],
     ['hero "Book appointment"',  /\{!isHospital && \(\s*<TouchableOpacity\s+style=\{styles\.primaryBtn\}/],
+    ['hospitals button',         /\{!isHospital && \(\s*<TouchableOpacity style=\{styles\.secondaryBtn\}/],
     ['browse by specialty',      /\{!isHospital && \(\s*<View style=\{styles\.specSection\}>/],
-    ['how it works',             /\{!isHospital && \(\s*<View style=\{styles\.section\}>\s*<Text style=\{styles\.sectionLabel\}>\{t\('how_it_works'\)\}/],
+    ['hospital cards',           /\{!isHospital && !loading && hospitals\.length > 0 && \(/],
     ['doctor cards',             /\{!isHospital && !loading && doctors\.length > 0 && \(/],
-    ['price card',               /\{!isHospital && \(\s*<View style=\{styles\.section\}>\s*<Text style=\{styles\.sectionLabel\}>\{t\('pricing'\)\}/],
-    ['CTA banner',               /\{!isHospital && \(\s*<View style=\{styles\.ctaBanner\}>/],
+    ['how it works',             /\{!isHospital && \(\s*<View style=\{styles\.stepsRow\}>/],
+    ['fee card',                 /\{!isHospital && \(\s*<View style=\{styles\.section\}>\s*<View style=\{styles\.priceCard\}>/],
   ];
   for (const [label, re] of HOME_GATES) {
     it(`gates Home's ${label}`, () => {
