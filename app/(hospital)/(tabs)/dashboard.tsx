@@ -51,7 +51,6 @@ import ScansPanel from '../../../components/ScansPanel';
 import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
-import WalkInForm from '../../../components/WalkInForm';
 import { providerLabel } from '../../../utils/booking';
 import { formatDelay } from '../../../utils/formatDelay';
 import { usePolling } from '../../../hooks/usePolling';
@@ -1525,8 +1524,6 @@ export default function HospitalDashboard() {
         ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'queue' && (
           <View style={{ padding: 16 }}>
-            {sellsConsults && <WalkInForm doctors={doctors} onAdded={loadQueue} />}
-
             {/* ── DAY FILTER: Today / Tomorrow / All ── */}
             <View style={styles.dayFilterRow}>
               {([
