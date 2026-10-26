@@ -6,7 +6,7 @@
  * hospital/[id], the hospital's profile with its doctors.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View,
@@ -29,6 +29,10 @@ export default function HospitalsScreen() {
   const router = useRouter();
   const { t } = useI18n();
   useAndroidBack(() => safeBack(router));
+
+  // Home's city question opens this narrowed to the tapped city (?city=).
+  const params = useLocalSearchParams<{ city?: string }>();
+  const city = typeof params.city === 'string' ? params.city.trim().toLowerCase() : '';
 
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [loading,   setLoading]   = useState(true);
@@ -53,7 +57,9 @@ export default function HospitalsScreen() {
         <TouchableOpacity onPress={() => safeBack(router)} style={st.backBtn}>
           <Ionicons name="chevron-back" size={22} color={Colors.gray700} />
         </TouchableOpacity>
-        <Text style={st.headerTitle}>{t('stat_hospitals')}</Text>
+        <Text style={st.headerTitle}>
+          {city ? `${t('stat_hospitals')} · ${params.city!.trim()}` : t('stat_hospitals')}
+        </Text>
       </View>
 
       {loading ? (
@@ -68,7 +74,7 @@ export default function HospitalsScreen() {
         </View>
       ) : (
         <FlatList
-          data={hospitals}
+          data={city ? hospitals.filter(h => (h.city || '').trim().toLowerCase() === city) : hospitals}
           keyExtractor={h => String(h.id)}
           contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
           ListEmptyComponent={<Text style={st.emptySub}>{t('hl_no_hospitals')}</Text>}
