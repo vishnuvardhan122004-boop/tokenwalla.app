@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView, Platform,
@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import RegisterPrompt from '../../components/RegisterPrompt';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
 import { useI18n } from '../../services/i18n';
@@ -31,6 +32,9 @@ export default function LoginScreen() {
   const [cooldown,   startCooldown] = useOtpCooldown();
   const [showPass,   setShowPass]   = useState(false);
   const [error,      setError]      = useState('');
+  // Open when the number typed has no account: offers to create one right here.
+  const [signUp,     setSignUp]     = useState(false);
+  const mobileRef = useRef<TextInput>(null);
 
   // Reaching this screen means there is no valid session. Any token left
   // in storage is stale and, if left in place, gets attached by the API
@@ -62,7 +66,9 @@ export default function LoginScreen() {
       });
 
       if (check?.exists === false) {
-        setError(t('lg_not_registered'));
+        // A new patient: offer to create the account here, not a dead-end
+        // error. No OTP is sent until they say yes inside the sheet.
+        setSignUp(true);
         setOtpLoading(false);
         return;
       }
@@ -89,23 +95,52 @@ export default function LoginScreen() {
     }
   };
 
+  // "No such account" and "wrong password" are both a 401 from /auth/login/, so
+  // /auth/check-mobile/ (public, and what Get OTP already uses) says which. Any
+  // failure here just means "not known to be new": the login error stands.
+  const isUnregistered = async (): Promise<boolean> => {
+    if (!isValidMobile(mobile)) return false;
+    try {
+      const { data } = await API.post('/auth/check-mobile/', { mobile, type: 'patient' });
+      return data?.exists === false;
+    } catch {
+      return false;
+    }
+  };
+
+  const finishLogin = async (data: any) => {
+    await AsyncStorage.setItem('access',  data.access);
+    await AsyncStorage.setItem('refresh', data.refresh);
+    await AsyncStorage.setItem('user',    JSON.stringify(data.user));
+    // Same test as the dashboard's. A hospital whose hospital object failed to
+    // attach (best-effort on the backend) goes Home instead, which keeps it
+    // signed in with Profile -> Logout — the dashboard would bounce it to the
+    // hospital login, which clears the session it was just given.
+    if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
+    else router.replace('/(patient)/home');
+  };
+
+  // Closing the sheet lands back on the number, in case it was a typo.
+  const closeSignUp = () => {
+    setSignUp(false);
+    setTimeout(() => mobileRef.current?.focus(), 300);
+  };
+
   const handleLogin = async () => {
-    if (!mobile || !password) { setError(t('lg_enter_mobile_password')); return; }
     setLoading(true);
     setError('');
     try {
+      if (!mobile || !password) {
+        // A new patient often types only their number and taps Sign In.
+        if (await isUnregistered()) setSignUp(true);
+        else setError(t('lg_enter_mobile_password'));
+        return;
+      }
       const { data } = await API.post('/auth/login/', { mobile, password });
-      await AsyncStorage.setItem('access',  data.access);
-      await AsyncStorage.setItem('refresh', data.refresh);
-      await AsyncStorage.setItem('user',    JSON.stringify(data.user));
-      // Same test as the dashboard's. A hospital whose hospital object failed to
-      // attach (best-effort on the backend) goes Home instead, which keeps it
-      // signed in with Profile -> Logout — the dashboard would bounce it to the
-      // hospital login, which clears the session it was just given.
-      if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
-      else router.replace('/(patient)/home');
+      await finishLogin(data);
     } catch (e) {
-      setError(apiMessage(e, t('lg_invalid_credentials')));
+      if ((e as { response?: { status?: number } })?.response?.status === 401 && await isUnregistered()) setSignUp(true);
+      else setError(apiMessage(e, t('lg_invalid_credentials')));
     } finally {
       setLoading(false);
     }
@@ -165,6 +200,7 @@ export default function LoginScreen() {
           <View style={styles.inputRow}>
             <Ionicons name="call-outline" size={17} color={Colors.gray400} />
             <TextInput
+              ref={mobileRef}
               style={styles.input}
               placeholder={t('mobile_placeholder')}
               placeholderTextColor={Colors.gray400}
@@ -243,6 +279,10 @@ export default function LoginScreen() {
 
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {signUp && (
+        <RegisterPrompt mobile={mobile} onClose={closeSignUp} onRegistered={finishLogin} />
+      )}
     </SafeAreaView>
   );
 }
