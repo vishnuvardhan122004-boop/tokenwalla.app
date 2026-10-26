@@ -204,7 +204,7 @@ export default function DoctorsScreen() {
   const router = useRouter();
   const { t } = useI18n();
   // A specialty chip on the home screen deep-links here with ?q=<term>.
-  const params = useLocalSearchParams<{ q?: string }>();
+  const params = useLocalSearchParams<{ q?: string; kind?: string; ts?: string }>();
   // 'doctors' | a centre kind. The centre path sits BESIDE the doctor path
   // rather than generalising it: the doctor list is the live, revenue-carrying
   // screen. Scanning and blood centres DO share the path — same request, same
@@ -353,7 +353,17 @@ export default function DoctorsScreen() {
   // specialty chip deep-links here (the initial useState only runs once).
   useEffect(() => {
     if (typeof params.q === 'string' && params.q) setSearch(params.q);
-  }, [params.q]);
+  }, [params.q, params.ts]);
+
+  // Home's city question (components/CityIntentModal.tsx) also picks the tab.
+  // `ts` is new on every pick, so answering the same way twice switches back
+  // even if the patient moved to another tab in between. Any other `kind` is
+  // ignored and the tab stays where it was.
+  useEffect(() => {
+    if (params.kind === 'doctors' || params.kind === SCAN_CENTER || params.kind === BLOOD_CENTER) {
+      setMode(params.kind);
+    }
+  }, [params.kind, params.ts]);
 
   // ── LOCATION DETECTION ────────────────────────────────────────────────────
   const detectLocation = async () => {

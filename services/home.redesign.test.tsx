@@ -89,7 +89,7 @@ beforeEach(() => { jest.clearAllMocks(); });
 afterEach(() => act(() => r.unmount()));
 
 describe('cities', () => {
-  test('each city with doctors is a button with real counts that opens the doctors on it', async () => {
+  test('each city with doctors is a button with real counts', async () => {
     await mount();
     expect(text()).toContain('Choose your city');
     // 3 doctors in 2 hospitals; the [TEST] hospital's doctor is not counted.
@@ -97,8 +97,10 @@ describe('cities', () => {
     // Singular where it is one, not "1 doctors".
     expect(text()).toContain('1 doctor · 1 hospital');
 
+    // A tap asks what they are looking for (describe 'the city question'); it
+    // does not navigate by itself.
     await press(buttonLabelled('Hindupur'));
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(patient)/doctors', params: { q: 'Hindupur' } });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   test('the busiest city comes first', async () => {
@@ -115,6 +117,72 @@ describe('cities', () => {
     // The rest still renders.
     expect(text()).toContain('Skip the Queue.');
     expect(text()).toContain('Book Appointment');
+  });
+});
+
+describe('the city question', () => {
+  const answer = (label: string) =>
+    r.root.findAll((n: any) => n.type === TouchableOpacity && n.props.accessibilityLabel === label
+      && typeof n.props.onPress === 'function')[0];
+
+  test('tapping a city asks what they are looking for in that city', async () => {
+    await mount();
+    expect(text()).not.toContain('What are you looking for in');
+    await press(buttonLabelled('Anantapur'));
+    expect(text()).toContain('What are you looking for in Anantapur?');
+    expect(text()).toContain('Doctor');
+    expect(text()).toContain('Scan or test');
+    expect(text()).toContain('Hospital');
+  });
+
+  test('Doctor opens the doctors tab on that city', async () => {
+    await mount();
+    await press(buttonLabelled('Hindupur'));
+    await press(answer('Doctor'));
+    expect(mockPush).toHaveBeenCalledTimes(1);
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(patient)/doctors',
+      params: { q: 'Hindupur', kind: 'doctors', ts: expect.any(String) },
+    });
+    expect(text()).not.toContain('What are you looking for in');   // and it closes
+  });
+
+  test('Scan or test opens the Scans tab on that city', async () => {
+    await mount();
+    await press(buttonLabelled('Hindupur'));
+    await press(answer('Scan or test'));
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/(patient)/doctors',
+      params: { q: 'Hindupur', kind: 'SCAN_CENTER', ts: expect.any(String) },
+    });
+  });
+
+  test('Hospital opens the hospital list narrowed to that city', async () => {
+    await mount();
+    await press(buttonLabelled('Anantapur'));
+    await press(answer('Hospital'));
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(patient)/hospitals', params: { city: 'Anantapur' } });
+  });
+
+  test('Close leaves without going anywhere, and nothing is fetched for the answer', async () => {
+    await mount();
+    const calls = (API.get as jest.Mock).mock.calls.length;
+    await press(buttonLabelled('Hindupur'));
+    await press(answer('Close'));
+    expect(mockPush).not.toHaveBeenCalled();
+    expect(text()).not.toContain('What are you looking for in');
+    expect((API.get as jest.Mock).mock.calls).toHaveLength(calls);
+  });
+
+  test('answering the same way twice sends different params, so the tab re-applies it', async () => {
+    await mount();
+    jest.spyOn(Date, 'now').mockReturnValueOnce(1).mockReturnValueOnce(2);
+    for (let i = 0; i < 2; i++) {
+      await press(buttonLabelled('Hindupur'));
+      await press(answer('Scan or test'));
+    }
+    const [a, b] = mockPush.mock.calls.map(c => c[0].params.ts);
+    expect(a).not.toEqual(b);
   });
 });
 

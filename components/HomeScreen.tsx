@@ -34,6 +34,7 @@ import { featuredDoctors, initials, summariseDoctors } from '../utils/homeSummar
 import API, { getUser } from '../services/api';
 import { useI18n } from '../services/i18n';
 import { registerPushToken } from '../services/notifications';
+import CityIntentModal, { cityIntentRoute } from './CityIntentModal';
 import LanguageModal from './LanguageModal';
 import NotificationBell from './NotificationBell';
 
@@ -132,6 +133,7 @@ export default function HomeScreen() {
   // stays here instead, where Profile -> Logout still gets it out.
   const opensDashboard = isHospital && !!user?.hospital;
   const [langOpen, setLangOpen] = useState(false);
+  const [pickedCity, setPickedCity] = useState<string | null>(null);   // the city whose question is open
   // The Appointment Pass offer + whatever this patient already holds.
   const [passData, setPassData] = useState<any>(null);
 
@@ -236,6 +238,14 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <LanguageModal visible={langOpen} onClose={() => setLangOpen(false)} />
+      <CityIntentModal
+        city={pickedCity}
+        onClose={() => setPickedCity(null)}
+        onPick={(intent) => {
+          if (pickedCity) router.push(cityIntentRoute(intent, pickedCity));
+          setPickedCity(null);
+        }}
+      />
       <ScrollView style={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ── Navbar ── */}
@@ -332,7 +342,7 @@ export default function HomeScreen() {
                   key={c.key}
                   style={styles.cityBtn}
                   activeOpacity={0.8}
-                  onPress={() => openDoctors(c.name)}
+                  onPress={() => setPickedCity(c.name)}
                   accessibilityRole="button"
                   accessibilityLabel={c.name}
                 >
