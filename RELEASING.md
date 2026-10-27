@@ -38,6 +38,7 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 50 | 1.5.2 | 2026-10-05 | `14d888a` | **yes** (uploaded 2026-10-09) |
 | 2026-10 | 51 | 1.6.0 | 2026-10-15 | `a415290` | **yes** (uploaded 2026-10-15) |
 | 2026-10 | 52 | 1.6.1 | 2026-10-16 | `6a932e6` | **yes** (uploaded 2026-10-16, on go-ahead) |
+| 2026-10 | 53 | 1.7.0 | 2026-10-24 | `8dc364e` | **yes** (uploaded; Vishnu updated to it and checked it 2026-10-25) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
@@ -60,8 +61,16 @@ doctor's instructions and a test's prep on the token, select-and-bulk edit or
 delete, CSV price-list import, the GST receipt from My Bookings), the Services →
 Tests freeze fix for centres with hundreds of tests (#67), and merged work no
 build carries yet: the walk-in token (#60), QR auto-confirm (#61), the
-doctor-late timer (#63) and the quick-hours buttons (#66). Its tally row is
-added after the build, with the versionCode and the `main` commit.
+doctor-late timer (#63), the quick-hours buttons (#66), the running-late draft
+fix (#64) and the delay reason on the patient banner (#65).
+
+Built 2026-10-24 as **vc53** from `main` `8dc364e` (EAS build `386604c3`, signed
+with the same remote keystore as vc44 to vc52). The `.aab` is 73,673,439 bytes,
+SHA-256 `3410d10f7bc5b9e7d058704e6d564d2462a75be15394994a48260a18f525d594`.
+Checked before the build: 543 jest tests, `tsc`, lint, `expo export`, `expo-doctor`
+(17 of 18; the one miss is Expo patch drift), the live API on the current website
+`main` with every endpoint this build calls present. After Play shows 1.7.0 live,
+set `APP_LATEST_VERSION=1.7.0` on Railway (Vishnu's; `APP_MIN_VERSION` stays empty). Still `1.6.1` when checked on 2026-10-25.
 
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
