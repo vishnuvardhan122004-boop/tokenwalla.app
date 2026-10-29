@@ -27,8 +27,9 @@ const scans = [1, 2, 3].map(scan);
 
 const onAdd = jest.fn();
 const onEdit = jest.fn();
+const onPoster = jest.fn();
 const loadScans = jest.fn().mockResolvedValue(undefined);
-const props = { scans, loadScans, centerId: 1, unit: 'test' as const, bloodOnly: true, onAdd, onEdit };
+const props = { scans, loadScans, centerId: 1, unit: 'test' as const, bloodOnly: true, onAdd, onEdit, onPoster };
 
 /** The dashboard's wiring: the panel in the page, its bar drawn beside it. */
 function Host({ open = true }: { open?: boolean }) {
@@ -54,6 +55,14 @@ test('Add and Edit are handed to the page, which owns the editor', async () => {
   expect(onAdd).toHaveBeenCalledTimes(1);
   await press(/^Edit$/);
   expect(onEdit).toHaveBeenCalledWith(scans[0]);
+});
+
+test('Poster is handed to the page, and hidden until the centre has loaded', async () => {
+  await act(async () => { r = TestRenderer.create(<Host />); });
+  await press(/^Poster$/);
+  expect(onPoster).toHaveBeenCalledTimes(1);
+  await act(async () => { r.update(<ScansPanel {...props} centerId={undefined} onBar={jest.fn()} />); });
+  expect(texts(/^Poster$/)).toHaveLength(0);
 });
 
 test('Select hands the bar up, and Cancel takes it away again', async () => {

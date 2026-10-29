@@ -37,6 +37,8 @@ interface Props {
   bloodOnly: boolean;
   onAdd: () => void;
   onEdit: (scan: ScanRecord) => void;
+  /** Opens the centre's QR poster (ROADMAP item 58). Stable, for the same reason as onBar. */
+  onPoster?: () => void;
   /** Receives the pinned Select bar (or null), from a layout effect so it lands before
    *  paint. MUST be a stable function (a state setter): the panel is memoised on its
    *  props, and an unstable one would re-render it after every bar update, forever. */
@@ -45,7 +47,7 @@ interface Props {
 
 type Id = number | string;
 
-function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit, onBar }: Props) {
+function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit, onPoster, onBar }: Props) {
   const Noun = `${unit[0].toUpperCase()}${unit.slice(1)}`;
   const many = `${unit}s`;
 
@@ -228,6 +230,15 @@ function ScansPanel({ scans, loadScans, centerId, unit, bloodOnly, onAdd, onEdit
               <Text style={s.scanEditText}>Select</Text>
             </TouchableOpacity>
           )}
+        </View>
+      )}
+
+      {!selecting && !!onPoster && centerId != null && (
+        <View style={s.scanTools}>
+          <TouchableOpacity style={s.scanToolBtn} onPress={onPoster} accessibilityRole="button">
+            <Ionicons name="qr-code-outline" size={16} color={Colors.blue700} />
+            <Text style={s.scanEditText}>Poster</Text>
+          </TouchableOpacity>
         </View>
       )}
 
