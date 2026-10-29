@@ -26,6 +26,7 @@ import {
   providerLabel,
   resolveSelectedDate,
 } from '../../../utils/booking';
+import { stripLength } from '../../../utils/bookingWindow';
 import ProviderAboutPanel, { FacebookLogo, InstagramLogo } from '../../../components/ProviderAboutPanel';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
 import { safeBack } from '../../../utils/navigation';
@@ -56,6 +57,8 @@ interface Doctor {
   hospital_name?: string; hospital_image?: string; image?: string;
   mobile?: string; landline?: string; fee?: number;
   slots?: string[]; days?: string[]; max_per_slot?: number;
+  /** How many days past today a patient may book; null / absent = no limit. */
+  max_days_ahead?: number | null;
   // Server-computed patient bill (payments/fees.py). SERVICE_ONLY doctors
   // collect the consultation fee at the clinic, so it isn't part of the
   // online total — see offline_doctor_fee.
@@ -116,7 +119,9 @@ export default function DoctorDetails() {
   // pointing at yesterday after midnight: every slot on it read "Too soon"
   // and the 7th day was missing. Seven Date objects per render is cheaper
   // than being wrong about what day it is.
-  const DAYS     = getNext7Days();
+  // The doctor's own booking window trims it (ROADMAP 53 slice 4); the server refuses a
+  // later date either way, so this only stops the strip offering one.
+  const DAYS     = getNext7Days().slice(0, stripLength(doctor));
   const todayKey = DAYS[0].full;
 
   const [selectedDate, setSelectedDate] = useState(todayKey);

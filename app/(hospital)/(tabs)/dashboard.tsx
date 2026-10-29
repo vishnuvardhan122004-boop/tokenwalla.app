@@ -53,6 +53,7 @@ import type { PosterTarget } from '../../../utils/poster';
 import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
+import BookingWindowPicker from '../../../components/BookingWindowPicker';
 import { providerLabel } from '../../../utils/booking';
 import { formatDelay } from '../../../utils/formatDelay';
 import { usePolling } from '../../../hooks/usePolling';
@@ -91,6 +92,8 @@ interface Doctor {
   fee: number | string;
   max_per_slot: number | string;
   booking_cutoff_hours?: number | null;
+  /** How many days past today a patient may book; null / absent = no limit. */
+  max_days_ahead?: number | null;
   // Priority booking (0 = off). Absent on a backend that predates it.
   priority_fee?: number;
   priority_per_slot?: number;
@@ -143,6 +146,7 @@ interface FormState {
   fee: string;
   max_per_slot: string;
   booking_cutoff_hours: string;   // '' = use the platform default
+  max_days_ahead: string;         // '' = no limit
   priority_fee: string;           // '' / '0' = no priority booking
   priority_per_slot: string;
   instructions: string;
@@ -198,6 +202,7 @@ const EMPTY_FORM: FormState = {
   fee:            '',
   max_per_slot:   '10',
   booking_cutoff_hours: '',
+  max_days_ahead: '',
   priority_fee:   '',
   priority_per_slot: '2',
   instructions:   '',
@@ -810,6 +815,7 @@ export default function HospitalDashboard() {
       fee:            String(doc.fee          || ''),
       max_per_slot:   String(doc.max_per_slot || 10),
       booking_cutoff_hours: doc.booking_cutoff_hours == null ? '' : String(doc.booking_cutoff_hours),
+      max_days_ahead: doc.max_days_ahead == null ? '' : String(doc.max_days_ahead),
       priority_fee:   doc.priority_fee ? String(doc.priority_fee) : '',
       priority_per_slot: String(doc.priority_per_slot ?? 2),
       instructions:   doc.instructions    || '',
@@ -883,6 +889,9 @@ export default function HospitalDashboard() {
       // writes NULL. Sending nothing at all would leave a previously-set
       // override in place, so clearing the box would silently do nothing.
       payload.append('booking_cutoff_hours', form.booking_cutoff_hours.trim());
+      // Blank is sent too: it writes NULL (no limit). Omitting the key would leave an
+      // earlier limit in place, so choosing "No limit" would silently do nothing.
+      payload.append('max_days_ahead', form.max_days_ahead.trim());
       // Always sent, blank included, so clearing the box clears it.
       payload.append('instructions',   form.instructions.trim());
       payload.append('available',      String(form.available));
@@ -1318,6 +1327,11 @@ export default function HospitalDashboard() {
               <BookingNoticePicker
                 value={form.booking_cutoff_hours}
                 onChange={(v: string) => setField('booking_cutoff_hours', v)}
+              />
+
+              <BookingWindowPicker
+                value={form.max_days_ahead}
+                onChange={(v: string) => setField('max_days_ahead', v)}
               />
 
               <Text style={styles.fieldLabel}>Instructions for patients (optional)</Text>
