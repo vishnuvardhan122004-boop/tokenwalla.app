@@ -48,6 +48,8 @@ import { DAYS_OF_WEEK, DEFAULT_SLOTS } from '../../../constants/slots';
 import { applyUpdate, DayPicker, SlotPicker } from '../../../components/SchedulePicker';
 import ScanEditorModal, { type ScanRecord } from '../../../components/ScanEditorModal';
 import ScansPanel from '../../../components/ScansPanel';
+import PosterModal from '../../../components/PosterModal';
+import type { PosterTarget } from '../../../utils/poster';
 import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
@@ -351,6 +353,8 @@ export default function HospitalDashboard() {
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
+  // The QR poster being shown (ROADMAP item 58): one doctor's, or this centre's.
+  const [poster,     setPoster]     = useState<PosterTarget | null>(null);
   // The tests list's pinned Select bar, drawn here because it sits under the page's
   // ScrollView (see components/ScansPanel.tsx).
   const [scanBar, setScanBar] = useState<ReactNode>(null);
@@ -511,6 +515,9 @@ export default function HospitalDashboard() {
   // Stable, so the memoised tests panel is not re-rendered by the queue poll.
   const addScan = useCallback(() => { setEditScan(null); setScanModalOpen(true); }, []);
   const editScanRow = useCallback((sc: ScanRecord) => { setEditScan(sc); setScanModalOpen(true); }, []);
+  const openCentrePoster = useCallback(() => {
+    if (hospital) setPoster({ kind: 'scan', id: hospital.id, name: hospital.name, city: hospital.city });
+  }, [hospital]);
 
   // ── Load Doctors ──────────────────────────────────────────────────────────
   const loadDoctors = useCallback(async () => {
@@ -1020,6 +1027,8 @@ export default function HospitalDashboard() {
           onSaved={loadScans}
         />
       )}
+
+      {poster && <PosterModal target={poster} onClose={() => setPoster(null)} />}
 
       {/* ── Share-a-document source picker ── */}
       <Modal visible={!!shareFor} transparent animationType="fade" onRequestClose={() => setShareFor(null)}>
@@ -1813,6 +1822,7 @@ export default function HospitalDashboard() {
             bloodOnly={sellsBlood && !sellsScans}
             onAdd={addScan}
             onEdit={editScanRow}
+            onPoster={openCentrePoster}
             onBar={setScanBar}
           />
         )}
@@ -1957,6 +1967,19 @@ export default function HospitalDashboard() {
                             {doc.available ? 'Available' : 'Unavailable'}
                           </Text>
                         )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.editBtn}
+                        onPress={() => setPoster({
+                          kind: 'doctor', id: doc.id, name: doc.name,
+                          specialization: doc.specialization, hospital: hospital?.name, city: hospital?.city,
+                        })}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Poster for ${doc.name}`}
+                      >
+                        <Ionicons name="qr-code-outline" size={14} color={Colors.blue700} />
+                        <Text style={styles.editBtnText}>Poster</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(doc)}>
