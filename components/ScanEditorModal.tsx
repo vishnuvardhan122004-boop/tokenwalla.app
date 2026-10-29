@@ -21,6 +21,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import BookingNoticePicker from './BookingNoticePicker';
+import BookingWindowPicker from './BookingWindowPicker';
 import { applyUpdate, DayPicker, SlotPicker } from './SchedulePicker';
 import { pickImageFile, type PickedImage } from '../utils/imagePicker';
 import { Colors } from '../constants/colors';
@@ -39,6 +40,8 @@ export interface ScanRecord {
   duration_minutes: number;
   max_per_slot?: number;
   booking_cutoff_hours?: number | null;
+  /** How many days past today a patient may book; null / absent = no limit. */
+  max_days_ahead?: number | null;
   available: boolean;
   slots: string[];
   days?: string[];
@@ -55,6 +58,7 @@ interface FormState {
   duration_minutes: string;
   max_per_slot: string;
   booking_cutoff_hours: string;   // '' = use the platform default
+  max_days_ahead: string;         // '' = no limit
   available: boolean;
   slots: string[];
   days: string[];
@@ -67,6 +71,7 @@ interface FormState {
 const EMPTY: FormState = {
   name: '', modality: '', keywords: '', description: '', prep_instructions: '',
   price: '', duration_minutes: '15', max_per_slot: '1', booking_cutoff_hours: '',
+  max_days_ahead: '',
   available: true, slots: [], days: [],
   payment_collection_mode: 'SERVICE_ONLY',
 };
@@ -94,6 +99,7 @@ const fromRecord = (scan: ScanRecord): FormState => ({
   duration_minutes:  String(scan.duration_minutes ?? 15),
   max_per_slot:      String(scan.max_per_slot ?? 1),
   booking_cutoff_hours: scan.booking_cutoff_hours == null ? '' : String(scan.booking_cutoff_hours),
+  max_days_ahead:    scan.max_days_ahead == null ? '' : String(scan.max_days_ahead),
   available:         scan.available !== false,
   slots:             scan.slots || [],
   days:              scan.days || [],
@@ -173,6 +179,8 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
         booking_cutoff_hours: form.booking_cutoff_hours.trim() === ''
           ? null
           : Number(form.booking_cutoff_hours),
+        // null, not omitted, for the same reason: "No limit" must clear an earlier limit.
+        max_days_ahead: form.max_days_ahead.trim() === '' ? null : Number(form.max_days_ahead),
         available:        form.available,
         slots:            form.slots,
         days:             form.days,
@@ -347,6 +355,11 @@ export default function ScanEditorModal({ visible, scan, centerId, unit = 'scan'
               onChange={v => setField('booking_cutoff_hours', v)}
               label="Booking notice"
               noun="Patients"
+            />
+
+            <BookingWindowPicker
+              value={form.max_days_ahead}
+              onChange={v => setField('max_days_ahead', v)}
             />
 
             <Text style={s.section}>HOW THE PATIENT PAYS</Text>

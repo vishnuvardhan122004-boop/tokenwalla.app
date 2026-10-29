@@ -30,6 +30,7 @@ import { useI18n } from '../../../services/i18n';
 import { directionsUrl } from '../../../utils/booking';
 import { matchesTest, SEARCH_ABOVE } from '../../../utils/matchTest';
 import { asList, BLOOD_CENTER, SCAN_PAGE } from '../../../utils/scanCenters';
+import { stripLength } from '../../../utils/bookingWindow';
 import { safeBack } from '../../../utils/navigation';
 
 interface Scan {
@@ -44,6 +45,8 @@ interface Scan {
   available: boolean;
   slots: string[];
   days: string[];
+  /** How many days past today a patient may book; null / absent = no limit. */
+  max_days_ahead?: number | null;
   fee_breakdown?: { collection_mode?: string };
 }
 
@@ -84,7 +87,10 @@ export default function ScanCenterScreen() {
 
   const linked = useRef('');
 
-  const dates = next7Days();
+  // The open test's own booking window trims the strip (ROADMAP 53 slice 4). The server
+  // refuses a later date either way; this only stops the strip offering one. Opening a
+  // test already resets the date to today (pickScan), so a shorter window never strands it.
+  const dates = next7Days().slice(0, stripLength(openScan));
 
   // This one screen serves both centre kinds — the flow is identical (pick the
   // service, then the slot), only the noun differs. Derived from the fetched
