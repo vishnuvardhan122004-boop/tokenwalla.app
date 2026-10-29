@@ -1,6 +1,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axios, { isAxiosError } from 'axios';
 import { router } from 'expo-router';
 import { API_BASE_URL } from '../constants/config';
 
@@ -269,7 +269,7 @@ async function logoutOnce() {
  *                                    password this way, with no `message` at all.
  */
 export function apiMessage(e: unknown, fallback: string): string {
-  if (!axios.isAxiosError(e)) return fallback;
+  if (!isAxiosError(e)) return fallback;
   const data = e.response?.data;
   if (!data || typeof data !== 'object') return fallback;
 

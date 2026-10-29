@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- a CommonJS config plugin
 const { stripScreenOrientation } = require('./withPlayFixes');
 
 describe('stripScreenOrientation', () => {
