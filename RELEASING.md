@@ -39,6 +39,7 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 51 | 1.6.0 | 2026-10-15 | `a415290` | **yes** (uploaded 2026-10-15) |
 | 2026-10 | 52 | 1.6.1 | 2026-10-16 | `6a932e6` | **yes** (uploaded 2026-10-16, on go-ahead) |
 | 2026-10 | 53 | 1.7.0 | 2026-10-24 | `8dc364e` | **yes** (uploaded; Vishnu updated to it and checked it 2026-10-25) |
+| 2026-10 | 54 | 1.8.0 | 2026-10-29 | `67c6ba1` | built, **pending upload** (counts once Vishnu uploads it) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
@@ -71,6 +72,29 @@ Checked before the build: 543 jest tests, `tsc`, lint, `expo export`, `expo-doct
 (17 of 18; the one miss is Expo patch drift), the live API on the current website
 `main` with every endpoint this build calls present. After Play shows 1.7.0 live,
 set `APP_LATEST_VERSION=1.7.0` on Railway (Vishnu's; `APP_MIN_VERSION` stays empty). Still `1.6.1` when checked on 2026-10-25.
+
+**1.8.0 is a 7th, on Vishnu's explicit request in session 2026-10-29**
+("Merged, build now", after being told the count: six uploaded in October, and
+November 1 was the alternative). Reason: ships the six features merged since
+vc53 that no build carries: the redesigned home (#72), the sign-up sheet on the
+login screen (#73), the walk-in button removed from the hospital queue (#74),
+the city-tap question (#75), the clinic QR poster (#76) and the book-ahead
+window (#77), plus the Expo patch bumps (54.0.37) and the lint clean-up (#78).
+
+Built 2026-10-29 as **vc54** from `main` `67c6ba1` (EAS build `7e6edb8f`, signed
+with the same remote keystore as vc44 to vc53: identical signing-cert SHA-256).
+The `.aab` is 73,681,803 bytes, SHA-256
+`bf84673dbcf2b926a81c7defb2321cfe99afca0ed9981fc8b6481d0e156bedcb`, kept at
+`~/Desktop/app/releases/tokenwalla-1.8.0-vc54.aab`. Checked before the build:
+634 jest tests, `tsc`, lint (0 errors), `expo export`, `expo-doctor` (18 of 18),
+the live API on the current website `main` with every endpoint this build calls
+present, and the screens above on Expo web against a local API. Checked in the
+file: version 1.8.0, the Railway `apiBaseUrl`, a live Razorpay key (a store
+build, so expected), Sentry set, and the same four permissions as vc53. Not
+checked: any Android device run (the preview build was canceled, so the Expo
+patch bumps met a native build for the first time here). After Play shows 1.8.0
+live, set `APP_LATEST_VERSION=1.8.0` on Railway (Vishnu's; `APP_MIN_VERSION`
+stays empty).
 
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
