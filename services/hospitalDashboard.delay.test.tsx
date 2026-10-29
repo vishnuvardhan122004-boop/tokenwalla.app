@@ -68,10 +68,6 @@ const mount = async (docs: object | object[]) => {
   await act(async () => { tab.props.onPress(); });
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
 };
-const text = () => r.root.findAll((n: any) => n.type === 'Text')
-  .flatMap((n: any) => [n.props.children].flat(Infinity))
-  .filter((c: unknown) => typeof c === 'string' || typeof c === 'number')
-  .join(' ');
 /** The pressable carrying this accessibilityLabel (the composite, not its host view). */
 const control = (label: string) => r.root.findAll((n: any) =>
   n.props?.accessibilityLabel === label && typeof n.props.onPress === 'function')[0];
@@ -211,7 +207,7 @@ test('a chip reports whether it is selected, for screen readers', async () => {
 
 test('with two doctors, a request on one keeps its controls disabled while the other starts', async () => {
   await mount([doctor(), doctor({ id: 8, name: 'Rao' })]);
-  const resolvers: Array<(v: unknown) => void> = [];
+  const resolvers: ((v: unknown) => void)[] = [];
   (API.post as jest.Mock).mockImplementation(() => new Promise(res => { resolvers.push(res); }));
   // One entry per rendered button: a pressable and the node it wraps both carry
   // the label and the handler, so keep only the outermost.

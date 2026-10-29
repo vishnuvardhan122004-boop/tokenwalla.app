@@ -215,6 +215,7 @@ describe('logoutUser cleanup', () => {
   // token past the deadline sent its DELETE later — authenticated as whoever
   // had logged in by then, deleting THAT account's DeviceToken row.
   it('an unregister that outlives logout leaves the next session alone', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded for its side effect, after the mocks
     require('./notifications'); // registers the real 'push-token' task
     jest.useFakeTimers();
     mockTokenDelayMs = 20_000;  // the token fetch outlives the 8s deadline
@@ -282,6 +283,7 @@ describe('logoutUser cleanup', () => {
   // failed the unregister — the DeviceToken row outlived the session, #38's
   // leak. A logout's own request may refresh; it just may never log out.
   it('logout with an expired access token still refreshes and unregisters', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded for its side effect, after the mocks
     require('./notifications'); // the real 'push-token' task
     mockTokenDelayMs = 0;
     expiredAuth = 'Bearer A1';
@@ -351,7 +353,9 @@ describe('logoutUser cleanup', () => {
   it('the two real tasks register themselves when their modules load', () => {
     // Guards the actual wiring: if either module stops calling onLogout, the
     // leak comes back and the tests above would still pass on their own stubs.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded for its side effect, after the mocks
     require('./notificationStore');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- loaded for its side effect, after the mocks
     require('./notifications');
     expect(_logoutTaskLabels()).toContain('notification-history');
     expect(_logoutTaskLabels()).toContain('push-token');
