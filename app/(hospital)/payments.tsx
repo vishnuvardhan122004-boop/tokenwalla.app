@@ -34,6 +34,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { computeFeeBreakdown, money } from '../../utils/fees';
+import StaffIncentive from '../../components/StaffIncentive';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import {
@@ -488,6 +489,9 @@ export default function HospitalPayments() {
             </View>
           ))}
         </View>
+
+        {/* Staff incentive: the dashboard, then who is paid and how often */}
+        {hospitalId != null && <StaffIncentive hospitalId={hospitalId} />}
 
         {/* Search + count */}
         <View style={styles.listHead}>
