@@ -40,6 +40,7 @@ import { Colors } from '../../../constants/colors';
 import { appendKeyword, suggestKeywordsForList } from '../../../constants/searchKeywords';
 import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
+import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -1541,6 +1542,13 @@ export default function HospitalDashboard() {
             <Text style={styles.tabText}>Scan QR</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Staff incentive (ROADMAP 60): one line, absent while the flag is off */}
+        {hospital?.id != null && (
+          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+            <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
+          </View>
+        )}
 
         {/* ══════════════════════════════════════════════════════════════════
             QUEUE TAB

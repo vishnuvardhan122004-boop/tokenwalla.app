@@ -34,7 +34,7 @@ export const PAYMENT_METHODS: { value: PayoutForm['payment_method']; label: stri
   { value: 'BANK', label: 'Bank Account' },
 ];
 
-const UPI_RE  = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
+export const UPI_RE  = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
 const IFSC_RE = /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/;
 
 /**
