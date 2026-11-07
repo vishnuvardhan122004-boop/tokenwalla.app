@@ -535,6 +535,7 @@ export default function MyBookings() {
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
                       {t('mb_free_reschedule', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}
+                      {booking.leave_reason ? ` (${booking.leave_reason})` : ''}
                     </Text>
                   </View>
                 )}

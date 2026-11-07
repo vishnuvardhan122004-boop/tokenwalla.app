@@ -55,7 +55,7 @@ import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
 import BookingWindowPicker from '../../../components/BookingWindowPicker';
-import { providerLabel } from '../../../utils/booking';
+import { providerLabel, toLocalISODate } from '../../../utils/booking';
 import { formatDelay } from '../../../utils/formatDelay';
 import { usePolling } from '../../../hooks/usePolling';
 import { pickDocumentPhoto } from '../../../utils/imagePicker';
@@ -102,6 +102,8 @@ interface Doctor {
   instructions?: string;
   available: boolean;
   running_delay_minutes?: number;
+  /** Upcoming days the doctor is on leave. Absent on a backend that predates it. */
+  leave_dates?: { date: string; reason?: string }[];
   slots: string[];
   days?: string[];
   image?: string;
@@ -180,6 +182,12 @@ const DELAY_MAX = 180;
 const DELAY_STEP = 5;
 const DELAY_DEFAULT = 15;
 const DELAY_QUICK = [15, 30, 60, 120, 180];
+
+// "On leave" (ROADMAP 61): one closed day, with an optional reason the patients
+// see. The server caps the reason at 120; Save is disabled past it rather than
+// using maxLength, which would clip a paste without telling anyone.
+const LEAVE_REASON_MAX = 120;
+const LEAVE_DAY_CHOICES = 14;
 // Keys are the backend's closed set; the server maps them to the patient text.
 const DELAY_REASONS: [string, string][] = [
   ['surgery', 'In surgery'],
@@ -790,6 +798,49 @@ export default function HospitalDashboard() {
     );
   };
 
+  // ── On leave (one closed day) ─────────────────────────────────────────────
+  const [leaveFor,    setLeaveFor]    = useState<Doctor | null>(null);
+  const [leaveDate,   setLeaveDate]   = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
+  const [leaveSaving, setLeaveSaving] = useState(false);
+
+  const openLeave = (doc: Doctor) => { setLeaveFor(doc); setLeaveDate(''); setLeaveReason(''); };
+  const leaveDays = (doc: Doctor): string[] => {
+    const n = Math.min(LEAVE_DAY_CHOICES, doc.max_days_ahead != null ? doc.max_days_ahead + 1 : LEAVE_DAY_CHOICES);
+    return Array.from({ length: n }, (_, i) => toLocalISODate(new Date(Date.now() + i * 86400000)));
+  };
+  const saveLeave = async () => {
+    if (!leaveFor) return;
+    setLeaveSaving(true);
+    try {
+      const { data } = await API.post(`/doctors/${leaveFor.id}/leave/`, { date: leaveDate, reason: leaveReason.trim() });
+      const id = leaveFor.id;
+      setDoctors(prev => prev.map(d => (d.id === id ? {
+        ...d,
+        leave_dates: [...(d.leave_dates || []).filter(l => l.date !== data.date), { date: data.date, reason: data.reason }]
+          .sort((a, b) => a.date.localeCompare(b.date)),
+      } : d)));
+      setLeaveFor(null);
+      Alert.alert('Updated', data.affected > 0
+        ? `${data.affected} patient${data.affected === 1 ? '' : 's'} notified`
+        : 'Leave saved. No patients were booked that day.');
+    } catch (e) {
+      Alert.alert('Error', extractApiError(e, 'Failed to save leave.'));
+    } finally {
+      setLeaveSaving(false);
+    }
+  };
+  const removeLeave = async (doc: Doctor, date: string) => {
+    try {
+      await API.delete(`/doctors/${doc.id}/leave/`, { params: { date } });
+      setDoctors(prev => prev.map(d => (d.id === doc.id
+        ? { ...d, leave_dates: (d.leave_dates || []).filter(l => l.date !== date) } : d)));
+      Alert.alert('Updated', 'Day reopened.');
+    } catch (e) {
+      Alert.alert('Error', extractApiError(e, 'Failed to reopen the day.'));
+    }
+  };
+
   // ── Modal: open for Add ───────────────────────────────────────────────────
   const openAdd = () => {
     setEditDoc(null);
@@ -1016,8 +1067,66 @@ export default function HospitalDashboard() {
     );
   }
 
+  // Shown over the card list, or INSIDE the doctor form while that is open: iOS
+  // cannot present a second root modal on top of the first.
+  const leaveModal = (
+    <Modal visible={!!leaveFor} transparent animationType="fade" onRequestClose={() => setLeaveFor(null)}>
+      <View style={styles.sheetBackdrop}>
+        <View style={styles.sheet}>
+          <Text style={styles.sheetTitle}>{leaveFor ? providerLabel(leaveFor.name, 'DOCTOR') : ''} on leave</Text>
+          <Text style={styles.sheetSub}>Date</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {(leaveFor ? leaveDays(leaveFor) : []).map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.leaveDay, leaveDate === d && styles.delayBtnOn]}
+                onPress={() => setLeaveDate(d)}
+                accessibilityLabel={`Leave on ${d}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: leaveDate === d }}
+              >
+                <Text style={styles.delayBtnText}>{d.slice(5)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={[styles.sheetSub, { marginTop: 12 }]}>Reason (optional)</Text>
+          <TextInput
+            style={styles.leaveInput}
+            placeholder="e.g. Out of station"
+            placeholderTextColor={Colors.gray400}
+            value={leaveReason}
+            onChangeText={setLeaveReason}
+            accessibilityLabel="Leave reason"
+          />
+          <Text style={[styles.leaveCount, leaveReason.length > LEAVE_REASON_MAX && { color: Colors.errorText }]}>
+            {leaveReason.length}/{LEAVE_REASON_MAX}
+          </Text>
+          <Text style={styles.sheetSub}>Patients booked that day get a WhatsApp + app alert and a free reschedule.</Text>
+          <View style={styles.delayBtnRow}>
+            <TouchableOpacity style={[styles.sheetCancel, { flex: 1, marginTop: 0 }]} onPress={() => setLeaveFor(null)}
+              disabled={leaveSaving} accessibilityLabel="Cancel leave">
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sheetCancel, { flex: 1, marginTop: 0, backgroundColor: Colors.warningBg },
+                (leaveSaving || !leaveDate || leaveReason.length > LEAVE_REASON_MAX) && { opacity: 0.5 }]}
+              onPress={saveLeave}
+              disabled={leaveSaving || !leaveDate || leaveReason.length > LEAVE_REASON_MAX}
+              accessibilityLabel="Save leave"
+            >
+              {leaveSaving
+                ? <ActivityIndicator size="small" color={Colors.gray700} />
+                : <Text style={styles.sheetCancelText}>Save leave</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      {!showModal && leaveModal}
 
       {/* ══════════════════════════════════════════════════════════════════════
           DOCTOR FORM MODAL
@@ -1072,6 +1181,7 @@ export default function HospitalDashboard() {
 
       <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
+          {showModal && leaveModal}
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={{ flex: 1 }}
@@ -1394,6 +1504,11 @@ export default function HospitalDashboard() {
                   thumbColor={form.available ? Colors.blue600 : Colors.gray400}
                 />
               </View>
+              {editDoc && (
+                <TouchableOpacity style={styles.leaveBtn} onPress={() => openLeave(editDoc)} accessibilityLabel="On leave from form">
+                  <Text style={styles.delayBtnText}>On leave…</Text>
+                </TouchableOpacity>
+              )}
 
               {/* ── AVAILABLE DAYS ────────────────────────────────────── */}
               <Text style={styles.formSection}>
@@ -2101,6 +2216,21 @@ export default function HospitalDashboard() {
                       </View>
                     </View>
 
+                    {/* ── On leave ── */}
+                    <View style={styles.leaveRow}>
+                      <TouchableOpacity style={styles.leaveBtn} onPress={() => openLeave(doc)} accessibilityLabel={`On leave ${doc.id}`}>
+                        <Text style={styles.delayBtnText}>On leave…</Text>
+                      </TouchableOpacity>
+                      {(doc.leave_dates || []).map(l => (
+                        <View key={l.date} style={styles.leaveChip}>
+                          <Text style={styles.delayBtnText}>{`${l.date}${l.reason ? ` · ${l.reason}` : ''}`}</Text>
+                          <TouchableOpacity onPress={() => removeLeave(doc, l.date)} accessibilityLabel={`Reopen ${l.date}`} accessibilityRole="button">
+                            <Text style={styles.leaveX}>×</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+
                   </View>
                 );
               })
@@ -2245,6 +2375,13 @@ const styles = StyleSheet.create({
   delayStepBtn:  { width: 40, height: 36, borderRadius: 8, borderWidth: 1, borderColor: Colors.gray200, backgroundColor: Colors.gray100, alignItems: 'center', justifyContent: 'center' },
   delayReadout:  { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '800', color: Colors.gray700 },
   delayNotifyBtn:  { flex: 1.8, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg, alignItems: 'center', justifyContent: 'center' },
+  leaveRow:      { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingBottom: 12 },
+  leaveBtn:      { alignSelf: 'flex-start', paddingVertical: 7, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg },
+  leaveChip:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: Colors.warningBorder, backgroundColor: Colors.warningBg },
+  leaveX:        { fontSize: 16, lineHeight: 16, fontWeight: '800', color: Colors.warningText },
+  leaveDay:      { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: Colors.gray200, backgroundColor: Colors.gray100 },
+  leaveInput:    { borderWidth: 1, borderColor: Colors.gray200, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: Colors.gray900 },
+  leaveCount:    { fontSize: 11, color: Colors.gray500, alignSelf: 'flex-end', marginTop: 2, marginBottom: 6 },
   delayNotifyText: { fontSize: 12, fontWeight: '800', color: Colors.warningText },
 
   modalHeader:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },
