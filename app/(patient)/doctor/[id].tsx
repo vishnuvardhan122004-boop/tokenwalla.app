@@ -33,7 +33,7 @@ import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 
-interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; }
+interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
 interface GalleryPhoto { id: number | string; url: string; }
 
 interface Hospital {
@@ -345,6 +345,8 @@ export default function DoctorDetails() {
   if (!doctor) return null;
 
   const slots     = doctor.slots || [];
+  // Every slot of a leave day carries the flag, so any one of them will do.
+  const leaveInfo = Object.values(slotAvail).find(i => i?.on_leave);
   const am        = slots.filter(s => s.includes('AM'));
   const pm        = slots.filter(s => s.includes('PM'));
   const dateLabel = DAYS.find(d => d.full === selectedDate);
@@ -724,6 +726,10 @@ export default function DoctorDetails() {
                 </Text>
               )}
             </View>
+          ) : leaveInfo ? (
+            <Text style={{ color: Colors.warningText, fontSize: 14, textAlign: 'center', paddingVertical: 20 }}>
+              {t('dr_on_leave')}{leaveInfo.leave_reason ? ` — ${leaveInfo.leave_reason}` : ''}
+            </Text>
           ) : (
             <View style={{ opacity: availLoading ? 0.5 : 1 }}>
               {am.length > 0 && (
