@@ -12,6 +12,7 @@ const extra = (Constants.expoConfig?.extra ?? {}) as {
   apiBaseUrl?: string;
   razorpayKeyId?: string;
   sentryDsn?: string;
+  googleWebClientId?: string;
 };
 
 // Backend API base. Keep in sync with the deployed Django backend.
@@ -26,6 +27,13 @@ export const RAZORPAY_KEY_ID: string =
 // default — set it (via app.json extra.sentryDsn or the SENTRY_DSN build env)
 // to activate. When empty, Sentry stays disabled (see services/sentry.ts).
 export const SENTRY_DSN: string = extra.sentryDsn || '';
+
+// Google OAuth *Web* client ID. A public identifier, not a secret. The native
+// Google sign-in asks Google for an ID token issued to THIS client, which is the
+// audience the backend checks (GOOGLE_OAUTH_CLIENT_IDS), so the Android client
+// itself is only registered in Google Cloud (package + SHA-1) and never named
+// here. Empty => no Google button (services/googleAuth.ts).
+export const GOOGLE_WEB_CLIENT_ID: string = extra.googleWebClientId || '';
 
 // Minimum lead time before an appointment slot can be booked / rescheduled.
 // Also the window used for the pre-appointment reminder. 2.1 hours.

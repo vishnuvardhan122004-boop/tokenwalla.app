@@ -11,6 +11,7 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import RegisterPrompt from '../../components/RegisterPrompt';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
@@ -260,6 +261,9 @@ export default function LoginScreen() {
           >
             <Text style={styles.forgotText}>{t('forgot_password')}</Text>
           </TouchableOpacity>
+
+          {/* Patients and hospital staff alike: finishLogin routes by role. */}
+          <GoogleSignInButton onSignedIn={finishLogin} />
 
           <View style={styles.divider} />
 

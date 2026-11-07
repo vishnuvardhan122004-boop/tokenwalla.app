@@ -32,8 +32,14 @@ const PUBLIC_ROUTES = [
   '/app-version/',
 ];
 
+// Matched by the END of the path, not includes(): /auth/google/identities/ (a
+// signed-in hospital managing its linked Google accounts) must keep its token.
+const PUBLIC_EXACT = ['/auth/google/', '/auth/google/link/'];
+
 function isPublicRoute(url = ''): boolean {
-  return PUBLIC_ROUTES.some(route => url.includes(route));
+  const path = url.split('?')[0];
+  return PUBLIC_ROUTES.some(route => url.includes(route))
+    || PUBLIC_EXACT.some(route => path.endsWith(route));
 }
 
 // Read-only doctor endpoints (GET /doctors/, /doctors/:id/, /doctors/?hospital=)
