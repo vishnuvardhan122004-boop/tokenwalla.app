@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
 import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
@@ -64,6 +65,16 @@ export default function RegisterScreen() {
     } catch (e) {
       setError(apiMessage(e, 'Invalid OTP. Try again.'));
     }
+  };
+
+  // Continue with Google, from the register screen: the same sign-in as on the
+  // login screen, so a hospital's linked staff account lands on its dashboard.
+  const finishGoogle = async (data: any) => {
+    await AsyncStorage.setItem('access',  data.access);
+    await AsyncStorage.setItem('refresh', data.refresh);
+    await AsyncStorage.setItem('user',    JSON.stringify(data.user));
+    if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
+    else router.replace('/(patient)/home');
   };
 
   const handleRegister = async () => {
@@ -197,6 +208,8 @@ export default function RegisterScreen() {
           <TouchableOpacity style={styles.submitBtn} onPress={handleRegister} disabled={loading}>
             {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitBtnText}>Create Account →</Text>}
           </TouchableOpacity>
+
+          <GoogleSignInButton onSignedIn={finishGoogle} />
 
           <View style={styles.divider} />
 

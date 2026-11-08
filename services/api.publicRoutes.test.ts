@@ -32,6 +32,17 @@ describe('isPublicRequest', () => {
     expect(get('/doctors/payment-summary/?hospital=6')).toBe(false);
   });
 
+  it('sends no token to the two Google sign-in routes, but keeps it for managing links', () => {
+    // /auth/google/ and /auth/google/link/ run before anyone is signed in, so a
+    // stale token must not ride along. /auth/google/identities/ is a signed-in
+    // hospital's own list of linked Google accounts and needs its token, which
+    // a substring match on '/auth/google/' would have stripped.
+    expect(get('/auth/google/')).toBe(true);
+    expect(get('/auth/google/link/')).toBe(true);
+    expect(get('/auth/google/identities/')).toBe(false);
+    expect(get('/auth/google/identities/4/')).toBe(false);
+  });
+
   it('treats the launch-time version check as public', () => {
     // Runs before login. A stale token would 401 it and pull the launch path
     // into the refresh-retry flow, logging the patient out over a version check.

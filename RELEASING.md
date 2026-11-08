@@ -22,6 +22,19 @@ calendar month.**
   uploaded does not count against the two, but it still gets a row, because it
   still spent a versionCode.
 
+## Unreleased native changes (read before the next production build)
+
+Most merged fixes are JavaScript. These add or change **native code**, so they
+reach users only in a new store build, and they cannot be tried in Expo Go. Test
+them on a `development` or `preview` build, never on `production`.
+
+- **Continue with Google** (`@react-native-google-signin/google-signin` 16.2.0,
+  ROADMAP 62 slice 3). Android only. Needs an **Android OAuth client** in Google
+  Cloud (package `com.vishnu2004.Tokenwalla`) with the **SHA-1** of every key that
+  signs a build: the EAS keystore (`eas credentials`) and the Play app-signing key
+  (Play Console → Setup → App signing). Without a matching SHA-1 the picker fails
+  with `DEVELOPER_ERROR`. The Web client ID is in `app.json` `extra.googleWebClientId`.
+
 ## Tally
 
 Production-profile builds and store releases since the rule's first month.
