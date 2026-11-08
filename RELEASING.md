@@ -53,6 +53,7 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 52 | 1.6.1 | 2026-10-16 | `6a932e6` | **yes** (uploaded 2026-10-16, on go-ahead) |
 | 2026-10 | 53 | 1.7.0 | 2026-10-24 | `8dc364e` | **yes** (uploaded; Vishnu updated to it and checked it 2026-10-25) |
 | 2026-10 | 54 | 1.8.0 | 2026-10-29 | `67c6ba1` | built, **pending upload** (counts once Vishnu uploads it) |
+| 2026-11 | 55 | 1.8.0 | 2026-11-09 | `1b94080` | **yes** (uploaded to Play by Vishnu 2026-11-09). Same versionName as vc54 |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
@@ -108,6 +109,8 @@ checked: any Android device run (the preview build was canceled, so the Expo
 patch bumps met a native build for the first time here). After Play shows 1.8.0
 live, set `APP_LATEST_VERSION=1.8.0` on Railway (Vishnu's; `APP_MIN_VERSION`
 stays empty).
+
+**vc55 (1.8.0) is November's 1st release** (2026-11-09, on Vishnu's "build it" after #84). Ships what vc54 lacked: Continue with Google (#82), the leave day (#81), the staff incentive (#80), the doctor photo viewer and the Hospital Contact row on the token (#84). Built from `main` `1b94080` (EAS build `1b788300`), `.aab` 73,955,010 bytes, SHA-256 `944e676edd394ef7397c21106e032e13fbc9e7dd7f894f6e058570fc7e18099b`, kept at `~/Desktop/app/releases/tokenwalla-1.8.0-vc55.aab`. Checked before the build: tsc, 687 jest. **Not checked: any device run** (no `preview` build was made, so Google sign-in and the Expo patch bumps are untried on Android). The versionName is still 1.8.0, same as vc54, so `APP_LATEST_VERSION=1.8.0` will not prompt anyone already on vc54. `RECORD_AUDIO` appears to still be in the manifest (ROADMAP: set `recordAudioAndroid: false`). Whether vc54 was ever uploaded is not recorded: if it was in November, November is at 2 of 2.
 
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
