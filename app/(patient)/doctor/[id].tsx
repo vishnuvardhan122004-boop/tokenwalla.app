@@ -27,6 +27,7 @@ import {
   resolveSelectedDate,
 } from '../../../utils/booking';
 import { stripLength } from '../../../utils/bookingWindow';
+import PhotoViewer from '../../../components/PhotoViewer';
 import ProviderAboutPanel, { FacebookLogo, InstagramLogo } from '../../../components/ProviderAboutPanel';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fees';
 import { safeBack } from '../../../utils/navigation';
@@ -54,7 +55,7 @@ interface Doctor {
   id: number | string; name: string;
   specialization?: string; city?: string; experience?: number;
   available?: boolean; hospital?: number | string;
-  hospital_name?: string; hospital_image?: string; image?: string;
+  hospital_name?: string; hospital_mobile?: string; hospital_image?: string; image?: string;
   mobile?: string; landline?: string; fee?: number;
   slots?: string[]; days?: string[]; max_per_slot?: number;
   /** How many days past today a patient may book; null / absent = no limit. */
@@ -127,6 +128,7 @@ export default function DoctorDetails() {
   const [selectedDate, setSelectedDate] = useState(todayKey);
   const [selectedSlot, setSelectedSlot] = useState('');
   const [shareOpen,    setShareOpen]    = useState(false);
+  const [photoOpen,    setPhotoOpen]    = useState(false); // doctor photo full-screen
 
   useEffect(() => {
     let cancelled = false;
@@ -254,6 +256,7 @@ export default function DoctorDetails() {
         // Landline-only clinics exist — send whichever number they can be reached on.
         doctorMobile: doctor.mobile || doctor.landline,
         hospital:     doctor.hospital_name,
+        hospitalMobile: doctor.hospital_mobile || '',
         date:         selectedDate,
         slot:         selectedSlot,
         // No fee params: checkout fetches the server's fee_breakdown for this
@@ -483,15 +486,21 @@ export default function DoctorDetails() {
         {/* ── PROFILE CARD ── */}
         <View style={styles.profileCard}>
           <View style={styles.cardTopBar} />
+          {photoOpen && hasDoctorImage && (
+            <PhotoViewer photos={[{ id: doctor.id, url: doctor.image! }]} startAt={0} onClose={() => setPhotoOpen(false)} />
+          )}
           <View style={styles.profileRow}>
             {hasDoctorImage ? (
-              <Image
-                source={{ uri: doctor.image }}
-                style={styles.doctorAvatarImg}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-                transition={180}
-              />
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setPhotoOpen(true)}
+                accessibilityRole="imagebutton" accessibilityLabel={providerLabel(doctor.name)}>
+                <Image
+                  source={{ uri: doctor.image }}
+                  style={styles.doctorAvatarImg}
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={180}
+                />
+              </TouchableOpacity>
             ) : (
               <View style={styles.doctorAvatarBox}>
                 <Ionicons name="medkit-outline" size={32} color={Colors.blue400} />

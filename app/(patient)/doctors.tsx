@@ -23,6 +23,7 @@ import API from '../../services/api';
 import { providerLabel } from '../../utils/booking';
 import { matchesTest } from '../../utils/matchTest';
 import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from '../../utils/scanCenters';
+import PhotoViewer from '../../components/PhotoViewer';
 import { SkeletonList } from '../../components/Skeleton';
 import { useI18n } from '../../services/i18n';
 
@@ -88,7 +89,8 @@ const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
   t:      (key: string, vars?: Record<string, string | number>) => string;
   router: ReturnType<typeof useRouter>;
 }) {
-
+    // Tap the photo to see it full-screen; the rest of the card still opens the doctor.
+    const [photoOpen, setPhotoOpen] = useState(false);
     const isTopRanked = index === 0 && doc.available;
     const isNearby    = city && (doc.city || '').toLowerCase() === city.toLowerCase();
 
@@ -112,13 +114,16 @@ const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
 
           {/* ── AVATAR ── */}
           {hasDoctorImage(doc.image) ? (
-            <Image
-              source={{ uri: doc.image! }}
-              style={styles.docAvatarImg}
-              contentFit="cover"
-              cachePolicy="memory-disk"
-              transition={180}
-            />
+            <TouchableOpacity activeOpacity={0.8} onPress={() => setPhotoOpen(true)}
+              accessibilityRole="imagebutton" accessibilityLabel={providerLabel(doc.name)}>
+              <Image
+                source={{ uri: doc.image! }}
+                style={styles.docAvatarImg}
+                contentFit="cover"
+                cachePolicy="memory-disk"
+                transition={180}
+              />
+            </TouchableOpacity>
           ) : (
             <View style={styles.docAvatarFallback}>
               <Ionicons name="medkit-outline" size={28} color={Colors.blue400} />
@@ -196,6 +201,9 @@ const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
           </View>
         </View>
 
+        {photoOpen && hasDoctorImage(doc.image) && (
+          <PhotoViewer photos={[{ id: doc.id, url: doc.image! }]} startAt={0} onClose={() => setPhotoOpen(false)} />
+        )}
       </TouchableOpacity>
     );
 });

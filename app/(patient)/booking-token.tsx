@@ -25,7 +25,7 @@ export default function BookingTokenScreen() {
   // the doctor/payment screens the patient has just finished paying through.
   useAndroidBack(() => router.replace('/(patient)/my-bookings'));
   const { t } = useI18n();
-  const { token, doctorName, providerKind, hospital, date, slot, paymentId, userName, doctorMobile, offlineFee, instructions } = useLocalSearchParams();
+  const { token, doctorName, providerKind, hospital, date, slot, paymentId, userName, doctorMobile, hospitalMobile, offlineFee, instructions } = useLocalSearchParams();
   // Consultation fee still payable at the hospital. 0 when it was collected
   // online (FULL) — nothing is owed at the desk, so the disclaimer is dropped.
   const dueAtHospital = Number(offlineFee || 0);
@@ -132,6 +132,7 @@ export default function BookingTokenScreen() {
               { label: t('bt_slot'),     value: String(slot || '—') },
               { label: t('bt_hospital'), value: String(hospital || '—') },
               { label: t('bt_contact'),  value: String(doctorMobile || '—') },
+              ...(hospitalMobile ? [{ label: t('bt_hospital_contact'), value: String(hospitalMobile) }] : []),
               ...(paymentId ? [{ label: t('bt_payment_id'), value: String(paymentId).slice(0, 20) + '...' }] : []),
             ].map(({ label, value }) => (
               <View key={label} style={styles.infoRow}>
