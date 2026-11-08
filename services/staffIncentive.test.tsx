@@ -85,7 +85,9 @@ describe('the dashboard', () => {
 
   test('with no payee it asks for a UPI', async () => {
     await mount({ ...TOTALS, payee_set: false, payee_name: '' });
-    expect(text()).toContain('Add a UPI below to start earning');
+    expect(text()).toContain('Add a UPI below so we can pay it');
+    expect(text()).toContain('Bookings completed before then still count');
+    expect(text()).not.toContain('start earning');
   });
 
   test('renders no dashboard if the totals cannot be read, the form still works', async () => {
@@ -180,7 +182,9 @@ describe('the card on the hospital dashboard', () => {
 
   test('without a payee it points at Payments', async () => {
     await mount({ ...TOTALS, payee_set: false }, DETAILS, <StaffIncentiveCard hospitalId={1} onOpen={() => {}} />);
-    expect(text()).toContain('Add a UPI in Payments to start earning');
+    expect(text()).toContain('Add a UPI in Payments so we can pay it');
+    expect(text()).toContain('bookings still count');
+    expect(text()).not.toContain('start earning');
   });
 
   test('renders nothing while the flag is off', async () => {
