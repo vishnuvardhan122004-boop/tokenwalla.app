@@ -76,8 +76,10 @@ export function StaffIncentiveCard({ hospitalId, onOpen }: { hospitalId: number 
         </Text>
       ) : (
         <Text style={styles.cardText}>
-          {'Staff incentive: '}
-          <Text style={styles.link} onPress={onOpen}>Add a UPI in Payments to start earning</Text>
+          {/* With the flag on, a hospital with no UPI still earns: its bookings
+              wait and are paid once a UPI is saved (the API's run_daily_payouts). */}
+          {'Staff incentive: bookings still count. '}
+          <Text style={styles.link} onPress={onOpen}>Add a UPI in Payments so we can pay it</Text>
         </Text>
       )}
     </View>
@@ -157,7 +159,7 @@ export default function StaffIncentive({ hospitalId }: { hospitalId: number | st
           <Text style={styles.muted}>
             {t.payee_set
               ? `Paid to ${t.payee_name || 'your staff payee'}.`
-              : 'Add a UPI below to start earning.'}
+              : 'Add a UPI below so we can pay it. Bookings completed before then still count: they show here once a UPI is saved.'}
           </Text>
           <View style={styles.tiles}>
             {tiles.map(c => (
