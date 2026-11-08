@@ -55,7 +55,7 @@ interface Doctor {
   id: number | string; name: string;
   specialization?: string; city?: string; experience?: number;
   available?: boolean; hospital?: number | string;
-  hospital_name?: string; hospital_image?: string; image?: string;
+  hospital_name?: string; hospital_mobile?: string; hospital_image?: string; image?: string;
   mobile?: string; landline?: string; fee?: number;
   slots?: string[]; days?: string[]; max_per_slot?: number;
   /** How many days past today a patient may book; null / absent = no limit. */
@@ -256,6 +256,7 @@ export default function DoctorDetails() {
         // Landline-only clinics exist — send whichever number they can be reached on.
         doctorMobile: doctor.mobile || doctor.landline,
         hospital:     doctor.hospital_name,
+        hospitalMobile: doctor.hospital_mobile || '',
         date:         selectedDate,
         slot:         selectedSlot,
         // No fee params: checkout fetches the server's fee_breakdown for this

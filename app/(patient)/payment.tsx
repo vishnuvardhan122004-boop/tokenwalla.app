@@ -33,7 +33,7 @@ export default function PaymentScreen() {
   const { t }  = useI18n();
   const params = useLocalSearchParams();
   const {
-    doctorId, doctorName, doctorMobile,
+    doctorId, doctorName, doctorMobile, hospitalMobile,
     scanId, scanName,
     hospital, date, slot,
     priorityLeft,
@@ -209,6 +209,7 @@ export default function PaymentScreen() {
           doctorName:   providerName,
           providerKind: 'DOCTOR',
           doctorMobile: String(doctorMobile || ''),
+          hospitalMobile: String(hospitalMobile || ''),
           hospital:     String(hospital),
           date:         String(date),
           slot:         String(slot),
@@ -482,6 +483,7 @@ export default function PaymentScreen() {
               doctorName:   providerName,
               providerKind: isScan ? 'SCAN' : 'DOCTOR',
               doctorMobile: String(doctorMobile || ''),
+          hospitalMobile: String(hospitalMobile || ''),
               hospital:     String(hospital),
               date:         String(date),
               slot:         String(slot),
