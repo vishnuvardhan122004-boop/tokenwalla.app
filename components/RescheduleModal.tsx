@@ -4,7 +4,7 @@
  * Full reschedule flow:
  *   Step 1 → Pick a new date (calendar view)
  *   Step 2 → Pick a new slot
- *   Step 3 → Pay ₹5 via Razorpay WebView
+ *   Step 3 → Pay the reschedule fee (₹12) via Razorpay WebView
  *   Step 4 → Verify with backend → success callback
  *
  * Backend endpoints used:
@@ -43,9 +43,9 @@ import { parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
 
 // ── Constants ──────────────────────────────────────────────────────────────
-// ₹5 in RUPEES — must match a key of the backend's VALID_PLAN_AMOUNTS. The
+// ₹12 in RUPEES (was ₹5 until 2026-11-10) — must match a key of the backend's VALID_PLAN_AMOUNTS. The
 // backend switched from paise to rupees when checkout moved to Razorpay.
-const RESCHEDULE_FEE = 5;
+const RESCHEDULE_FEE = 12;
 const MAX_BOOKING_DAYS_AHEAD = 30; // how far into the future the calendar allows booking
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -106,7 +106,7 @@ interface Props {
   onClose:   () => void;
   onSuccess: () => void;
   user:      any | null;
-  /** When true, the ₹5 fee is waived and reschedule happens with no payment
+  /** When true, the reschedule fee is waived and reschedule happens with no payment
    *  (used when the hospital marked the doctor unavailable). */
   free?:     boolean;
 }
@@ -125,7 +125,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   const [loading,       setLoading]      = useState(false);
   const [doctorSlots,   setDoctorSlots]  = useState<string[]>([]);
   const [slotsLoading,  setSlotsLoading] = useState(false);
-  // A ₹5 order that was paid but refused at verify time because the target
+  // A paid reschedule order that was paid but refused at verify time because the target
   // slot was taken (409 retryable) — still redeemable against a different
   // slot, no new charge. Mirrors MyBookings.js's `unusedOrderId` on the
   // website; see confirmReschedule below.
@@ -213,7 +213,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setStep('slot');
   };
 
-  // Redeem a PAID ₹5 order against `date`/`slot`. Shared by the fresh-payment
+  // Redeem a PAID reschedule order against `date`/`slot`. Shared by the fresh-payment
   // path (handleMessage's SUCCESS branch) and the retry path below (when
   // unusedOrderId is set) so there is exactly one place that reads the
   // verify response — mirrors confirmReschedule in the website's
@@ -312,7 +312,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     try {
       // booking_id/date/slot let the server reject a full or expired slot
       // BEFORE taking the fee (see payments/views.py CreateOrderView on the
-      // backend) — without them a patient pays ₹5 and only then finds out the
+      // backend) — without them a patient pays the fee and only then finds out the
       // slot was refused, same as the website hit before it started sending
       // these. Additive on the server, so this is safe to add on its own.
       const { data } = await API.post('/payment/create-order/', {
