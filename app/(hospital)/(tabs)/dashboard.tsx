@@ -42,7 +42,7 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
-import DeskPicker, { useDeskStaff } from '../../../components/DeskPicker';
+import DeskPicker, { staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -127,6 +127,8 @@ interface Patient {
   is_priority?: boolean;  // paid to be called first in its slot
   completed_by_staff_id?: number | null;  // who handled it at the desk (web ROADMAP 71)
   completed_by_name?: string | null;
+  earns_incentive?: boolean;  // pays the staff incentive (web ROADMAP 71b)
+  staff_picked?: boolean;     // someone was already named at the scan
 }
 
 // Who the visit is FOR — the beneficiary when it was booked for someone else.
@@ -372,6 +374,7 @@ export default function HospitalDashboard() {
   const [deskToken,  setDeskToken]  = useState<string | null>(null);   // PIN token: opens "My earnings" only
   const [pickFor,    setPickFor]    = useState<Patient | null>(null);  // Done waits on "who handled it"
   const [pickBusy,   setPickBusy]   = useState(false);
+  const [pickToast, setPickToast]   = useState<string | null>(null);  // "Lata +₹7 · ₹35 today"
   // Re-read on each visit, so a person added on Payments is pickable here.
   const [focusTick,  setFocusTick]  = useState(0);
   useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
@@ -585,8 +588,12 @@ export default function HospitalDashboard() {
   // away, sending exactly what it always did (the main desk is credited).
   const sendComplete = async (id: number | string, body?: { staff_id: number | null }) => {
     try {
-      await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
+      const { data } = await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
       loadQueue();
+      if (body) {
+        setPickToast(staffTodayMessage(data?.staff_today));
+        setTimeout(() => setPickToast(null), 2500);
+      }
       return true;
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.code === 'staff_token_invalid'
@@ -597,7 +604,9 @@ export default function HospitalDashboard() {
   };
   const complete = (id: number | string) => {
     const p = queue.inProgress.find(x => x.id === id) || queue.waiting.find(x => x.id === id);
-    if (deskStaff.length > 0) setPickFor(p || { id });
+    // Ask only when it can earn and nobody was named at the scan (web 71b);
+    // otherwise the server keeps the scan's pick.
+    if (deskStaff.length > 0 && p?.earns_incentive && !p.staff_picked) setPickFor(p);
     else sendComplete(id);
   };
   const completePicked = async (staffId: number | null) => {
@@ -1701,6 +1710,11 @@ export default function HospitalDashboard() {
                       patient={pickFor ? nameOf(pickFor) : undefined} initial={pickFor?.completed_by_staff_id}
                       busy={pickBusy} onPick={completePicked} onCancel={() => setPickFor(null)} />
         )}
+        {pickToast ? (
+          <View style={styles.pickToast} accessibilityLiveRegion="polite" accessibilityRole="alert">
+            <Text style={styles.pickToastText}>{pickToast}</Text>
+          </View>
+        ) : null}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
@@ -2297,6 +2311,8 @@ const FieldError = ({ msg }: { msg?: string }) =>
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  pickToast:            { position: 'absolute', bottom: 24, alignSelf: 'center', backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
+  pickToastText:        { color: Colors.white, fontSize: 14, fontWeight: '600' },
   safe: { flex: 1, backgroundColor: Colors.white },
 
   navbar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },

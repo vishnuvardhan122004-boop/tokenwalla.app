@@ -6,8 +6,9 @@
  * pressed in the queue. The staff incentive goes to the person picked: the
  * choice rides the scan / Complete as `staff_id` (null = main desk). No PIN
  * (Vishnu's call); the admin Payouts page shows every booking per person and
- * can move a wrong pick before paying. The last person picked on this device is
- * pre-selected. With no desk staff the callers skip this entirely.
+ * can move a wrong pick before paying. One tap on a name saves it (web ROADMAP
+ * 71b); the last person picked on this device is marked "last time". With no
+ * desk staff, or a booking that earns nothing, the callers skip this entirely.
  *
  * Needs the server from web PR #253: an older server ignores `staff_id` and
  * credits the main desk, so this must not ship in a store build before that
@@ -15,11 +16,17 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import API from '../services/api';
 
 export type DeskPerson = { id: number; name: string; active?: boolean };
+
+/** The message after a pick, from the server's `staff_today`: "Lata +₹7 · ₹35 today". */
+export const staffTodayMessage = (t?: { name: string; count: number; amount: number } | null): string =>
+  !t ? 'Saved.'
+  : t.amount > 0 ? `${t.name} +₹${t.amount / t.count} · ₹${t.amount} today`
+  : `Saved: handled by ${t.name}`;
 const lastKey = (hid: number | string) => `tw_lastpick_${hid}`;
 
 /** The hospital's active desk people; [] while loading, with none, or on an older server.
@@ -48,25 +55,25 @@ export default function DeskPicker({ visible, hospitalId, staff, patient, initia
   onPick: (staffId: number | null) => void;
   onCancel: () => void;
 }) {
-  const [sel, setSel] = useState<number | null>(null);
+  const [last, setLast] = useState<number | null>(null);
   const valid = (id: unknown): id is number | null =>
     id === null || staff.some(s => s.id === id);
 
   // Each time it opens: the booking's own person, else the last pick here, else main desk.
   useEffect(() => {
     if (!visible) return;
-    if (initial != null && valid(initial)) { setSel(initial); return; }
-    setSel(null);
+    if (initial != null && valid(initial)) { setLast(initial); return; }
+    setLast(null);
     AsyncStorage.getItem(lastKey(hospitalId))
-      .then(v => { const id = v ? Number(v) : null; if (id !== null && valid(id)) setSel(id); })
+      .then(v => { const id = v ? Number(v) : null; if (id !== null && valid(id)) setLast(id); })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, initial, hospitalId, staff]);
 
-  const confirm = () => {
-    (sel ? AsyncStorage.setItem(lastKey(hospitalId), String(sel)) : AsyncStorage.removeItem(lastKey(hospitalId)))
+  const pick = (id: number | null) => {
+    (id ? AsyncStorage.setItem(lastKey(hospitalId), String(id)) : AsyncStorage.removeItem(lastKey(hospitalId)))
       .catch(() => {});
-    onPick(sel);
+    onPick(id);
   };
   const people: DeskPerson[] = [{ id: 0, name: 'Main desk' }, ...staff];
 
@@ -81,12 +88,12 @@ export default function DeskPicker({ visible, hospitalId, staff, patient, initia
           </Text>
           {people.map(p => {
             const id = p.id === 0 ? null : p.id;
-            const on = sel === id;
+            const on = last === id;
             return (
-              <TouchableOpacity key={p.id} style={[st.option, on && st.optionOn]} onPress={() => setSel(id)}
-                                accessibilityRole="radio" accessibilityState={{ checked: on }}
+              <TouchableOpacity key={p.id} style={[st.option, on && st.optionOn]} onPress={() => pick(id)}
+                                disabled={busy} accessibilityRole="button" accessibilityState={{ selected: on }}
                                 accessibilityLabel={p.name}>
-                <Text style={[st.optionText, on && st.optionTextOn]}>{on ? '✓ ' : ''}{p.name}</Text>
+                <Text style={[st.optionText, on && st.optionTextOn]}>{p.name}{on ? ' · last time' : ''}</Text>
               </TouchableOpacity>
             );
           })}
@@ -94,10 +101,6 @@ export default function DeskPicker({ visible, hospitalId, staff, patient, initia
             <TouchableOpacity style={st.cancel} onPress={onCancel} disabled={busy} accessibilityRole="button"
                               accessibilityLabel="Cancel">
               <Text style={st.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[st.ok, busy && { opacity: 0.6 }]} onPress={confirm} disabled={busy}
-                              accessibilityRole="button" accessibilityLabel="Confirm">
-              {busy ? <ActivityIndicator color={Colors.white} size="small" /> : <Text style={st.okText}>Confirm</Text>}
             </TouchableOpacity>
           </View>
         </View>
@@ -118,6 +121,4 @@ const st = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8, gap: 10 },
   cancel: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, borderColor: Colors.gray200 },
   cancelText: { color: Colors.gray700, fontWeight: '600' },
-  ok: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 10, backgroundColor: Colors.successText, minWidth: 90, alignItems: 'center' },
-  okText: { color: Colors.white, fontWeight: '700' },
 });

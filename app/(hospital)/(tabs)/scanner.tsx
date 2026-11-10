@@ -30,7 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
-import DeskPicker, { useDeskStaff } from '../../../components/DeskPicker';
+import DeskPicker, { staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import { normalizeBookingStatus, providerLabel, toLocalISODate } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
@@ -75,6 +75,7 @@ interface Booking {
   amount?: number | string;
   payment_id?: string;
   created?: string;
+  earns_incentive?: boolean;  // pays the staff incentive: only then is the picker asked (web 71b)
 }
 
 interface ScanResult {
@@ -135,8 +136,9 @@ export default function HospitalScanner() {
     setConfirming(true);
     const visit = visitRef.current;
     try {
-      await (body ? API.post(`/bookings/scan/${token}/`, body) : API.post(`/bookings/scan/${token}/`));
+      const { data } = await (body ? API.post(`/bookings/scan/${token}/`, body) : API.post(`/bookings/scan/${token}/`));
       if (visit !== visitRef.current) return;
+      if (body) setHandledBy(staffTodayMessage(data?.staff_today));
       setScanState('confirmed');
       setScanResult(prev => ({
         ...prev,
@@ -182,7 +184,7 @@ export default function HospitalScanner() {
       const b = data.booking;
       if (autoConfirm && !data.already_done && b?.date === toLocalISODate(new Date()) &&
           ['CONFIRMED', 'ON_HOLD'].includes(b.status)) {
-        if (hasStaff) setPicking(true);
+        if (hasStaff && b.earns_incentive) setPicking(true);
         else await markAttended(b.token);
       }
     } catch (e: unknown) {
@@ -497,7 +499,7 @@ export default function HospitalScanner() {
                   {!isDone && !isConfirmed && (
                     <TouchableOpacity
                       style={[styles.confirmBtn, confirming && { opacity: 0.5 }]}
-                      onPress={() => (hasStaff ? setPicking(true) : markAttended(booking.token))}
+                      onPress={() => (hasStaff && booking.earns_incentive ? setPicking(true) : markAttended(booking.token))}
                       disabled={confirming}
                     >
                       {confirming
@@ -509,16 +511,13 @@ export default function HospitalScanner() {
                     <DeskPicker visible={picking && !isConfirmed} hospitalId={hospitalId} staff={deskStaff}
                                 patient={booking.patient_name} busy={confirming}
                                 onCancel={() => setPicking(false)}
-                                onPick={(id) => {
-                                  setHandledBy(id === null ? 'Main desk' : deskStaff.find(x => x.id === id)?.name ?? null);
-                                  markAttended(booking.token, { staff_id: id });
-                                }} />
+                                onPick={(id) => markAttended(booking.token, { staff_id: id })} />
                   )}
                   {isConfirmed && (
                     <View style={styles.confirmedPill}>
                       <Ionicons name="checkmark-circle" size={15} color={Colors.successText} />
                       <Text style={styles.confirmedPillText}>
-                        Patient marked In Consultation{handledBy ? ` · handled by ${handledBy}` : ''}
+                        Patient marked In Consultation{handledBy ? ` · ${handledBy}` : ''}
                       </Text>
                     </View>
                   )}

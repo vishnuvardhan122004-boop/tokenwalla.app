@@ -45,6 +45,7 @@ const IN_PROGRESS = {
   id: 5, token: 'TW-5', status: 'IN_PROGRESS', date: TODAY, slot: '09:00 AM',
   doctor_name: 'Dr. Kumar', user_name: 'Ravi', user_mobile: '9800000001',
   patient_name: 'Ravi', patient_mobile: '9800000001', is_for_other: false,
+  earns_incentive: true, staff_picked: false,
 };
 
 let r: any;
@@ -105,7 +106,7 @@ test('with no desk staff, Done sends exactly what it always did and asks nothing
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
-  expect(byLabel('Confirm')).toBeUndefined();
+  expect(byLabel('Cancel')).toBeUndefined();
 });
 
 // ROADMAP 71: Done asks who handled the patient (no PIN) and sends staff_id.
@@ -116,11 +117,24 @@ test('with staff, Done asks who handled it; inactive people are not offered', as
   expect(API.patch).not.toHaveBeenCalled();
   expect(text()).toMatch(/Who handled\s+Ravi/);
   expect(byLabel('Old')).toBeUndefined();
-  await act(async () => { byLabel('Sita').props.onPress(); });
-  await act(async () => { await byLabel('Confirm').props.onPress(); });
+  (API.patch as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 2, amount: 14 } } });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
   expect(text()).not.toContain('Who handled');
+  expect(text()).toContain('Sita +₹7 · ₹14 today');
+});
+
+test('a booking already picked at the scan, or one that earns nothing, completes with no picker', async () => {
+  for (const flags of [{ staff_picked: true }, { earns_incentive: false }]) {
+    await mount(SITA, [{ ...IN_PROGRESS, ...flags }]);
+    (API.patch as jest.Mock).mockClear();
+    (API.patch as jest.Mock).mockResolvedValue({ data: {} });
+    await act(async () => { done().props.onPress(); });
+    expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
+    expect(text()).not.toContain('Who handled');
+    await act(() => r.unmount());
+  }
 });
 
 test('Main desk sends null; Cancel sends nothing', async () => {
@@ -130,18 +144,17 @@ test('Main desk sends null; Cancel sends nothing', async () => {
   await act(async () => { byLabel('Cancel').props.onPress(); });
   expect(API.patch).not.toHaveBeenCalled();
   await act(async () => { done().props.onPress(); });
-  await act(async () => { byLabel('Main desk').props.onPress(); });
-  await act(async () => { await byLabel('Confirm').props.onPress(); });
+  await act(async () => { await byLabel('Main desk').props.onPress(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: null });
 });
 
-test('the person picked at the scan is pre-selected and the card says so', async () => {
+test('the person picked at the scan is marked and the card says so', async () => {
   const scanned = { ...IN_PROGRESS, completed_by_staff_id: 8, completed_by_name: 'Sita' };
   await mount(SITA, [scanned]);
   expect(text()).toMatch(/Handled by\s+Sita/);
   await act(async () => { done().props.onPress(); });
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
-  expect(byLabel('Sita').props.accessibilityState).toEqual({ checked: true });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
 });
 
 test('with staff the bar also links to Manage staff', async () => {

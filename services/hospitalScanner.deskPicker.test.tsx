@@ -38,19 +38,19 @@ const act = (React as any).act;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const booking = (date: string) => ({
+const booking = (date: string, earns = true) => ({
   valid: true, already_done: false,
-  booking: { token: 'TW-1', status: 'CONFIRMED', date, slot: '09:00 AM', patient_name: 'Ravi' },
+  booking: { token: 'TW-1', status: 'CONFIRMED', date, slot: '09:00 AM', patient_name: 'Ravi', earns_incentive: earns },
 });
 
 let r: any;
 const flush = async () => { for (let i = 0; i < 5; i++) await act(async () => { await Promise.resolve(); }); };
-const mount = async (staff: unknown[]) => {
+const mount = async (staff: unknown[], earns = true) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url === '/hospitals/1/staff/' ? Promise.resolve({ data: staff })
-    : Promise.resolve({ data: booking(ymd(new Date())) }));
+    : Promise.resolve({ data: booking(ymd(new Date()), earns) }));
   await act(async () => {
     r = TestRenderer.create(<ExpoRoot context={getMockContext({
       _layout: () => <Stack screenOptions={{ headerShown: false }} />,
@@ -82,20 +82,27 @@ test('with no desk staff the scan posts with no body, as before', async () => {
   await mount([]);
   await scan();
   expect(API.post).toHaveBeenCalledWith('/bookings/scan/TW-1/');
-  expect(byLabel('Confirm')).toBeUndefined();
+  expect(byLabel('Cancel')).toBeUndefined();
 });
 
-test('with staff, auto-mark waits for the pick, then sends it and remembers it', async () => {
+test('a booking that earns nothing is marked straight away with no picker', async () => {
   (API.post as jest.Mock).mockResolvedValue({ data: { success: true } });
+  await mount(SITA, false);
+  await scan();
+  expect(API.post).toHaveBeenCalledWith('/bookings/scan/TW-1/');
+  expect(text()).not.toContain('Who handled');
+});
+
+test('with staff, auto-mark waits for the pick; one tap sends it, remembers it and shows the day', async () => {
+  (API.post as jest.Mock).mockResolvedValue({ data: { success: true, staff_today: { name: 'Sita', count: 5, amount: 35 } } });
   await mount(SITA);
   await scan();
   expect(API.post).not.toHaveBeenCalled();
   expect(text()).toMatch(/Who handled\s+Ravi/);
   await act(async () => { byLabel('Sita').props.onPress(); });
-  await act(async () => { byLabel('Confirm').props.onPress(); });
   await flush();
   expect(API.post).toHaveBeenCalledWith('/bookings/scan/TW-1/', { staff_id: 8 });
-  expect(text()).toContain('handled by Sita');
+  expect(text()).toContain('Sita +₹7 · ₹35 today');
   expect(await AsyncStorage.getItem('tw_lastpick_1')).toBe('8');
 });
 
@@ -105,9 +112,8 @@ test('the last pick is pre-selected, and Main desk sends null', async () => {
   await mount(SITA);
   await scan();
   await flush();
-  expect(byLabel('Sita').props.accessibilityState).toEqual({ checked: true });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
   await act(async () => { byLabel('Main desk').props.onPress(); });
-  await act(async () => { byLabel('Confirm').props.onPress(); });
   await flush();
   expect(API.post).toHaveBeenCalledWith('/bookings/scan/TW-1/', { staff_id: null });
 });
