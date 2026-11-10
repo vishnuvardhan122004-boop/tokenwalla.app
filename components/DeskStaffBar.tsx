@@ -24,6 +24,7 @@ type Earnings = {
   payments?: { paid_at: string; utr: string; amount: string }[];
 };
 const inr = (v?: string) => `₹${Number(v || 0).toFixed(2)}`;
+const bookings = (n?: number) => `${n ?? 0} booking${n === 1 ? '' : 's'}`;
 
 export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
   hospitalId: number | string;
@@ -116,7 +117,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
                 <View style={st.tiles}>
                   <View style={st.tile}><Text style={st.muted}>This month</Text>
                     <Text style={st.big}>{inr(earn.month_amount)}</Text>
-                    <Text style={st.muted}>{`${earn.month_count} bookings`}</Text></View>
+                    <Text style={st.muted}>{bookings(earn.month_count)}</Text></View>
                   <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
                     <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
                   <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
@@ -124,7 +125,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
                 </View>
                 {!earn.upi_set && <Text style={st.error}>No UPI saved for you yet: ask the hospital to add it so we can pay you.</Text>}
                 {(earn.daily || []).slice(0, 7).map((d) => (
-                  <Text key={d.date} style={st.muted}>{`${d.date}   ${d.count} bookings   ${inr(d.amount)}`}</Text>
+                  <Text key={d.date} style={st.muted}>{`${d.date}   ${bookings(d.count)}   ${inr(d.amount)}`}</Text>
                 ))}
                 {(earn.payments || []).length > 0 && (
                   <Text style={st.muted}>
