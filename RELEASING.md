@@ -54,7 +54,8 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 53 | 1.7.0 | 2026-10-24 | `8dc364e` | **yes** (uploaded; Vishnu updated to it and checked it 2026-10-25) |
 | 2026-10 | 54 | 1.8.0 | 2026-10-29 | `67c6ba1` | built, **pending upload** (counts once Vishnu uploads it) |
 | 2026-11 | 55 | 1.8.0 | 2026-11-09 | `1b94080` | **yes** (uploaded to Play by Vishnu 2026-11-09). Same versionName as vc54 |
-| 2026-11 | 56 | 1.9.0 | 2026-11-10 | `04e5ebe` | built, **pending upload** (counts once Vishnu uploads it). November's 2nd of 2. Ships #86 (reschedule ₹12 + cap) and #87 (desk-staff PIN picker) |
+| 2026-11 | 56 | 1.9.0 | 2026-11-10 | `04e5ebe` | no: **superseded by vc57, never uploaded. Do not upload it** (it would make vc57 a 3rd November release) |
+| 2026-11 | 57 | 1.9.0 | 2026-11-10 | `c8bbf77` | built, **pending upload** (counts once Vishnu uploads it). November's 2nd of 2, in place of vc56. Ships everything vc56 had (#86 reschedule ₹12 + cap, #87 desk-staff PIN picker) plus #90 (add/edit staff in the app, compulsory mobile, PIN shown once) and #91 (My earnings after a PIN sign-in) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
@@ -116,3 +117,5 @@ stays empty).
 Five production builds for one release in October is the pattern this rule
 exists to stop: test on `preview` / `development`, build `production` only for
 the release itself.
+
+**vc57 (1.9.0) replaces vc56 as November's 2nd release** (2026-11-10, on Vishnu's "build vc57"). vc56 was built but never uploaded, so it doesn't count, and its versionName 1.9.0 never reached Play. vc57 keeps 1.9.0 and needed no version bump. Built from `main` `c8bbf77` (EAS build `b339e82d`), `.aab` 73,964,366 bytes, SHA-256 `a0245d94c45bc049ff7e576d764e56ccd95f4f8d5124e6dc3cb4b8f3352941e1`, kept at `~/Desktop/app/releases/tokenwalla-1.9.0-vc57.aab`. Signing cert SHA-256 `25:84:35:…:9A:6C`, the same as vc55 and vc56. Checked before the build: jest 703, tsc, `expo lint .` 0 errors, `expo export --platform android`, expo-doctor 18/18, no localhost/LAN URLs. The baked config has the Railway apiBaseUrl and the publishable live payment key. The live API was already on web `091a17b` (#252), and `POST /hospitals/<pk>/staff/me/` answered 401, not 404. **Not checked: any device run.** The features were checked on Expo web against a local API. `RECORD_AUDIO` is still in the manifest.
