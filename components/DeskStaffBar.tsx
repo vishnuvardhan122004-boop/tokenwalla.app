@@ -1,11 +1,9 @@
 /**
- * components/DeskStaffBar.tsx — "who is at the desk?" (web ROADMAP 69).
+ * components/DeskStaffBar.tsx — "My earnings" sign-in (web ROADMAP 69, reworded for 71).
  *
- * The hospital signs in once; each extra front-desk person picks their name and
- * types their 4-digit PIN here. The server checks it and returns a signed token
- * that rides along with Complete, so the staff incentive is credited to them.
- * Nobody picked = the hospital's main payee, exactly as before. The token is
- * held in memory only: after an app restart the desk starts as the main desk.
+ * Who gets the ₹7 is picked per patient in DeskPicker, with no PIN. The PIN
+ * here only opens a person's OWN earnings, so nobody sees a colleague's
+ * figures; the token is never sent with Complete. Held in memory only.
  *
  * "Manage staff" opens the staff list (components/StaffManager.tsx on Payments).
  * With no extra staff only "+ Add desk staff" shows; against a server that
@@ -51,7 +49,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
     return () => { live = false; };
   }, [hospitalId]);
 
-  // The parent drops the token when the server says it expired: fall back to the main desk.
+  // The parent drops the token when the server says it expired: back to signed out.
   useEffect(() => { if (token === null) setWho(null); }, [token]);
 
   if (staff === null) return null;
@@ -93,10 +91,11 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
 
   return (
     <View style={st.bar}>
-      <Text style={st.muted}>At the desk: </Text>
-      <Text style={st.who}>{who ?? 'Main desk'}</Text>
-      <TouchableOpacity onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Change">
-        <Text style={st.link}>  Change</Text>
+      <Text style={st.muted}>My earnings: </Text>
+      <Text style={st.who}>{who ?? 'not signed in'}</Text>
+      <TouchableOpacity onPress={() => setOpen(true)} accessibilityRole="button"
+                        accessibilityLabel={who ? 'Change' : 'Sign in with PIN'}>
+        <Text style={st.link}>{who ? '  Change' : '  Sign in with PIN'}</Text>
       </TouchableOpacity>
       {who && token ? (
         <TouchableOpacity onPress={openEarnings} accessibilityRole="button" accessibilityLabel="My earnings">
@@ -144,13 +143,15 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <View style={st.backdrop}>
           <View style={st.sheet}>
-            <Text style={st.title}>Who is at the desk?</Text>
-            <Text style={st.muted}>Bookings you complete are credited to this person.</Text>
+            <Text style={st.title}>Whose earnings?</Text>
+            <Text style={st.muted}>Pick your name and enter your PIN to see what you have earned.</Text>
             {pick === null ? (
               <>
-                <TouchableOpacity style={st.option} onPress={() => { setWho(null); onToken(null); close(); }}>
-                  <Text style={st.optionText}>Main desk</Text>
-                </TouchableOpacity>
+                {who ? (
+                  <TouchableOpacity style={st.option} onPress={() => { setWho(null); onToken(null); close(); }}>
+                    <Text style={st.optionText}>Sign out</Text>
+                  </TouchableOpacity>
+                ) : null}
                 {staff.map((s) => (
                   <TouchableOpacity key={s.id} style={st.option} onPress={() => setPick(s)}>
                     <Text style={st.optionText}>{s.name}</Text>

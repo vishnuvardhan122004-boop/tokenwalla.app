@@ -82,7 +82,7 @@ beforeEach(async () => { jest.clearAllMocks(); await AsyncStorage.clear(); });
 afterEach(() => act(() => r.unmount()));
 
 const signInAsSita = async () => {
-  await act(async () => { byLabel('Change').props.onPress(); });
+  await act(async () => { byLabel('Sign in with PIN').props.onPress(); });
   await act(async () => { optionNamed('Sita').props.onPress(); });
   const pin = r.root.findAll((n: any) => n.type === 'TextInput' && n.props.placeholder === '4-digit PIN')[0];
   await act(async () => { pin.props.onChangeText('1234'); });
@@ -93,11 +93,11 @@ const SITA = [{ id: 8, name: 'Sita', active: true }, { id: 9, name: 'Old', activ
 
 test('no extra staff shows only "+ Add desk staff"; a server without the endpoint shows nothing', async () => {
   await mount([]);
-  expect(text()).not.toContain('At the desk');
+  expect(text()).not.toContain('My earnings:');
   expect(byLabel('Add desk staff')).toBeTruthy();
   await act(() => r.unmount());
   await mount(new Error('404'));
-  expect(text()).not.toContain('At the desk');
+  expect(text()).not.toContain('My earnings:');
   expect(byLabel('Add desk staff')).toBeUndefined();
 });
 
@@ -155,6 +155,15 @@ test('the person picked at the scan is marked and the card says so', async () =>
   await act(async () => { done().props.onPress(); });
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
   expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
+});
+
+test('the PIN bar is only for My earnings: it never says the desk person gets the credit', async () => {
+  await mount(SITA);
+  expect(text()).toContain('not signed in');
+  expect(text()).not.toContain('credited to this person');
+  await act(async () => { byLabel('Sign in with PIN').props.onPress(); });
+  expect(text()).toContain('Whose earnings?');
+  expect(optionNamed('Sign out')).toBeUndefined();        // nobody signed in yet
 });
 
 test('with staff the bar also links to Manage staff', async () => {
