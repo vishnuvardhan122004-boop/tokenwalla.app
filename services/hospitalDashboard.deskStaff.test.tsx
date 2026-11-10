@@ -139,3 +139,19 @@ test('with staff the bar also links to Manage staff', async () => {
   await mount(SITA);
   expect(byLabel('Manage staff')).toBeTruthy();
 });
+
+test('signed in, My earnings posts the desk token and shows that person\'s own figures', async () => {
+  await mount(SITA);
+  expect(byLabel('My earnings')).toBeUndefined();          // main desk: nothing to show
+  (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } });
+  await signInAsSita();
+  (API.post as jest.Mock).mockResolvedValueOnce({ data: {
+    name: 'Sita', enabled: true, upi_set: true, month_count: 2, month_amount: '14.00',
+    unpaid_amount: '14.00', paid_total: '0.00', daily: [{ date: '2026-11-09', count: 2, amount: '14.00' }], payments: [],
+  } });
+  await act(async () => { await byLabel('My earnings').props.onPress(); });
+  expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
+  expect(text()).toContain('Sita: my earnings');
+  expect(text()).toContain('₹14.00');
+  expect(text()).toContain('2 bookings');
+});
