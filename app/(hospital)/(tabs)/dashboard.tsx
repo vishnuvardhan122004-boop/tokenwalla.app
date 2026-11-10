@@ -1674,7 +1674,8 @@ export default function HospitalDashboard() {
         </View>
 
         {/* Staff incentive (ROADMAP 60): one line, absent while the flag is off */}
-        {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken} />}
+        {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken}
+                                                    onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />

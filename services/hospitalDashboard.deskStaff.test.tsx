@@ -89,12 +89,14 @@ const signInAsSita = async () => {
 
 const SITA = [{ id: 8, name: 'Sita', active: true }, { id: 9, name: 'Old', active: false }];
 
-test('hidden when the hospital has no extra staff, and against a server without the endpoint', async () => {
+test('no extra staff shows only "+ Add desk staff"; a server without the endpoint shows nothing', async () => {
   await mount([]);
   expect(text()).not.toContain('At the desk');
+  expect(byLabel('Add desk staff')).toBeTruthy();
   await act(() => r.unmount());
   await mount(new Error('404'));
   expect(text()).not.toContain('At the desk');
+  expect(byLabel('Add desk staff')).toBeUndefined();
 });
 
 test('with nobody signed in, Done sends exactly what it always did', async () => {
@@ -131,4 +133,9 @@ test('a refused token is dropped: the bar says Main desk and the next Done sends
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
   expect(API.patch).toHaveBeenLastCalledWith('/bookings/complete/5/');
+});
+
+test('with staff the bar also links to Manage staff', async () => {
+  await mount(SITA);
+  expect(byLabel('Manage staff')).toBeTruthy();
 });
