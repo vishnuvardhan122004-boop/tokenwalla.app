@@ -41,6 +41,7 @@ import { appendKeyword, suggestKeywordsForList } from '../../../constants/search
 import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
+import DeskStaffBar from '../../../components/DeskStaffBar';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -364,6 +365,8 @@ export default function HospitalDashboard() {
   // from ALL dates mixed together, so staff need to split them by day.
   const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
   const [showDone,   setShowDone]   = useState(false);   // Completed starts closed
+  // Signed token of the PIN-signed-in front-desk person (web ROADMAP 69); null = main desk.
+  const [deskToken,  setDeskToken]  = useState<string | null>(null);
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
@@ -569,8 +572,20 @@ export default function HospitalDashboard() {
   };
 
   const complete = async (id: number | string) => {
-    try { await API.patch(`/bookings/complete/${id}/`); loadQueue(); }
-    catch { Alert.alert('Error', 'Failed to mark complete'); }
+    try {
+      // The staff incentive goes to whoever signed in with a PIN; nobody picked
+      // sends nothing, exactly as before.
+      await (deskToken
+        ? API.patch(`/bookings/complete/${id}/`, { staff_token: deskToken })
+        : API.patch(`/bookings/complete/${id}/`));
+      loadQueue();
+    } catch (e: any) {
+      // An expired or refused sign-in is dropped, never silently ignored.
+      if (e?.response?.data?.code === 'staff_token_invalid') setDeskToken(null);
+      Alert.alert('Error', e?.response?.data?.code === 'staff_token_invalid'
+        ? apiMessage(e, 'Staff sign-in expired. Pick your name again.')
+        : 'Failed to mark complete');
+    }
   };
 
   // Skip a patient who isn't ready without cancelling them. The endpoint is a
@@ -1659,6 +1674,7 @@ export default function HospitalDashboard() {
         </View>
 
         {/* Staff incentive (ROADMAP 60): one line, absent while the flag is off */}
+        {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken} />}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
