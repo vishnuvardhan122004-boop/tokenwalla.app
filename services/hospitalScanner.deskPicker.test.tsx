@@ -27,7 +27,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'));
 jest.mock('./api', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
   apiMessage: (_e: unknown, f: string) => f,
   logoutUser: jest.fn(),
   onLogout: jest.fn(),
@@ -128,4 +128,48 @@ test('Cancel marks nothing; the manual button opens the picker again', async () 
     && n.findAll((c: any) => c.type === 'Text' && [c.props.children].flat().join('') === 'Mark as In Consultation').length)[0];
   await act(async () => { manual.props.onPress(); });
   expect(text()).toMatch(/Who handled\s+Ravi/);
+});
+
+// Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.
+const mountWithId = async () => {
+  await mount(SITA);
+  const b = booking(ymd(new Date()));
+  (API.get as jest.Mock).mockImplementation((url: string) =>
+    url === '/hospitals/1/staff/' ? Promise.resolve({ data: SITA })
+    : Promise.resolve({ data: { ...b, main_desk_name: 'Ravi K', booking: { ...b.booking, id: 11 } } }));
+};
+
+test('the picker names the payee from the scan response, and Change PATCHes the new person', async () => {
+  const setT = jest.spyOn(global, 'setTimeout');
+  await mountWithId();
+  await scan();
+  expect(byLabel('Ravi K (main desk)')).toBeTruthy();
+  (API.post as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await act(async () => { byLabel('Sita').props.onPress(); });
+  await flush();
+  expect(text()).toContain('Sita +₹7 · ₹7 today');
+  expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  await flush();
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
+  (API.patch as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Ravi K', count: 1, amount: 7 } } });
+  await act(async () => { byLabel('Ravi K (main desk)').props.onPress(); });
+  await flush();
+  expect(API.patch).toHaveBeenCalledWith('/bookings/handled-by/11/', { staff_id: null });
+  expect(text()).toContain('Ravi K +₹7 · ₹7 today');
+  setT.mockRestore();
+});
+
+test('a 409 on Change says admin must move it and drops the button', async () => {
+  await mountWithId();
+  await scan();
+  (API.post as jest.Mock).mockResolvedValue({ data: {} });
+  await act(async () => { byLabel('Sita').props.onPress(); });
+  await flush();
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  (API.patch as jest.Mock).mockRejectedValue({ response: { status: 409, data: {} } });
+  await act(async () => { byLabel('Sita').props.onPress(); });
+  await flush();
+  expect(text()).toContain('Ask admin to move it');
+  expect(byLabel('Change who handled it')).toBeUndefined();
 });

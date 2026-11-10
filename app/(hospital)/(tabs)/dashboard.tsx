@@ -42,7 +42,7 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
-import DeskPicker, { staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
+import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -374,7 +374,10 @@ export default function HospitalDashboard() {
   const [deskToken,  setDeskToken]  = useState<string | null>(null);   // PIN token: opens "My earnings" only
   const [pickFor,    setPickFor]    = useState<Patient | null>(null);  // Done waits on "who handled it"
   const [pickBusy,   setPickBusy]   = useState(false);
-  const [pickToast, setPickToast]   = useState<string | null>(null);  // "Lata +₹7 · ₹35 today"
+  // "Lata +₹7 · ₹35 today" with a 10 s Change button (web ROADMAP 71c)
+  const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
+  const [changing,  setChanging]    = useState(false);
+  const [mainDeskName, setMainDeskName] = useState('');
   // Re-read on each visit, so a person added on Payments is pickable here.
   const [focusTick,  setFocusTick]  = useState(0);
   useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
@@ -444,6 +447,7 @@ export default function HospitalDashboard() {
       const inProgress = Array.isArray(data.inProgress) ? data.inProgress : [];
       const completed  = Array.isArray(data.completed)  ? data.completed  : [];
       setQueue({ waiting, onHold, inProgress, completed });
+      setMainDeskName(typeof data.main_desk_name === 'string' ? data.main_desk_name : '');
 
       // ── Notify hospital of newly-booked (waiting) patients ──
       // `onHold` belongs in this baseline and was missing. The set means "every
@@ -591,8 +595,7 @@ export default function HospitalDashboard() {
       const { data } = await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
       loadQueue();
       if (body) {
-        setPickToast(staffTodayMessage(data?.staff_today));
-        setTimeout(() => setPickToast(null), 2500);
+        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), staffId: body.staff_id, canChange: true });
       }
       return true;
     } catch (e: any) {
@@ -615,6 +618,21 @@ export default function HospitalDashboard() {
     const ok = await sendComplete(pickFor.id, { staff_id: staffId });
     setPickBusy(false);
     if (ok) setPickFor(null);
+  };
+
+  // The toast lives 10 s so a mis-tap can be changed; not while the picker is open.
+  useEffect(() => {
+    if (!pickToast || changing) return undefined;
+    const t = setTimeout(() => setPickToast(null), 10000);
+    return () => clearTimeout(t);
+  }, [pickToast, changing]);
+  const changePicked = async (staffId: number | null) => {
+    if (!pickToast) return;
+    setPickBusy(true);
+    const r = await changeHandledBy(pickToast.id, staffId);
+    setPickBusy(false);
+    setChanging(false);
+    setPickToast(r.ok ? { ...pickToast, msg: r.msg, staffId } : { ...pickToast, msg: r.msg, canChange: !r.tooLate, isError: true });
   };
 
   // Skip a patient who isn't ready without cancelling them. The endpoint is a
@@ -1706,9 +1724,12 @@ export default function HospitalDashboard() {
         {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken}
                                                     onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
-          <DeskPicker visible={pickFor !== null} hospitalId={hospital.id} staff={deskStaff}
-                      patient={pickFor ? nameOf(pickFor) : undefined} initial={pickFor?.completed_by_staff_id}
-                      busy={pickBusy} onPick={completePicked} onCancel={() => setPickFor(null)} />
+          <DeskPicker visible={pickFor !== null || changing} hospitalId={hospital.id} staff={deskStaff}
+                      mainName={mainDeskName}
+                      patient={!changing && pickFor ? nameOf(pickFor) : undefined}
+                      initial={changing ? pickToast?.staffId : pickFor?.completed_by_staff_id}
+                      busy={pickBusy} onPick={changing ? changePicked : completePicked}
+                      onCancel={() => (changing ? setChanging(false) : setPickFor(null))} />
         )}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
@@ -2298,8 +2319,15 @@ export default function HospitalDashboard() {
       {scanBar}
       {/* Outside the ScrollView so it floats over the screen, not the end of the list. */}
       {pickToast ? (
-        <View style={styles.pickToast} accessibilityLiveRegion="polite" accessibilityRole="alert">
-          <Text style={styles.pickToastText}>{pickToast}</Text>
+        <View style={[styles.pickToast, pickToast.isError && { backgroundColor: Colors.errorText }]}
+              accessibilityLiveRegion="polite" accessibilityRole="alert">
+          <Text style={styles.pickToastText}>{pickToast.msg}</Text>
+          {pickToast.canChange ? (
+            <TouchableOpacity style={styles.pickToastBtn} onPress={() => setChanging(true)}
+                              accessibilityRole="button" accessibilityLabel="Change who handled it">
+              <Text style={styles.pickToastBtnText}>Change</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : null}
     </SafeAreaView>
@@ -2312,7 +2340,9 @@ const FieldError = ({ msg }: { msg?: string }) =>
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  pickToast:            { position: 'absolute', bottom: 24, alignSelf: 'center', backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
+  pickToast:            { position: 'absolute', bottom: 24, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
+  pickToastBtn:         { backgroundColor: Colors.white, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },
+  pickToastBtnText:     { color: Colors.successText, fontSize: 13, fontWeight: '700' },
   pickToastText:        { color: Colors.white, fontSize: 14, fontWeight: '600' },
   safe: { flex: 1, backgroundColor: Colors.white },
 

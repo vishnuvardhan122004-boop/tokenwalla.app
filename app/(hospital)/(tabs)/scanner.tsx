@@ -30,7 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
-import DeskPicker, { staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
+import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import { normalizeBookingStatus, providerLabel, toLocalISODate } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
@@ -61,6 +61,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
 type ScanState = 'idle' | 'fetching' | 'found' | 'already_done' | 'confirmed' | 'error';
 
 interface Booking {
+  id?: number;
   token: string;
   status: string;
   hospital_name?: string;
@@ -81,6 +82,7 @@ interface Booking {
 interface ScanResult {
   booking?: Booking;
   already_done?: boolean;
+  main_desk_name?: string;   // the payee's name for the picker
   [key: string]: unknown;
 }
 
@@ -104,6 +106,9 @@ export default function HospitalScanner() {
   const hasStaff = deskStaff.length > 0;
   const [picking,    setPicking]    = useState(false);
   const [handledBy,  setHandledBy]  = useState<string | null>(null);
+  const [pickedId,   setPickedId]   = useState<number | null>(null);   // highlighted on Change
+  const [changing,   setChanging]   = useState(false);
+  const [canChange,  setCanChange]  = useState(false);
   useEffect(() => {
     AsyncStorage.getItem('user')
       .then(raw => setHospitalId(raw ? JSON.parse(raw)?.hospital?.id ?? null : null))
@@ -138,7 +143,11 @@ export default function HospitalScanner() {
     try {
       const { data } = await (body ? API.post(`/bookings/scan/${token}/`, body) : API.post(`/bookings/scan/${token}/`));
       if (visit !== visitRef.current) return;
-      if (body) setHandledBy(staffTodayMessage(data?.staff_today));
+      if (body) {
+        setHandledBy(staffTodayMessage(data?.staff_today));
+        setPickedId(body.staff_id);
+        setCanChange(true);
+      }
       setScanState('confirmed');
       setScanResult(prev => ({
         ...prev,
@@ -170,6 +179,9 @@ export default function HospitalScanner() {
 
     setScanResult(null);
     setErrorMsg('');
+    setHandledBy(null);
+    setChanging(false);
+    setCanChange(false);
     setScanState('fetching');
 
     try {
@@ -270,21 +282,34 @@ export default function HospitalScanner() {
     handleTokenFound(t);
   };
 
-  // Confirmed → clear the card after 3s so the next patient can be scanned.
+  // Confirmed → clear the card so the next patient can be scanned: after 3s, or
+  // 10s when a pick can still be changed (never while the picker is open).
   useEffect(() => {
-    if (scanState !== 'confirmed') return;
+    if (scanState !== 'confirmed' || changing) return undefined;
     const t = setTimeout(() => {
       setScanResult(null);
       setScanState('idle');
       setManualToken('');
       if (fromCameraRef.current) setScanning(true);
-    }, 3000);
+    }, handledBy ? 10000 : 3000);
     return () => clearTimeout(t);
-  }, [scanState]);
+  }, [scanState, changing, handledBy]);
+
+  const changePicked = async (id: number | null, bookingId?: number) => {
+    if (bookingId == null) return;
+    setConfirming(true);
+    const r = await changeHandledBy(bookingId, id);
+    setConfirming(false);
+    setChanging(false);
+    setHandledBy(r.msg);
+    if (r.ok) setPickedId(id); else if (r.tooLate) setCanChange(false);
+  };
 
   const resetScanner = () => {
     visitRef.current += 1;
     setPicking(false);
+    setChanging(false);
+    setCanChange(false);
     setHandledBy(null);
     setScanResult(null);
     setScanState('idle');
@@ -508,10 +533,12 @@ export default function HospitalScanner() {
                     </TouchableOpacity>
                   )}
                   {hospitalId != null && (
-                    <DeskPicker visible={picking && !isConfirmed} hospitalId={hospitalId} staff={deskStaff}
+                    <DeskPicker visible={(picking && !isConfirmed) || changing} hospitalId={hospitalId} staff={deskStaff}
+                                mainName={scanResult?.main_desk_name}
                                 patient={booking.patient_name} busy={confirming}
-                                onCancel={() => setPicking(false)}
-                                onPick={(id) => markAttended(booking.token, { staff_id: id })} />
+                                initial={changing ? pickedId : undefined}
+                                onCancel={() => (changing ? setChanging(false) : setPicking(false))}
+                                onPick={(id) => (changing ? changePicked(id, booking.id) : markAttended(booking.token, { staff_id: id }))} />
                   )}
                   {isConfirmed && (
                     <View style={styles.confirmedPill}>
@@ -519,6 +546,11 @@ export default function HospitalScanner() {
                       <Text style={styles.confirmedPillText}>
                         Patient marked In Consultation{handledBy ? ` · ${handledBy}` : ''}
                       </Text>
+                      {canChange ? (
+                        <TouchableOpacity onPress={() => setChanging(true)} accessibilityRole="button" accessibilityLabel="Change who handled it">
+                          <Text style={styles.confirmedPillChange}>Change</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   )}
                   <TouchableOpacity style={styles.resetBtn} onPress={resetScanner}>
@@ -600,6 +632,7 @@ const styles = StyleSheet.create({
   confirmBtn:    { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   confirmBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
   confirmedPill: { flex: 1, flexDirection: 'row', gap: 7, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  confirmedPillChange: { color: Colors.successText, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
   confirmedPillText: { color: Colors.successText, fontSize: 14, fontWeight: '600' },
   resetBtn:      { borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.white, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   resetBtnText:  { color: Colors.gray600, fontSize: 14, fontWeight: '500' },

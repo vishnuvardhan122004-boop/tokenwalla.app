@@ -27,6 +27,19 @@ export const staffTodayMessage = (t?: { name: string; count: number; amount: num
   !t ? 'Saved.'
   : t.amount > 0 ? `${t.name} +₹${t.amount / t.count} · ₹${t.amount} today`
   : `Saved: handled by ${t.name}`;
+/** The 10-second "Change" after a pick (web ROADMAP 71c). A 409 = the nightly ledger has it: only admin can move it. */
+export async function changeHandledBy(bookingId: number | string, staffId: number | null):
+  Promise<{ ok: boolean; msg: string; tooLate?: boolean }> {
+  try {
+    const { data } = await API.patch(`/bookings/handled-by/${bookingId}/`, { staff_id: staffId });
+    return { ok: true, msg: staffTodayMessage(data?.staff_today) };
+  } catch (e: any) {
+    const tooLate = e?.response?.status === 409;
+    return { ok: false, tooLate,
+      msg: tooLate ? 'Too late to change it here. Ask admin to move it (Payouts).'
+        : e?.response?.data?.message || 'Could not change it. Try again.' };
+  }
+}
 const lastKey = (hid: number | string) => `tw_lastpick_${hid}`;
 
 /** The hospital's active desk people; [] while loading, with none, or on an older server.
@@ -44,11 +57,13 @@ export function useDeskStaff(hospitalId?: number | string | null, refresh?: unkn
   return staff;
 }
 
-export default function DeskPicker({ visible, hospitalId, staff, patient, initial, busy, onPick, onCancel }: {
+export default function DeskPicker({ visible, hospitalId, staff, patient, mainName, initial, busy, onPick, onCancel }: {
   visible: boolean;
   hospitalId: number | string;
   staff: DeskPerson[];
   patient?: string;
+  /** The hospital's payee name, shown as "<name> (main desk)". */
+  mainName?: string;
   /** The person already on the booking (picked at the scan), if any. */
   initial?: number | null;
   busy?: boolean;
@@ -75,7 +90,7 @@ export default function DeskPicker({ visible, hospitalId, staff, patient, initia
       .catch(() => {});
     onPick(id);
   };
-  const people: DeskPerson[] = [{ id: 0, name: 'Main desk' }, ...staff];
+  const people: DeskPerson[] = [{ id: 0, name: mainName ? `${mainName} (main desk)` : 'Main desk' }, ...staff];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>

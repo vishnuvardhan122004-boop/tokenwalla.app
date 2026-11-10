@@ -49,12 +49,12 @@ const IN_PROGRESS = {
 };
 
 let r: any;
-const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS]) => {
+const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '') => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress, completed: [] } })
+      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress, completed: [], main_desk_name: mainName } })
     : url === '/hospitals/1/staff/'
       ? (staff instanceof Error ? Promise.reject(staff) : Promise.resolve({ data: staff }))
       : Promise.resolve({ data: [] }));
@@ -176,4 +176,41 @@ test('signed in, My earnings posts the desk token and shows that person\'s own f
   expect(text()).toContain('Sita: my earnings');
   expect(text()).toContain('₹14.00');
   expect(text()).toContain('2 bookings');
+});
+
+// Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.
+const flush3 = async () => { for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); }); };
+
+test('the picker names the payee from the queue response; after a pick Change re-picks for 10 s', async () => {
+  const setT = jest.spyOn(global, 'setTimeout');
+  await mount(SITA, [IN_PROGRESS], 'Ravi K');
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await act(async () => { done().props.onPress(); });
+  expect(byLabel('Ravi K (main desk)')).toBeTruthy();
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  expect(text()).toContain('Sita +₹7 · ₹7 today');
+  expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Ravi K', count: 1, amount: 7 } } });
+  await act(async () => { await byLabel('Ravi K (main desk)').props.onPress(); });
+  await flush3();
+  expect(API.patch).toHaveBeenLastCalledWith('/bookings/handled-by/5/', { staff_id: null });
+  expect(text()).toContain('Ravi K +₹7 · ₹7 today');
+  setT.mockRestore();
+});
+
+test('a 409 on Change says it is too late and the button goes', async () => {
+  await mount(SITA);
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await act(async () => { done().props.onPress(); });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  (API.patch as jest.Mock).mockRejectedValueOnce({ response: { status: 409, data: {} } });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  expect(text()).toContain('Ask admin to move it');
+  expect(byLabel('Change who handled it')).toBeUndefined();
 });
