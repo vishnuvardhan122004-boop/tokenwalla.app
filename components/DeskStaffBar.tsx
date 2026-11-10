@@ -17,6 +17,14 @@ import { Colors } from '../constants/colors';
 import API, { apiMessage } from '../services/api';
 
 type Person = { id: number; name: string; active: boolean };
+type Earnings = {
+  error?: string; name?: string; enabled?: boolean; upi_set?: boolean; month_count?: number;
+  month_amount?: string; unpaid_amount?: string; paid_total?: string;
+  daily?: { date: string; count: number; amount: string }[];
+  payments?: { paid_at: string; utr: string; amount: string }[];
+};
+const inr = (v?: string) => `₹${Number(v || 0).toFixed(2)}`;
+const bookings = (n?: number) => `${n ?? 0} booking${n === 1 ? '' : 's'}`;
 
 export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
   hospitalId: number | string;
@@ -32,6 +40,8 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // null = closed, {} = loading, else the person's own figures from /staff/me/
+  const [earn, setEarn] = useState<Earnings | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -54,6 +64,16 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
   if (staff.length === 0) return manage ? <View style={st.bar}>{manage}</View> : null;
 
   const close = () => { setOpen(false); setPick(null); setPin(''); setErr(''); };
+
+  const openEarnings = async () => {
+    setEarn({});
+    try {
+      const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token });
+      setEarn(data);
+    } catch (e) {
+      setEarn({ error: apiMessage(e, 'Could not load your earnings.') });
+    }
+  };
 
   const submit = async () => {
     if (!pick) return;
@@ -78,7 +98,48 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
       <TouchableOpacity onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Change">
         <Text style={st.link}>  Change</Text>
       </TouchableOpacity>
+      {who && token ? (
+        <TouchableOpacity onPress={openEarnings} accessibilityRole="button" accessibilityLabel="My earnings">
+          <Text style={st.link}>  ·  My earnings</Text>
+        </TouchableOpacity>
+      ) : null}
       {manage}
+
+      <Modal visible={earn !== null} transparent animationType="fade" onRequestClose={() => setEarn(null)}>
+        <View style={st.backdrop}>
+          <View style={st.sheet}>
+            <Text style={st.title}>{`${earn?.name || who || ''}: my earnings`}</Text>
+            {earn?.error ? <Text style={st.error}>{earn.error}</Text>
+            : earn?.month_amount === undefined ? <ActivityIndicator />
+            : (
+              <>
+                {!earn.enabled && <Text style={st.muted}>The staff incentive is switched off right now.</Text>}
+                <View style={st.tiles}>
+                  <View style={st.tile}><Text style={st.muted}>This month</Text>
+                    <Text style={st.big}>{inr(earn.month_amount)}</Text>
+                    <Text style={st.muted}>{bookings(earn.month_count)}</Text></View>
+                  <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
+                    <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
+                  <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
+                    <Text style={st.big}>{inr(earn.paid_total)}</Text></View>
+                </View>
+                {!earn.upi_set && <Text style={st.error}>No UPI saved for you yet: ask the hospital to add it so we can pay you.</Text>}
+                {(earn.daily || []).slice(0, 7).map((d) => (
+                  <Text key={d.date} style={st.muted}>{`${d.date}   ${bookings(d.count)}   ${inr(d.amount)}`}</Text>
+                ))}
+                {(earn.payments || []).length > 0 && (
+                  <Text style={st.muted}>
+                    {`Last paid ${inr(earn.payments![0].amount)} on ${String(earn.payments![0].paid_at).slice(0, 10)} (UTR ${earn.payments![0].utr})`}
+                  </Text>
+                )}
+              </>
+            )}
+            <TouchableOpacity onPress={() => setEarn(null)} accessibilityRole="button" accessibilityLabel="Close">
+              <Text style={[st.link, { textAlign: 'center' }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <View style={st.backdrop}>
@@ -123,7 +184,10 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
 }
 
 const st = StyleSheet.create({
-  bar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
+  bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
+  tiles: { flexDirection: 'row', gap: 8 },
+  tile: { flex: 1, backgroundColor: '#f3f6fb', borderRadius: 10, padding: 8 },
+  big: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
   muted: { color: Colors.gray500, fontSize: 13 },
   who: { fontWeight: '700', fontSize: 13, color: Colors.gray900 },
   link: { color: Colors.blue600, fontSize: 13, fontWeight: '600', paddingVertical: 6 },
