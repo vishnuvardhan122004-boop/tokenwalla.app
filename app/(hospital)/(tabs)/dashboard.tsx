@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ComponentProps, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,6 +42,7 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
+import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -124,6 +125,10 @@ interface Patient {
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
   provider_kind?: string; // 'DOCTOR' | 'SCAN'
   is_priority?: boolean;  // paid to be called first in its slot
+  completed_by_staff_id?: number | null;  // who handled it at the desk (web ROADMAP 71)
+  completed_by_name?: string | null;
+  earns_incentive?: boolean;  // pays the staff incentive (web ROADMAP 71b)
+  staff_picked?: boolean;     // someone was already named at the scan
 }
 
 // Who the visit is FOR — the beneficiary when it was booked for someone else.
@@ -366,7 +371,17 @@ export default function HospitalDashboard() {
   const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
   const [showDone,   setShowDone]   = useState(false);   // Completed starts closed
   // Signed token of the PIN-signed-in front-desk person (web ROADMAP 69); null = main desk.
-  const [deskToken,  setDeskToken]  = useState<string | null>(null);
+  const [deskToken,  setDeskToken]  = useState<string | null>(null);   // PIN token: opens "My earnings" only
+  const [pickFor,    setPickFor]    = useState<Patient | null>(null);  // Done waits on "who handled it"
+  const [pickBusy,   setPickBusy]   = useState(false);
+  // "Lata +₹7 · ₹35 today" with a 10 s Change button (web ROADMAP 71c)
+  const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
+  const [changing,  setChanging]    = useState(false);
+  const [mainDeskName, setMainDeskName] = useState('');
+  // Re-read on each visit, so a person added on Payments is pickable here.
+  const [focusTick,  setFocusTick]  = useState(0);
+  useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
+  const deskStaff = useDeskStaff(hospital?.id, focusTick);
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
@@ -432,6 +447,7 @@ export default function HospitalDashboard() {
       const inProgress = Array.isArray(data.inProgress) ? data.inProgress : [];
       const completed  = Array.isArray(data.completed)  ? data.completed  : [];
       setQueue({ waiting, onHold, inProgress, completed });
+      setMainDeskName(typeof data.main_desk_name === 'string' ? data.main_desk_name : '');
 
       // ── Notify hospital of newly-booked (waiting) patients ──
       // `onHold` belongs in this baseline and was missing. The set means "every
@@ -571,21 +587,53 @@ export default function HospitalDashboard() {
     catch { Alert.alert('Error', 'Failed to call patient'); }
   };
 
-  const complete = async (id: number | string) => {
+  // With desk staff, Done first asks who handled the patient (web ROADMAP 71)
+  // and the pick rides Complete as staff_id; with none it completes straight
+  // away, sending exactly what it always did (the main desk is credited).
+  const sendComplete = async (id: number | string, body?: { staff_id: number | null }) => {
     try {
-      // The staff incentive goes to whoever signed in with a PIN; nobody picked
-      // sends nothing, exactly as before.
-      await (deskToken
-        ? API.patch(`/bookings/complete/${id}/`, { staff_token: deskToken })
-        : API.patch(`/bookings/complete/${id}/`));
+      const { data } = await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
       loadQueue();
+      if (body) {
+        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), staffId: body.staff_id, canChange: true });
+      }
+      return true;
     } catch (e: any) {
-      // An expired or refused sign-in is dropped, never silently ignored.
-      if (e?.response?.data?.code === 'staff_token_invalid') setDeskToken(null);
       Alert.alert('Error', e?.response?.data?.code === 'staff_token_invalid'
-        ? apiMessage(e, 'Staff sign-in expired. Pick your name again.')
+        ? apiMessage(e, 'That staff member is not available any more. Pick again.')
         : 'Failed to mark complete');
+      return false;
     }
+  };
+  const complete = (id: number | string) => {
+    const p = queue.inProgress.find(x => x.id === id) || queue.waiting.find(x => x.id === id);
+    // Ask only when it can earn and nobody was named at the scan (web 71b);
+    // otherwise the server keeps the scan's pick.
+    if (deskStaff.length > 0 && p?.earns_incentive && !p.staff_picked) setPickFor(p);
+    else sendComplete(id);
+  };
+  const completePicked = async (staffId: number | null) => {
+    if (!pickFor) return;
+    setPickBusy(true);
+    const ok = await sendComplete(pickFor.id, { staff_id: staffId });
+    setPickBusy(false);
+    if (ok) setPickFor(null);
+  };
+
+  // The toast lives 10 s so a mis-tap can be changed; not while the picker is open.
+  useEffect(() => {
+    if (!pickToast || changing) return undefined;
+    const t = setTimeout(() => setPickToast(null), 10000);
+    return () => clearTimeout(t);
+  }, [pickToast, changing]);
+  const changePicked = async (staffId: number | null) => {
+    if (!pickToast) return;
+    setPickBusy(true);
+    const r = await changeHandledBy(pickToast.id, staffId);
+    setPickBusy(false);
+    setChanging(false);
+    if (r.ok) loadQueue();
+    setPickToast(r.ok ? { ...pickToast, msg: r.msg, staffId } : { ...pickToast, msg: r.msg, canChange: !r.tooLate, isError: true });
   };
 
   // Skip a patient who isn't ready without cancelling them. The endpoint is a
@@ -1677,6 +1725,14 @@ export default function HospitalDashboard() {
         {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken}
                                                     onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
+          <DeskPicker visible={pickFor !== null || changing} hospitalId={hospital.id} staff={deskStaff}
+                      mainName={mainDeskName}
+                      patient={!changing && pickFor ? nameOf(pickFor) : undefined}
+                      initial={changing ? pickToast?.staffId : pickFor?.completed_by_staff_id}
+                      busy={pickBusy} onPick={changing ? changePicked : completePicked}
+                      onCancel={() => (changing ? setChanging(false) : setPickFor(null))} />
+        )}
+        {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
           </View>
@@ -1738,6 +1794,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
@@ -1842,6 +1899,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
@@ -1898,6 +1956,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {deskStaff.length > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p, true)}
@@ -2259,6 +2318,19 @@ export default function HospitalDashboard() {
       </ScrollView>
 
       {scanBar}
+      {/* Outside the ScrollView so it floats over the screen, not the end of the list. */}
+      {pickToast ? (
+        <View style={[styles.pickToast, pickToast.isError && { backgroundColor: Colors.errorText }]}
+              accessibilityLiveRegion="polite" accessibilityRole="alert">
+          <Text style={styles.pickToastText}>{pickToast.msg}</Text>
+          {pickToast.canChange ? (
+            <TouchableOpacity style={styles.pickToastBtn} onPress={() => setChanging(true)}
+                              accessibilityRole="button" accessibilityLabel="Change who handled it">
+              <Text style={styles.pickToastBtnText}>Change</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -2269,6 +2341,10 @@ const FieldError = ({ msg }: { msg?: string }) =>
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  pickToast:            { position: 'absolute', bottom: 24, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
+  pickToastBtn:         { backgroundColor: Colors.white, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },
+  pickToastBtnText:     { color: Colors.successText, fontSize: 13, fontWeight: '700' },
+  pickToastText:        { color: Colors.white, fontSize: 14, fontWeight: '600' },
   safe: { flex: 1, backgroundColor: Colors.white },
 
   navbar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },

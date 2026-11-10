@@ -30,6 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
+import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import { normalizeBookingStatus, providerLabel, toLocalISODate } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
@@ -60,6 +61,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
 type ScanState = 'idle' | 'fetching' | 'found' | 'already_done' | 'confirmed' | 'error';
 
 interface Booking {
+  id?: number;
   token: string;
   status: string;
   hospital_name?: string;
@@ -74,11 +76,13 @@ interface Booking {
   amount?: number | string;
   payment_id?: string;
   created?: string;
+  earns_incentive?: boolean;  // pays the staff incentive: only then is the picker asked (web 71b)
 }
 
 interface ScanResult {
   booking?: Booking;
   already_done?: boolean;
+  main_desk_name?: string;   // the payee's name for the picker
   [key: string]: unknown;
 }
 
@@ -94,6 +98,23 @@ export default function HospitalScanner() {
   const [errorMsg,   setErrorMsg]   = useState('');
   const [confirming, setConfirming] = useState(false);
   const [autoConfirm, setAutoConfirm] = useState(true);
+  // "Who handled this patient?" (web ROADMAP 71): with desk staff, Accept and
+  // auto-mark first open the picker and the pick rides the scan as staff_id.
+  const [hospitalId, setHospitalId] = useState<number | string | null>(null);
+  const [focusTick,  setFocusTick]  = useState(0);
+  const deskStaff = useDeskStaff(hospitalId, focusTick);
+  const hasStaff = deskStaff.length > 0;
+  const [picking,    setPicking]    = useState(false);
+  const [handledBy,  setHandledBy]  = useState<string | null>(null);
+  const [pickedId,   setPickedId]   = useState<number | null>(null);   // highlighted on Change
+  const [changing,   setChanging]   = useState(false);
+  const [canChange,  setCanChange]  = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem('user')
+      .then(raw => setHospitalId(raw ? JSON.parse(raw)?.hospital?.id ?? null : null))
+      .catch(() => {});
+  }, []);
+  useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
 
   const lastScannedRef = useRef('');
   const scanCooldown   = useRef(false);
@@ -115,13 +136,18 @@ export default function HospitalScanner() {
   };
 
   // ── Mark as In Consultation ───────────────────────────────────────────────
-  const markAttended = useCallback(async (token?: string) => {
+  const markAttended = useCallback(async (token?: string, body?: { staff_id: number | null }) => {
     if (!token) return;
     setConfirming(true);
     const visit = visitRef.current;
     try {
-      await API.post(`/bookings/scan/${token}/`);
+      const { data } = await (body ? API.post(`/bookings/scan/${token}/`, body) : API.post(`/bookings/scan/${token}/`));
       if (visit !== visitRef.current) return;
+      if (body) {
+        setHandledBy(staffTodayMessage(data?.staff_today));
+        setPickedId(body.staff_id);
+        setCanChange(true);
+      }
       setScanState('confirmed');
       setScanResult(prev => ({
         ...prev,
@@ -137,6 +163,7 @@ export default function HospitalScanner() {
       }
     } finally {
       setConfirming(false);
+      setPicking(false);
     }
   }, []);
 
@@ -152,6 +179,9 @@ export default function HospitalScanner() {
 
     setScanResult(null);
     setErrorMsg('');
+    setHandledBy(null);
+    setChanging(false);
+    setCanChange(false);
     setScanState('fetching');
 
     try {
@@ -166,7 +196,8 @@ export default function HospitalScanner() {
       const b = data.booking;
       if (autoConfirm && !data.already_done && b?.date === toLocalISODate(new Date()) &&
           ['CONFIRMED', 'ON_HOLD'].includes(b.status)) {
-        await markAttended(b.token);
+        if (hasStaff && b.earns_incentive) setPicking(true);
+        else await markAttended(b.token);
       }
     } catch (e: unknown) {
       if (visit !== visitRef.current) return;
@@ -192,7 +223,7 @@ export default function HospitalScanner() {
         setScanState('error');
       }
     }
-  }, [autoConfirm, markAttended]);
+  }, [autoConfirm, markAttended, hasStaff]);
 
   // ── Camera scan handler (with cooldown to avoid duplicate scans) ──────────
   const onBarcodeScanned = useCallback(({ data }: { data: string }) => {
@@ -251,20 +282,35 @@ export default function HospitalScanner() {
     handleTokenFound(t);
   };
 
-  // Confirmed → clear the card after 3s so the next patient can be scanned.
+  // Confirmed → clear the card so the next patient can be scanned: after 3s, or
+  // 10s when a pick can still be changed (never while the picker is open).
   useEffect(() => {
-    if (scanState !== 'confirmed') return;
+    if (scanState !== 'confirmed' || changing) return undefined;
     const t = setTimeout(() => {
       setScanResult(null);
       setScanState('idle');
       setManualToken('');
       if (fromCameraRef.current) setScanning(true);
-    }, 3000);
+    }, handledBy ? 10000 : 3000);
     return () => clearTimeout(t);
-  }, [scanState]);
+  }, [scanState, changing, handledBy]);
+
+  const changePicked = async (id: number | null, bookingId?: number) => {
+    if (bookingId == null) return;
+    setConfirming(true);
+    const r = await changeHandledBy(bookingId, id);
+    setConfirming(false);
+    setChanging(false);
+    setHandledBy(r.msg);
+    if (r.ok) setPickedId(id); else if (r.tooLate) setCanChange(false);
+  };
 
   const resetScanner = () => {
     visitRef.current += 1;
+    setPicking(false);
+    setChanging(false);
+    setCanChange(false);
+    setHandledBy(null);
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');
@@ -478,7 +524,7 @@ export default function HospitalScanner() {
                   {!isDone && !isConfirmed && (
                     <TouchableOpacity
                       style={[styles.confirmBtn, confirming && { opacity: 0.5 }]}
-                      onPress={() => markAttended(booking.token)}
+                      onPress={() => (hasStaff && booking.earns_incentive ? setPicking(true) : markAttended(booking.token))}
                       disabled={confirming}
                     >
                       {confirming
@@ -486,10 +532,25 @@ export default function HospitalScanner() {
                         : <><Ionicons name="checkmark-circle" size={17} color={Colors.white} /><Text style={styles.confirmBtnText}>Mark as In Consultation</Text></>}
                     </TouchableOpacity>
                   )}
+                  {hospitalId != null && (
+                    <DeskPicker visible={(picking && !isConfirmed) || changing} hospitalId={hospitalId} staff={deskStaff}
+                                mainName={scanResult?.main_desk_name}
+                                patient={booking.patient_name} busy={confirming}
+                                initial={changing ? pickedId : undefined}
+                                onCancel={() => (changing ? setChanging(false) : setPicking(false))}
+                                onPick={(id) => (changing ? changePicked(id, booking.id) : markAttended(booking.token, { staff_id: id }))} />
+                  )}
                   {isConfirmed && (
                     <View style={styles.confirmedPill}>
                       <Ionicons name="checkmark-circle" size={15} color={Colors.successText} />
-                      <Text style={styles.confirmedPillText}>Patient marked In Consultation</Text>
+                      <Text style={styles.confirmedPillText}>
+                        Patient marked In Consultation{handledBy ? ` · ${handledBy}` : ''}
+                      </Text>
+                      {canChange ? (
+                        <TouchableOpacity onPress={() => setChanging(true)} accessibilityRole="button" accessibilityLabel="Change who handled it">
+                          <Text style={styles.confirmedPillChange}>Change</Text>
+                        </TouchableOpacity>
+                      ) : null}
                     </View>
                   )}
                   <TouchableOpacity style={styles.resetBtn} onPress={resetScanner}>
@@ -571,6 +632,7 @@ const styles = StyleSheet.create({
   confirmBtn:    { flex: 1, flexDirection: 'row', gap: 8, backgroundColor: Colors.blue600, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   confirmBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
   confirmedPill: { flex: 1, flexDirection: 'row', gap: 7, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
+  confirmedPillChange: { color: Colors.successText, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
   confirmedPillText: { color: Colors.successText, fontSize: 14, fontWeight: '600' },
   resetBtn:      { borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.white, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   resetBtnText:  { color: Colors.gray600, fontSize: 14, fontWeight: '500' },

@@ -45,15 +45,16 @@ const IN_PROGRESS = {
   id: 5, token: 'TW-5', status: 'IN_PROGRESS', date: TODAY, slot: '09:00 AM',
   doctor_name: 'Dr. Kumar', user_name: 'Ravi', user_mobile: '9800000001',
   patient_name: 'Ravi', patient_mobile: '9800000001', is_for_other: false,
+  earns_incentive: true, staff_picked: false,
 };
 
 let r: any;
-const mount = async (staff: unknown) => {
+const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '') => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress: [IN_PROGRESS], completed: [] } })
+      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress, completed: [], main_desk_name: mainName } })
     : url === '/hospitals/1/staff/'
       ? (staff instanceof Error ? Promise.reject(staff) : Promise.resolve({ data: staff }))
       : Promise.resolve({ data: [] }));
@@ -63,7 +64,7 @@ const mount = async (staff: unknown) => {
       dashboard: Dashboard,
     })} location="/dashboard" />);
   });
-  for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve(); });
+  for (let i = 0; i < 12; i++) await act(async () => { await Promise.resolve(); });
 };
 const text = () => r.root.findAll((n: any) => n.type === 'Text')
   .flatMap((n: any) => [n.props.children].flat(Infinity))
@@ -77,10 +78,11 @@ const done = () => r.root.findAll((n: any) =>
 const optionNamed = (label: string) => r.root.findAll((n: any) =>
   typeof n.props?.onPress === 'function'
   && n.findAll((c: any) => c.type === 'Text' && [c.props.children].flat().join('') === label).length > 0)[0];
+beforeEach(async () => { jest.clearAllMocks(); await AsyncStorage.clear(); });
 afterEach(() => act(() => r.unmount()));
 
 const signInAsSita = async () => {
-  await act(async () => { byLabel('Change').props.onPress(); });
+  await act(async () => { byLabel('Sign in with PIN').props.onPress(); });
   await act(async () => { optionNamed('Sita').props.onPress(); });
   const pin = r.root.findAll((n: any) => n.type === 'TextInput' && n.props.placeholder === '4-digit PIN')[0];
   await act(async () => { pin.props.onChangeText('1234'); });
@@ -91,48 +93,77 @@ const SITA = [{ id: 8, name: 'Sita', active: true }, { id: 9, name: 'Old', activ
 
 test('no extra staff shows only "+ Add desk staff"; a server without the endpoint shows nothing', async () => {
   await mount([]);
-  expect(text()).not.toContain('At the desk');
+  expect(text()).not.toContain('My earnings:');
   expect(byLabel('Add desk staff')).toBeTruthy();
   await act(() => r.unmount());
   await mount(new Error('404'));
-  expect(text()).not.toContain('At the desk');
+  expect(text()).not.toContain('My earnings:');
   expect(byLabel('Add desk staff')).toBeUndefined();
 });
 
-test('with nobody signed in, Done sends exactly what it always did', async () => {
-  await mount(SITA);
-  expect(text()).toContain('Main desk');
+test('with no desk staff, Done sends exactly what it always did and asks nothing', async () => {
+  await mount([]);
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
+  expect(byLabel('Cancel')).toBeUndefined();
 });
 
-test('after a PIN sign-in, Done carries the token and inactive people are not offered', async () => {
+// ROADMAP 71: Done asks who handled the patient (no PIN) and sends staff_id.
+test('with staff, Done asks who handled it; inactive people are not offered', async () => {
   await mount(SITA);
-  (API.post as jest.Mock).mockResolvedValue({ data: { token: 'tok-sita', name: 'Sita' } });
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
-  await act(async () => { byLabel('Change').props.onPress(); });
-  expect(text()).not.toContain('Old');
-  await act(async () => { optionNamed('Sita').props.onPress(); });
-  const pin = r.root.findAll((n: any) => n.type === 'TextInput' && n.props.placeholder === '4-digit PIN')[0];
-  await act(async () => { pin.props.onChangeText('1234'); });
-  await act(async () => { await optionNamed('Start').props.onPress(); });
-  expect(API.post).toHaveBeenCalledWith('/hospitals/1/staff/8/pin/', { pin: '1234' });
-  expect(text()).toContain('Sita');
   await act(async () => { done().props.onPress(); });
-  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_token: 'tok-sita' });
+  expect(API.patch).not.toHaveBeenCalled();
+  expect(text()).toMatch(/Who handled\s+Ravi/);
+  expect(byLabel('Old')).toBeUndefined();
+  (API.patch as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 2, amount: 14 } } });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
+  expect(text()).not.toContain('Who handled');
+  expect(text()).toContain('Sita +₹7 · ₹14 today');
 });
 
-test('a refused token is dropped: the bar says Main desk and the next Done sends no token', async () => {
+test('a booking already picked at the scan, or one that earns nothing, completes with no picker', async () => {
+  for (const flags of [{ staff_picked: true }, { earns_incentive: false }]) {
+    await mount(SITA, [{ ...IN_PROGRESS, ...flags }]);
+    (API.patch as jest.Mock).mockClear();
+    (API.patch as jest.Mock).mockResolvedValue({ data: {} });
+    await act(async () => { done().props.onPress(); });
+    expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
+    expect(text()).not.toContain('Who handled');
+    await act(() => r.unmount());
+  }
+});
+
+test('Main desk sends null; Cancel sends nothing', async () => {
   await mount(SITA);
-  (API.post as jest.Mock).mockResolvedValue({ data: { token: 'tok-sita', name: 'Sita' } });
-  await signInAsSita();
-  (API.patch as jest.Mock).mockRejectedValueOnce({ response: { data: { code: 'staff_token_invalid' } } });
-  await act(async () => { done().props.onPress(); });
-  expect(text()).toContain('Main desk');
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
-  expect(API.patch).toHaveBeenLastCalledWith('/bookings/complete/5/');
+  await act(async () => { byLabel('Cancel').props.onPress(); });
+  expect(API.patch).not.toHaveBeenCalled();
+  await act(async () => { done().props.onPress(); });
+  await act(async () => { await byLabel('Main desk').props.onPress(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: null });
+});
+
+test('the person picked at the scan is marked and the card says so', async () => {
+  const scanned = { ...IN_PROGRESS, completed_by_staff_id: 8, completed_by_name: 'Sita' };
+  await mount(SITA, [scanned]);
+  expect(text()).toMatch(/Handled by\s+Sita/);
+  await act(async () => { done().props.onPress(); });
+  for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
+});
+
+test('the PIN bar is only for My earnings: it never says the desk person gets the credit', async () => {
+  await mount(SITA);
+  expect(text()).toContain('not signed in');
+  expect(text()).not.toContain('credited to this person');
+  await act(async () => { byLabel('Sign in with PIN').props.onPress(); });
+  expect(text()).toContain('Whose earnings?');
+  expect(optionNamed('Sign out')).toBeUndefined();        // nobody signed in yet
 });
 
 test('with staff the bar also links to Manage staff', async () => {
@@ -154,4 +185,41 @@ test('signed in, My earnings posts the desk token and shows that person\'s own f
   expect(text()).toContain('Sita: my earnings');
   expect(text()).toContain('₹14.00');
   expect(text()).toContain('2 bookings');
+});
+
+// Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.
+const flush3 = async () => { for (let i = 0; i < 4; i++) await act(async () => { await Promise.resolve(); }); };
+
+test('the picker names the payee from the queue response; after a pick Change re-picks for 10 s', async () => {
+  const setT = jest.spyOn(global, 'setTimeout');
+  await mount(SITA, [IN_PROGRESS], 'Ravi K');
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await act(async () => { done().props.onPress(); });
+  expect(byLabel('Ravi K (main desk)')).toBeTruthy();
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  expect(text()).toContain('Sita +₹7 · ₹7 today');
+  expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Ravi K', count: 1, amount: 7 } } });
+  await act(async () => { await byLabel('Ravi K (main desk)').props.onPress(); });
+  await flush3();
+  expect(API.patch).toHaveBeenLastCalledWith('/bookings/handled-by/5/', { staff_id: null });
+  expect(text()).toContain('Ravi K +₹7 · ₹7 today');
+  setT.mockRestore();
+});
+
+test('a 409 on Change says it is too late and the button goes', async () => {
+  await mount(SITA);
+  (API.patch as jest.Mock).mockResolvedValueOnce({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await act(async () => { done().props.onPress(); });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  await act(async () => { byLabel('Change who handled it').props.onPress(); });
+  (API.patch as jest.Mock).mockRejectedValueOnce({ response: { status: 409, data: {} } });
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  await flush3();
+  expect(text()).toContain('Ask admin to move it');
+  expect(byLabel('Change who handled it')).toBeUndefined();
 });

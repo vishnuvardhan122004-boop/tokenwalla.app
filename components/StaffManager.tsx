@@ -5,13 +5,15 @@
  * Each person has a name, a mobile number (required), an optional UPI and a
  * 4-digit PIN they type at the desk. The server stores only a hash of the PIN,
  * so it is shown once, right after it is saved; a forgotten one is reset.
- * People are never deleted, only made inactive. Shift hours are edited on the
+ * Delete hides a person (web ROADMAP 71): they can't be picked any more, and
+ * money they earned is still paid. Shift hours are edited on the
  * website only (they are for reference and nothing reads them).
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import API, { apiMessage } from '../services/api';
+import { tenDigitMobile } from '../utils/phone';
 
 type Person = { id: number; name: string; upi: string; phone: string; active: boolean };
 type Form = { id: number | null; name: string; upi: string; phone: string; pin: string; active: boolean };
@@ -25,6 +27,8 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [shownPin, setShownPin] = useState<{ name: string; pin: string } | null>(null);
+  const [confirmDel, setConfirmDel] = useState<Person | null>(null);   // inline confirm (Alert is a no-op on web)
+  const [note, setNote] = useState('');
 
   const load = useCallback(() => {
     API.get(base).then(({ data }) => { if (Array.isArray(data)) setRows(data); }).catch(() => {});
@@ -35,13 +39,28 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
 
   const edit = (p: Person) => { setErrors({}); setForm({ ...EMPTY, ...p, pin: '' }); };
   const set = (k: keyof Form) => (v: string) =>
-    setForm((f) => f && ({ ...f, [k]: k === 'pin' || k === 'phone' ? v.replace(/\D/g, '').slice(0, k === 'pin' ? 4 : 10) : v }));
+    setForm((f) => f && ({ ...f, [k]: k === 'phone' ? tenDigitMobile(v) : k === 'pin' ? v.replace(/\D/g, '').slice(0, 4) : v }));
+
+  const remove = async (p: Person) => {
+    setConfirmDel(null);
+    try {
+      const { data } = await API.delete(`${base}${p.id}/`);
+      setNote(data?.kept_for_payouts
+        ? `${p.name} is deleted. What they earned stays on record and is still paid to them.`
+        : `${p.name} is deleted.`);
+      load();
+    } catch (e) {
+      setNote(apiMessage(e, `Could not delete ${p.name}.`));
+    }
+  };
 
   const save = async () => {
     if (!form) return;
     const local: Record<string, string> = {};
     if (!form.name.trim()) local.name = 'Enter a name.';
-    if (!/^\d{10}$/.test(form.phone)) local.phone = 'Enter a 10-digit mobile number.';
+    // The server's rule (web StaffManager.phoneProblem): 10 digits, an Indian mobile starts 6-9.
+    if (!/^\d{10}$/.test(form.phone)) local.phone = 'Enter the 10-digit mobile number.';
+    else if (!/^[6-9]/.test(form.phone)) local.phone = 'A mobile number starts with 6, 7, 8 or 9.';
     if (!form.id && form.pin.length !== 4) local.pin = 'Set a 4-digit PIN.';
     if (form.id && form.pin && form.pin.length !== 4) local.pin = 'The PIN must be exactly 4 digits.';
     setErrors(local);
@@ -80,8 +99,8 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
     <View style={st.card}>
       <Text style={st.title}>👥 Front-desk staff</Text>
       <Text style={st.muted}>
-        Add a night shift or another person. Each signs in at the desk with a 4-digit PIN, and the ₹7 goes
-        to whoever completed the booking. Anyone not signed in is credited to the main payee.
+        Add a night shift or another person. When a patient is scanned or marked Done, the desk taps who
+        handled them, and the ₹7 goes to that person. Each person's 4-digit PIN opens their own "My earnings".
       </Text>
 
       {shownPin && (
@@ -96,6 +115,8 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
         </View>
       )}
 
+      {!!note && <Text style={st.note} accessibilityRole="alert">{note}</Text>}
+
       {rows.map((p) => (
         <View key={p.id} style={st.row}>
           <View style={{ flex: 1 }}>
@@ -109,8 +130,28 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
           <TouchableOpacity style={st.small} onPress={() => edit(p)} accessibilityRole="button" accessibilityLabel={`Reset PIN for ${p.name}`}>
             <Text style={st.smallText}>Reset PIN</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[st.small, st.danger]} onPress={() => setConfirmDel(p)} accessibilityRole="button"
+                            accessibilityLabel={`Delete ${p.name}`}>
+            <Text style={[st.smallText, st.dangerText]}>Delete</Text>
+          </TouchableOpacity>
         </View>
       ))}
+
+      {confirmDel && (
+        <View style={st.confirm}>
+          <Text style={st.name}>{`Delete ${confirmDel.name}?`}</Text>
+          <Text style={st.muted}>They can no longer be picked at the desk. Money they already earned is still paid to them.</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={[st.small, st.danger]} onPress={() => remove(confirmDel)} accessibilityRole="button"
+                              accessibilityLabel={`Yes, delete ${confirmDel.name}`}>
+              <Text style={[st.smallText, st.dangerText]}>Yes, delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={st.small} onPress={() => setConfirmDel(null)} accessibilityRole="button" accessibilityLabel="Keep">
+              <Text style={st.smallText}>Keep</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <TouchableOpacity style={st.add} onPress={() => { setErrors({}); setForm({ ...EMPTY }); }}
                         accessibilityRole="button" accessibilityLabel="Add a person">
@@ -129,7 +170,7 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
                      { keyboardType: 'number-pad', secureTextEntry: true })}
               {form.id != null && (
                 <View style={st.switchRow}>
-                  <Text style={[st.label, { flex: 1 }]}>Active (an inactive person can't sign in, but is still paid)</Text>
+                  <Text style={[st.label, { flex: 1 }]}>Active (an inactive person can't be picked at the desk, but is still paid)</Text>
                   <Switch value={form.active} onValueChange={(v) => setForm((f) => f && ({ ...f, active: v }))}
                           accessibilityLabel="Active" />
                 </View>
@@ -171,6 +212,10 @@ const st = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ccd', borderRadius: 10, padding: 10, fontSize: 15 },
   inputErr: { borderColor: '#c0392b' },
   err: { color: '#c0392b', fontSize: 12 },
+  note: { color: '#14532d', backgroundColor: '#e8f7ee', borderRadius: 8, padding: 8, fontSize: 13 },
+  danger: { borderColor: '#e6b3ad' },
+  dangerText: { color: '#c0392b' },
+  confirm: { borderWidth: 1, borderColor: '#e6b3ad', borderRadius: 10, padding: 10, gap: 6 },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   go: { backgroundColor: Colors.blue600, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   goText: { color: '#fff', fontWeight: '700' },
