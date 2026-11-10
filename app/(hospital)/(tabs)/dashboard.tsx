@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ComponentProps, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,6 +42,7 @@ import { suggestSpecializations } from '../../../constants/specializations';
 import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
+import DeskPicker, { useDeskStaff } from '../../../components/DeskPicker';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -124,6 +125,8 @@ interface Patient {
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
   provider_kind?: string; // 'DOCTOR' | 'SCAN'
   is_priority?: boolean;  // paid to be called first in its slot
+  completed_by_staff_id?: number | null;  // who handled it at the desk (web ROADMAP 71)
+  completed_by_name?: string | null;
 }
 
 // Who the visit is FOR — the beneficiary when it was booked for someone else.
@@ -366,7 +369,13 @@ export default function HospitalDashboard() {
   const [dayFilter,  setDayFilter]  = useState<'today' | 'tomorrow' | 'all'>('today');
   const [showDone,   setShowDone]   = useState(false);   // Completed starts closed
   // Signed token of the PIN-signed-in front-desk person (web ROADMAP 69); null = main desk.
-  const [deskToken,  setDeskToken]  = useState<string | null>(null);
+  const [deskToken,  setDeskToken]  = useState<string | null>(null);   // PIN token: opens "My earnings" only
+  const [pickFor,    setPickFor]    = useState<Patient | null>(null);  // Done waits on "who handled it"
+  const [pickBusy,   setPickBusy]   = useState(false);
+  // Re-read on each visit, so a person added on Payments is pickable here.
+  const [focusTick,  setFocusTick]  = useState(0);
+  useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
+  const deskStaff = useDeskStaff(hospital?.id, focusTick);
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
   const [scans,      setScans]      = useState<Scan[]>([]);
@@ -571,21 +580,32 @@ export default function HospitalDashboard() {
     catch { Alert.alert('Error', 'Failed to call patient'); }
   };
 
-  const complete = async (id: number | string) => {
+  // With desk staff, Done first asks who handled the patient (web ROADMAP 71)
+  // and the pick rides Complete as staff_id; with none it completes straight
+  // away, sending exactly what it always did (the main desk is credited).
+  const sendComplete = async (id: number | string, body?: { staff_id: number | null }) => {
     try {
-      // The staff incentive goes to whoever signed in with a PIN; nobody picked
-      // sends nothing, exactly as before.
-      await (deskToken
-        ? API.patch(`/bookings/complete/${id}/`, { staff_token: deskToken })
-        : API.patch(`/bookings/complete/${id}/`));
+      await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
       loadQueue();
+      return true;
     } catch (e: any) {
-      // An expired or refused sign-in is dropped, never silently ignored.
-      if (e?.response?.data?.code === 'staff_token_invalid') setDeskToken(null);
       Alert.alert('Error', e?.response?.data?.code === 'staff_token_invalid'
-        ? apiMessage(e, 'Staff sign-in expired. Pick your name again.')
+        ? apiMessage(e, 'That staff member is not available any more. Pick again.')
         : 'Failed to mark complete');
+      return false;
     }
+  };
+  const complete = (id: number | string) => {
+    const p = queue.inProgress.find(x => x.id === id) || queue.waiting.find(x => x.id === id);
+    if (deskStaff.length > 0) setPickFor(p || { id });
+    else sendComplete(id);
+  };
+  const completePicked = async (staffId: number | null) => {
+    if (!pickFor) return;
+    setPickBusy(true);
+    const ok = await sendComplete(pickFor.id, { staff_id: staffId });
+    setPickBusy(false);
+    if (ok) setPickFor(null);
   };
 
   // Skip a patient who isn't ready without cancelling them. The endpoint is a
@@ -1677,6 +1697,11 @@ export default function HospitalDashboard() {
         {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken}
                                                     onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
+          <DeskPicker visible={pickFor !== null} hospitalId={hospital.id} staff={deskStaff}
+                      patient={pickFor ? nameOf(pickFor) : undefined} initial={pickFor?.completed_by_staff_id}
+                      busy={pickBusy} onPick={completePicked} onCancel={() => setPickFor(null)} />
+        )}
+        {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
           </View>
@@ -1738,6 +1763,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
@@ -1842,6 +1868,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p)}
@@ -1898,6 +1925,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {deskStaff.length > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p, true)}

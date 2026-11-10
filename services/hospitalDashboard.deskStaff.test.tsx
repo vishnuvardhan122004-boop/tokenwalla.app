@@ -48,12 +48,12 @@ const IN_PROGRESS = {
 };
 
 let r: any;
-const mount = async (staff: unknown) => {
+const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS]) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress: [IN_PROGRESS], completed: [] } })
+      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress, completed: [] } })
     : url === '/hospitals/1/staff/'
       ? (staff instanceof Error ? Promise.reject(staff) : Promise.resolve({ data: staff }))
       : Promise.resolve({ data: [] }));
@@ -63,7 +63,7 @@ const mount = async (staff: unknown) => {
       dashboard: Dashboard,
     })} location="/dashboard" />);
   });
-  for (let i = 0; i < 6; i++) await act(async () => { await Promise.resolve(); });
+  for (let i = 0; i < 12; i++) await act(async () => { await Promise.resolve(); });
 };
 const text = () => r.root.findAll((n: any) => n.type === 'Text')
   .flatMap((n: any) => [n.props.children].flat(Infinity))
@@ -77,6 +77,7 @@ const done = () => r.root.findAll((n: any) =>
 const optionNamed = (label: string) => r.root.findAll((n: any) =>
   typeof n.props?.onPress === 'function'
   && n.findAll((c: any) => c.type === 'Text' && [c.props.children].flat().join('') === label).length > 0)[0];
+beforeEach(async () => { jest.clearAllMocks(); await AsyncStorage.clear(); });
 afterEach(() => act(() => r.unmount()));
 
 const signInAsSita = async () => {
@@ -99,40 +100,48 @@ test('no extra staff shows only "+ Add desk staff"; a server without the endpoin
   expect(byLabel('Add desk staff')).toBeUndefined();
 });
 
-test('with nobody signed in, Done sends exactly what it always did', async () => {
-  await mount(SITA);
-  expect(text()).toContain('Main desk');
+test('with no desk staff, Done sends exactly what it always did and asks nothing', async () => {
+  await mount([]);
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
+  expect(byLabel('Confirm')).toBeUndefined();
 });
 
-test('after a PIN sign-in, Done carries the token and inactive people are not offered', async () => {
+// ROADMAP 71: Done asks who handled the patient (no PIN) and sends staff_id.
+test('with staff, Done asks who handled it; inactive people are not offered', async () => {
   await mount(SITA);
-  (API.post as jest.Mock).mockResolvedValue({ data: { token: 'tok-sita', name: 'Sita' } });
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
-  await act(async () => { byLabel('Change').props.onPress(); });
-  expect(text()).not.toContain('Old');
-  await act(async () => { optionNamed('Sita').props.onPress(); });
-  const pin = r.root.findAll((n: any) => n.type === 'TextInput' && n.props.placeholder === '4-digit PIN')[0];
-  await act(async () => { pin.props.onChangeText('1234'); });
-  await act(async () => { await optionNamed('Start').props.onPress(); });
-  expect(API.post).toHaveBeenCalledWith('/hospitals/1/staff/8/pin/', { pin: '1234' });
-  expect(text()).toContain('Sita');
   await act(async () => { done().props.onPress(); });
-  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_token: 'tok-sita' });
+  expect(API.patch).not.toHaveBeenCalled();
+  expect(text()).toMatch(/Who handled\s+Ravi/);
+  expect(byLabel('Old')).toBeUndefined();
+  await act(async () => { byLabel('Sita').props.onPress(); });
+  await act(async () => { await byLabel('Confirm').props.onPress(); });
+  for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
+  expect(text()).not.toContain('Who handled');
 });
 
-test('a refused token is dropped: the bar says Main desk and the next Done sends no token', async () => {
+test('Main desk sends null; Cancel sends nothing', async () => {
   await mount(SITA);
-  (API.post as jest.Mock).mockResolvedValue({ data: { token: 'tok-sita', name: 'Sita' } });
-  await signInAsSita();
-  (API.patch as jest.Mock).mockRejectedValueOnce({ response: { data: { code: 'staff_token_invalid' } } });
-  await act(async () => { done().props.onPress(); });
-  expect(text()).toContain('Main desk');
   (API.patch as jest.Mock).mockResolvedValue({ data: {} });
   await act(async () => { done().props.onPress(); });
-  expect(API.patch).toHaveBeenLastCalledWith('/bookings/complete/5/');
+  await act(async () => { byLabel('Cancel').props.onPress(); });
+  expect(API.patch).not.toHaveBeenCalled();
+  await act(async () => { done().props.onPress(); });
+  await act(async () => { byLabel('Main desk').props.onPress(); });
+  await act(async () => { await byLabel('Confirm').props.onPress(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: null });
+});
+
+test('the person picked at the scan is pre-selected and the card says so', async () => {
+  const scanned = { ...IN_PROGRESS, completed_by_staff_id: 8, completed_by_name: 'Sita' };
+  await mount(SITA, [scanned]);
+  expect(text()).toMatch(/Handled by\s+Sita/);
+  await act(async () => { done().props.onPress(); });
+  for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
+  expect(byLabel('Sita').props.accessibilityState).toEqual({ checked: true });
 });
 
 test('with staff the bar also links to Manage staff', async () => {
