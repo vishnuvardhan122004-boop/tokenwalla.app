@@ -7,8 +7,9 @@
  * Nobody picked = the hospital's main payee, exactly as before. The token is
  * held in memory only: after an app restart the desk starts as the main desk.
  *
- * The staff list itself is managed on the website. Against a server that
- * predates this (404) or a hospital with no extra staff, this renders nothing.
+ * "Manage staff" opens the staff list (components/StaffManager.tsx on Payments).
+ * With no extra staff only "+ Add desk staff" shows; against a server that
+ * predates this (404) it renders nothing.
  */
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -17,13 +18,14 @@ import API, { apiMessage } from '../services/api';
 
 type Person = { id: number; name: string; active: boolean };
 
-export default function DeskStaffBar({ hospitalId, token, onToken }: {
+export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
   hospitalId: number | string;
   /** The current token; the parent sets it to null when the server refuses it. */
   token: string | null;
   onToken: (token: string | null) => void;
+  onManage?: () => void;
 }) {
-  const [staff, setStaff] = useState<Person[]>([]);
+  const [staff, setStaff] = useState<Person[] | null>(null);   // null = older server
   const [who, setWho] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [pick, setPick] = useState<Person | null>(null);
@@ -42,7 +44,14 @@ export default function DeskStaffBar({ hospitalId, token, onToken }: {
   // The parent drops the token when the server says it expired: fall back to the main desk.
   useEffect(() => { if (token === null) setWho(null); }, [token]);
 
-  if (staff.length === 0) return null;
+  if (staff === null) return null;
+  const manage = onManage && (
+    <TouchableOpacity onPress={onManage} accessibilityRole="button"
+                      accessibilityLabel={staff.length ? 'Manage staff' : 'Add desk staff'}>
+      <Text style={st.link}>{staff.length ? '  ·  Manage staff' : '+ Add desk staff'}</Text>
+    </TouchableOpacity>
+  );
+  if (staff.length === 0) return manage ? <View style={st.bar}>{manage}</View> : null;
 
   const close = () => { setOpen(false); setPick(null); setPin(''); setErr(''); };
 
@@ -69,6 +78,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken }: {
       <TouchableOpacity onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel="Change">
         <Text style={st.link}>  Change</Text>
       </TouchableOpacity>
+      {manage}
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
         <View style={st.backdrop}>

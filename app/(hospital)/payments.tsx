@@ -35,6 +35,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { computeFeeBreakdown, money } from '../../utils/fees';
 import StaffIncentive from '../../components/StaffIncentive';
+import StaffManager from '../../components/StaffManager';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import {
@@ -492,6 +493,7 @@ export default function HospitalPayments() {
 
         {/* Staff incentive: the dashboard, then who is paid and how often */}
         {hospitalId != null && <StaffIncentive hospitalId={hospitalId} />}
+        {hospitalId != null && <StaffManager hospitalId={hospitalId} />}
 
         {/* Search + count */}
         <View style={styles.listHead}>
