@@ -54,6 +54,7 @@ Production-profile builds and store releases since the rule's first month.
 | 2026-10 | 53 | 1.7.0 | 2026-10-24 | `8dc364e` | **yes** (uploaded; Vishnu updated to it and checked it 2026-10-25) |
 | 2026-10 | 54 | 1.8.0 | 2026-10-29 | `67c6ba1` | built, **pending upload** (counts once Vishnu uploads it) |
 | 2026-11 | 55 | 1.8.0 | 2026-11-09 | `1b94080` | **yes** (uploaded to Play by Vishnu 2026-11-09). Same versionName as vc54 |
+| 2026-11 | 56 | 1.9.0 | 2026-11-10 | `04e5ebe` | built, **pending upload** (counts once Vishnu uploads it). November's 2nd of 2. Ships #86 (reschedule ₹12 + cap) and #87 (desk-staff PIN picker) |
 
 **October 2026: 3 of 2 used (vc44, vc45, vc50)**, on repo evidence; the rule
 was only set on 2026-10-10, after all three. **vc51 (1.6.0) is a 4th, released
