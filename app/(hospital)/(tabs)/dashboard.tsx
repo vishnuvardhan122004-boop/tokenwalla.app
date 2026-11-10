@@ -1710,11 +1710,6 @@ export default function HospitalDashboard() {
                       patient={pickFor ? nameOf(pickFor) : undefined} initial={pickFor?.completed_by_staff_id}
                       busy={pickBusy} onPick={completePicked} onCancel={() => setPickFor(null)} />
         )}
-        {pickToast ? (
-          <View style={styles.pickToast} accessibilityLiveRegion="polite" accessibilityRole="alert">
-            <Text style={styles.pickToastText}>{pickToast}</Text>
-          </View>
-        ) : null}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
             <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
@@ -2301,6 +2296,12 @@ export default function HospitalDashboard() {
       </ScrollView>
 
       {scanBar}
+      {/* Outside the ScrollView so it floats over the screen, not the end of the list. */}
+      {pickToast ? (
+        <View style={styles.pickToast} accessibilityLiveRegion="polite" accessibilityRole="alert">
+          <Text style={styles.pickToastText}>{pickToast}</Text>
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
