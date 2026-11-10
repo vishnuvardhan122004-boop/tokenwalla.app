@@ -47,7 +47,7 @@ const STATUS_LABEL_KEY: Record<string, string> = {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const RESCHEDULE_FEE = 5;
+const RESCHEDULE_FEE = 12;   // must match a key of the backend's VALID_PLAN_AMOUNTS
 
 // "10:30 AM" + 15min delay -> "10:45 AM". Reuses slotDateTime (utils/booking.ts)
 // for the date math; no equivalent formatter exists there or nearby, so it's
@@ -379,7 +379,11 @@ export default function MyBookings() {
             // booking carries no `doctor`, so offering it here opened a modal
             // titled "Dr. Complete Blood Count (CBC)" onto an empty calendar.
             // Cancel (which the backend does support for scans) fills the row.
-            const canReschedule = isWaiting && booking.provider_kind !== 'SCAN';
+            // A paid move is capped at 3 per booking; the server sends how many
+            // are left. A server that sends nothing (older) means allowed. The
+            // free, hospital-caused reschedule is never capped.
+            const paidLimitReached = !booking.free_reschedule && booking.paid_reschedules_left === 0;
+            const canReschedule = isWaiting && booking.provider_kind !== 'SCAN' && !paidLimitReached;
 
             return (
               <View key={booking.id} style={st.card}>
