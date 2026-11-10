@@ -23,9 +23,9 @@ import API from '../services/api';
 export type DeskPerson = { id: number; name: string; active?: boolean };
 
 /** The message after a pick, from the server's `staff_today`: "Lata +₹7 · ₹35 today". */
-export const staffTodayMessage = (t?: { name: string; count: number; amount: number } | null): string =>
+export const staffTodayMessage = (t?: { name: string; count: number; amount: number; per_booking?: number } | null): string =>
   !t ? 'Saved.'
-  : t.amount > 0 ? `${t.name} +₹${t.amount / t.count} · ₹${t.amount} today`
+  : t.amount > 0 ? `${t.name} +₹${t.per_booking ?? t.amount / t.count} · ₹${t.amount} today`
   : `Saved: handled by ${t.name}`;
 /** The 10-second "Change" after a pick (web ROADMAP 71c). A 409 = the nightly ledger has it: only admin can move it. */
 export async function changeHandledBy(bookingId: number | string, staffId: number | null):

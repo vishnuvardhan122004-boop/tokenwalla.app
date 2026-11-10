@@ -632,6 +632,7 @@ export default function HospitalDashboard() {
     const r = await changeHandledBy(pickToast.id, staffId);
     setPickBusy(false);
     setChanging(false);
+    if (r.ok) loadQueue();
     setPickToast(r.ok ? { ...pickToast, msg: r.msg, staffId } : { ...pickToast, msg: r.msg, canChange: !r.tooLate, isError: true });
   };
 
