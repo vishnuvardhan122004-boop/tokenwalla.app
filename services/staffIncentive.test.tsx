@@ -121,6 +121,11 @@ describe('who is paid and how often', () => {
 
   test('a cycle button picks the cycle, and Save sends it', async () => {
     await mount();
+    expect(text()).toContain('Paid on the 5th, for the whole previous month.');
+    await press('Every 15 days');
+    expect(text()).toContain('Paid on the 15th (for the 1st to 14th) and on the 1st (for the 15th to month end).');
+    await press('Weekly');
+    expect(text()).toContain('Paid every Thursday');
     await press('Every 15 days');
     await press('Save staff incentive');
     expect(putBody().incentive_frequency).toBe('FIFTEEN_DAYS');
