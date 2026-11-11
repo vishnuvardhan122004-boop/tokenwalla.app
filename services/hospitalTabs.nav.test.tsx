@@ -40,7 +40,7 @@ const routes = {
   '(hospital)/(tabs)/_layout': TabsLayout,
   '(hospital)/(tabs)/dashboard': () => <Text>DASH</Text>,
   '(hospital)/(tabs)/scanner': () => <Text>SCAN</Text>,
-  '(hospital)/profile': () => <Text>HPROFILE</Text>,
+  '(hospital)/Hprofile': () => <Text>HPROFILE</Text>,
 };
 const path = () => store.getRouteInfo().pathname;
 // How many hospital tab bars exist anywhere in the navigation tree.
@@ -77,8 +77,8 @@ test('Dashboard -> Scanner -> Dashboard: Android back leaves, it does not reopen
 });
 
 test('dismissTo a tab from a screen over the tabs returns to them: one bar (Scan Patient QR)', () => {
-  act(() => router.push('/(hospital)/profile'));
-  expect(path()).toBe('/profile');
+  act(() => router.push('/(hospital)/Hprofile'));
+  expect(path()).toBe('/Hprofile');
   act(() => router.dismissTo('/(hospital)/scanner'));
   expect(path()).toBe('/scanner');
   expect(tabBars()).toBe(1);
@@ -89,7 +89,7 @@ test('dismissTo a tab from a screen over the tabs returns to them: one bar (Scan
 
 test('dismissTo a tab from a screen over the tabs returns to them: one bar (Queue & Doctors Dashboard)', () => {
   act(() => router.push('/(hospital)/scanner'));
-  act(() => router.push('/(hospital)/profile'));
+  act(() => router.push('/(hospital)/Hprofile'));
   act(() => router.dismissTo('/(hospital)/dashboard'));
   expect(path()).toBe('/dashboard');
   expect(tabBars()).toBe(1);

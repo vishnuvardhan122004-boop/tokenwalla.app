@@ -20,8 +20,10 @@ import LoginScreen from '../app/(auth)/login';
 const TestRenderer = require('react-test-renderer');
 
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;   // login opened fresh; true = pushed from another screen
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn(), canGoBack: () => true, canDismiss: () => false, dismissAll: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: mockBack, canGoBack: () => mockCanGoBack, canDismiss: () => false, dismissAll: jest.fn() }),
 }));
 jest.mock('../hooks/useAndroidBack', () => ({ useAndroidBack: jest.fn() }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));

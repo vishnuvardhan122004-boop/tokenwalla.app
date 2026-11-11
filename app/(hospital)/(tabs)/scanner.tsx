@@ -94,6 +94,14 @@ export default function HospitalScanner() {
   const [manualToken, setManualToken] = useState('');
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [scanState,  setScanState]  = useState<ScanState>('idle');
+  // The result card sits under the camera box and the token field, off the
+  // bottom of a phone screen: bring it into view whenever the state moves on.
+  const scrollRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    if (scanState === 'idle') return undefined;
+    const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+    return () => clearTimeout(t);
+  }, [scanState]);
   const [errorMsg,   setErrorMsg]   = useState('');
   const [confirming, setConfirming] = useState(false);
   const [autoConfirm, setAutoConfirm] = useState(true);
@@ -354,7 +362,7 @@ export default function HospitalScanner() {
         behavior="padding"
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Text style={styles.sub}>
             Scan patient QR codes to verify bookings and mark attendance
           </Text>

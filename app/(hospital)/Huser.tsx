@@ -29,7 +29,7 @@ const PRIMARY_SEGMENT: Record<string, string> = {
 };
 
 // Matches the route used everywhere else for the hospital login screen.
-const HOSPITAL_LOGIN_ROUTE = '/(hospital)/login';
+const HOSPITAL_LOGIN_ROUTE = '/(hospital)/Hlogin';
 
 interface FormState {
   kind: 'HOSPITAL' | 'SCAN_CENTER' | 'BLOOD_CENTER';
@@ -71,7 +71,7 @@ const isValidMobile = (m: string) => /^[6-9]\d{9}$/.test(m);
 
 export default function HospitalRegisterScreen() {
   const router = useRouter();
-  useAndroidBack(() => safeBack(router, '/(hospital)/login'));
+  useAndroidBack(() => safeBack(router, '/(hospital)/Hlogin'));
 
   // ?kind=… lands a centre on the centre form, so the "Register your scanning
   // centre" / "Register your blood centre" links elsewhere in the app arrive at
@@ -236,7 +236,7 @@ export default function HospitalRegisterScreen() {
       >
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <TouchableOpacity style={styles.back} onPress={() => safeBack(router,'/(hospital)/login')}>
+          <TouchableOpacity style={styles.back} onPress={() => safeBack(router,'/(hospital)/Hlogin')}>
             <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>

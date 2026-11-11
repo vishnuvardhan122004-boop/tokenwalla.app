@@ -44,7 +44,7 @@ describe('webAlert', () => {
 
   describe('the logout confirmation — the bug that was reported', () => {
     // Same shape in app/(patient)/profile.tsx, app/(hospital)/dashboard.tsx
-    // and app/(hospital)/profile.tsx.
+    // and app/(hospital)/Hprofile.tsx.
     const shape = (logout: jest.Mock, cancel?: jest.Mock): WebAlertButton[] => [
       { text: 'Cancel', style: 'cancel', onPress: cancel },
       { text: 'Logout', style: 'destructive', onPress: logout },

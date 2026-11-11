@@ -24,8 +24,10 @@ import LoginScreen from '../app/(auth)/login';
 const TestRenderer = require('react-test-renderer');
 
 const mockReplace = jest.fn();
+const mockBack = jest.fn();
+let mockCanGoBack = false;   // login opened fresh; true = pushed from another screen
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn(), canGoBack: () => true, canDismiss: () => false, dismissAll: jest.fn() }),
+  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: mockBack, canGoBack: () => mockCanGoBack, canDismiss: () => false, dismissAll: jest.fn() }),
 }));
 jest.mock('../hooks/useAndroidBack', () => ({ useAndroidBack: jest.fn() }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));
@@ -237,6 +239,23 @@ describe('the three questions', () => {
     expect(await AsyncStorage.getItem('refresh')).toBe('ref');
     expect(JSON.parse((await AsyncStorage.getItem('user')) as string).name).toBe('Rahul Kumar');
     expect(mockReplace).toHaveBeenCalledWith('/(patient)/home');
+  });
+
+  test('opened from "Login to Book", a new account goes back to that doctor, not Home', async () => {
+    mockCanGoBack = true;
+    try {
+      await openSheet();
+      await typeInto(NAME_PH, 'Rahul Kumar');
+      await press('Send OTP →');
+      await typeInto(OTP_PH, '123456');
+      await press('Verify →');
+      await typeInto(PW_PH, 'Test@1234');
+      await press('Create my account →');
+      expect(mockBack).toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalledWith('/(patient)/home');
+    } finally {
+      mockCanGoBack = false;
+    }
   });
 
   test('a one-letter name is refused before any SMS is sent', async () => {

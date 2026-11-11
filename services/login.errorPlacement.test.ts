@@ -8,7 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const SCREENS = ['app/(auth)/login.tsx', 'app/(hospital)/login.tsx'];
+const SCREENS = ['app/(auth)/login.tsx', 'app/(hospital)/Hlogin.tsx'];
 
 describe.each(SCREENS)('%s', (file) => {
   const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');

@@ -122,6 +122,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
 
   const [step,          setStep]         = useState<Step>('date');
   const [selectedDate,  setSelectedDate] = useState('');
+  // The booking's own slot is only "current" on the booking's own date.
+  const isCurrent = (slot: string) => slot === booking?.slot && selectedDate === booking?.date;
   const [selectedSlot,  setSelectedSlot] = useState('');
   const [webviewHtml,   setWebviewHtml]  = useState('');
   const [loading,       setLoading]      = useState(false);
@@ -679,20 +681,20 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                           key={slot}
                           style={[
                             st.slotCard,
-                            slot === booking.slot && st.slotCardCurrent,
+                            isCurrent(slot) && st.slotCardCurrent,
                             selectedSlot === slot && st.slotCardSelected,
                           ]}
                           onPress={() => handleSlotSelect(slot)}
-                          disabled={slot === booking.slot || loading}
+                          disabled={isCurrent(slot) || loading}
                         >
                           <Text style={[
                             st.slotText,
-                            slot === booking.slot && { color: Colors.gray400 },
+                            isCurrent(slot) && { color: Colors.gray400 },
                             selectedSlot === slot && { color: Colors.white },
                           ]}>
                             {slot}
                           </Text>
-                          {slot === booking.slot && (
+                          {isCurrent(slot) && (
                             <Text style={st.currentBadge}>{t('rs_current')}</Text>
                           )}
                         </TouchableOpacity>
@@ -711,20 +713,20 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                           key={slot}
                           style={[
                             st.slotCard,
-                            slot === booking.slot && st.slotCardCurrent,
+                            isCurrent(slot) && st.slotCardCurrent,
                             selectedSlot === slot && st.slotCardSelected,
                           ]}
                           onPress={() => handleSlotSelect(slot)}
-                          disabled={slot === booking.slot || loading}
+                          disabled={isCurrent(slot) || loading}
                         >
                           <Text style={[
                             st.slotText,
-                            slot === booking.slot && { color: Colors.gray400 },
+                            isCurrent(slot) && { color: Colors.gray400 },
                             selectedSlot === slot && { color: Colors.white },
                           ]}>
                             {slot}
                           </Text>
-                          {slot === booking.slot && (
+                          {isCurrent(slot) && (
                             <Text style={st.currentBadge}>{t('rs_current')}</Text>
                           )}
                         </TouchableOpacity>

@@ -85,7 +85,7 @@ export default function ForgotPasswordScreen() {
       <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
-          <Text style={styles.backText}>Back to Login</Text>
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
 
         <View style={styles.brand}>

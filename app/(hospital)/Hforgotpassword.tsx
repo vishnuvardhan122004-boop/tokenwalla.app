@@ -90,7 +90,7 @@ function calcStrength(pw: string): number {
 // ═════════════════════════════════════════════════════════════════════════════
 export default function HforgotPassword() {
   const router = useRouter();
-  useAndroidBack(() => safeBack(router, '/(hospital)/login'));
+  useAndroidBack(() => safeBack(router, '/(hospital)/Hlogin'));
   const [step,      setStep]      = useState(1);
   const [mobile,    setMobile]    = useState('');
   const [otp,       setOtp]       = useState('');
@@ -210,7 +210,7 @@ export default function HforgotPassword() {
       setDone(true);
       startProgressBar();
       setTimeout(() => {
-        router.replace('/(hospital)/login');
+        router.replace('/(hospital)/Hlogin');
       }, 1800);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -276,7 +276,7 @@ export default function HforgotPassword() {
         >
           {/* ── HEADER ──────────────────────────────────────────────────────── */}
           <View style={s.header}>
-            <TouchableOpacity style={s.backArrow} onPress={() => safeBack(router, '/(hospital)/login')}>
+            <TouchableOpacity style={s.backArrow} onPress={() => safeBack(router, '/(hospital)/Hlogin')}>
               <Ionicons name="chevron-back" size={22} color={C.blue600} />
             </TouchableOpacity>
             <View style={s.brandRow}>
@@ -389,7 +389,7 @@ export default function HforgotPassword() {
                 <View style={s.dividerLine} />
               </View>
 
-              <TouchableOpacity onPress={() => router.push('/(hospital)/login')}>
+              <TouchableOpacity onPress={() => router.push('/(hospital)/Hlogin')}>
                 <Text style={s.switchText}>
                   Remember your password?{' '}
                   <Text style={s.switchLink}>Sign in →</Text>
@@ -584,7 +584,7 @@ export default function HforgotPassword() {
 
                 <TouchableOpacity
                   style={s.submitBtn}
-                  onPress={() => router.replace('/(hospital)/login')}
+                  onPress={() => router.replace('/(hospital)/Hlogin')}
                   activeOpacity={0.82}
                 >
                   <Text style={s.submitBtnText}>Go to Hospital Login →</Text>

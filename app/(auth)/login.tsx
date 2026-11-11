@@ -117,10 +117,17 @@ export default function LoginScreen() {
     // attach (best-effort on the backend) goes Home instead, which keeps it
     // signed in with Profile -> Logout — the dashboard would bounce it to the
     // hospital login, which clears the session it was just given.
-    // Drop the logged-out stack (login/register) so it can't sit under Home.
-    if (router.canDismiss()) router.dismissAll();
-    if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
-    else router.replace('/(patient)/home');
+    if (data.user?.role === 'hospital' && data.user?.hospital) {
+      // Drop the logged-out stack so it can't sit under the dashboard.
+      if (router.canDismiss()) router.dismissAll();
+      router.replace('/(hospital)/dashboard');
+    } else if (router.canGoBack()) {
+      // A patient sent here by "Login to Book" goes back to that doctor and
+      // slot; the screen re-reads the user on focus (useCurrentUser).
+      router.back();
+    } else {
+      router.replace('/(patient)/home');
+    }
   };
 
   // Closing the sheet lands back on the number, in case it was a typo.
@@ -280,7 +287,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.altLink}
-            onPress={() => router.push('/(hospital)/login')}
+            onPress={() => router.push('/(hospital)/Hlogin')}
           >
             <Text style={styles.altLinkText}>{t('are_you_hospital')}</Text>
           </TouchableOpacity>
