@@ -122,7 +122,9 @@ export default function StaffManager({ hospitalId, refresh }: { hospitalId: numb
 
       {rows.map((p) => (
         <View key={p.id} style={st.row}>
-          <View style={{ flex: 1 }}>
+          {/* flexBasis + wrap: on a phone the three buttons drop to their own line
+              instead of squeezing the mobile and UPI into broken half-words. */}
+          <View style={{ flexGrow: 1, flexBasis: 160 }}>
             <Text style={st.name}>{p.name}{p.active ? '' : ' (inactive)'}</Text>
             <Text style={p.phone ? st.muted : st.warn}>{p.phone || 'add a mobile number'}</Text>
             <Text style={p.upi ? st.muted : st.warn}>{p.upi || 'no UPI yet'}</Text>
@@ -200,7 +202,7 @@ const st = StyleSheet.create({
   muted: { color: '#667', fontSize: 13 },
   warn: { color: '#c0392b', fontSize: 13 },
   name: { fontSize: 15, fontWeight: '600', color: '#111' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: 1, borderTopColor: '#eef', paddingTop: 8 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, borderTopWidth: 1, borderTopColor: '#eef', paddingTop: 8 },
   small: { borderWidth: 1, borderColor: '#ccd', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   smallText: { fontSize: 12, fontWeight: '600', color: '#334' },
   add: { borderWidth: 1, borderColor: Colors.blue600, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 4 },
