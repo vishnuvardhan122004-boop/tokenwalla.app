@@ -128,7 +128,6 @@ export default function HospitalLoginScreen() {
   const handleLogin = async () => {
     if (!mobile || !password) { setError('Enter mobile and password / OTP'); return; }
     setLoading(true);
-    setError('');
     try {
       // Labels this phone in the hospital's signed-in devices list: an app's
       // User-Agent is only okhttp / CFNetwork. A browser's UA already says
@@ -207,14 +206,6 @@ export default function HospitalLoginScreen() {
           <Text style={styles.formTitle}>Hospital Sign In</Text>
           <Text style={styles.formSub}>Enter your registered mobile to continue</Text>
 
-          {/* Error */}
-          {!!error && (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
           {/* Mobile */}
           <Text style={styles.label}>Mobile Number</Text>
           <View style={styles.inputRow}>
@@ -274,6 +265,14 @@ export default function HospitalLoginScreen() {
               : <Text style={styles.submitBtnText}>Sign In →</Text>
             }
           </TouchableOpacity>
+          {/* Under the button, not above the form: appearing and clearing (on
+              every keystroke) must not move the fields or the button under a finger. */}
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
 
           {/* Forgot */}
           <TouchableOpacity
@@ -355,7 +354,7 @@ const styles = StyleSheet.create({
   formTitle: { fontSize: 20, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   formSub:   { fontSize: 13, color: Colors.gray500, marginBottom: 20 },
 
-  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   errorText: { fontSize: 14, color: Colors.errorText, flex: 1 },
 
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7, letterSpacing: 0.4 },
