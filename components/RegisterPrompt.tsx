@@ -21,7 +21,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -125,7 +124,7 @@ export default function RegisterPrompt({ mobile, onClose, onRegistered }: Props)
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.backdrop} behavior="padding">
         <View style={styles.sheet} accessibilityViewIsModal>
           <ScrollView
             contentContainerStyle={styles.content}

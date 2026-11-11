@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
@@ -32,6 +32,7 @@ export default function ForgotPasswordScreen() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState('');
   const [success,  setSuccess]  = useState('');
+  const [done,     setDone]     = useState(false);
   const [cooldown, startCooldown] = useOtpCooldown();
 
   const requestOTP = async () => {
@@ -69,7 +70,8 @@ export default function ForgotPasswordScreen() {
     try {
       await API.post('/auth/reset-password/', { mobile, otp, password, otp_token: otpToken });
       setSuccess('Password reset! Redirecting…');
-      setTimeout(() => router.replace('./login'), 1500);
+      setDone(true);   // stays set: a second tap must not re-post a spent OTP
+      setTimeout(() => safeBack(router, '/(auth)/login'), 1500);
     } catch (e) { setError(apiMessage(e, 'Reset failed.')); }
     finally { setLoading(false); }
   };
@@ -78,8 +80,7 @@ export default function ForgotPasswordScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior="padding"
       >
       <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
@@ -106,7 +107,7 @@ export default function ForgotPasswordScreen() {
 
         {step === 1 && (
           <>
-            <Text style={styles.sub}>Enter your mobile. We'll call with an OTP.</Text>
+            <Text style={styles.sub}>Enter your mobile. We'll send an SMS with an OTP.</Text>
             <Text style={styles.label}>Mobile Number</Text>
             <View style={styles.inputRow}>
               <Ionicons name="call-outline" size={17} color={Colors.gray400} />
@@ -161,7 +162,7 @@ export default function ForgotPasswordScreen() {
                 <Ionicons name={showConfirm ? 'eye-off-outline' : 'eye-outline'} size={19} color={Colors.gray400} />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.submitBtn} onPress={resetPassword} disabled={loading}>
+            <TouchableOpacity style={styles.submitBtn} onPress={resetPassword} disabled={loading || done}>
               {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.submitBtnText}>Reset Password →</Text>}
             </TouchableOpacity>
           </>
