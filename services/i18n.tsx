@@ -100,6 +100,7 @@ const en: Dict = {
 
   // profile
   profile: 'Profile',
+  tab_home: 'Home',
   not_logged_in: 'Not Logged In',
   not_logged_in_sub: 'Create an account or login to manage your bookings',
   login_arrow: 'Login →',
@@ -712,6 +713,7 @@ const hi: Dict = {
 
   // profile
   profile: 'प्रोफ़ाइल',
+  tab_home: 'होम',
   not_logged_in: 'लॉग इन नहीं हैं',
   not_logged_in_sub: 'अपनी बुकिंग प्रबंधित करने के लिए खाता बनाएं या लॉगिन करें',
   login_arrow: 'लॉगिन →',
@@ -1324,6 +1326,7 @@ const te: Dict = {
 
   // profile
   profile: 'ప్రొఫైల్',
+  tab_home: 'హోమ్',
   not_logged_in: 'లాగిన్ కాలేదు',
   not_logged_in_sub: 'మీ బుకింగ్‌లను నిర్వహించడానికి ఖాతా సృష్టించండి లేదా లాగిన్ అవ్వండి',
   login_arrow: 'లాగిన్ →',
@@ -1936,6 +1939,7 @@ const kn: Dict = {
 
   // profile
   profile: 'ಪ್ರೊಫೈಲ್',
+  tab_home: 'ಮುಖಪುಟ',
   not_logged_in: 'ಲಾಗಿನ್ ಆಗಿಲ್ಲ',
   not_logged_in_sub: 'ನಿಮ್ಮ ಬುಕಿಂಗ್‌ಗಳನ್ನು ನಿರ್ವಹಿಸಲು ಖಾತೆ ರಚಿಸಿ ಅಥವಾ ಲಾಗಿನ್ ಆಗಿ',
   login_arrow: 'ಲಾಗಿನ್ →',

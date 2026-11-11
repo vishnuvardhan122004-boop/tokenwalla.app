@@ -105,12 +105,12 @@ const control = (label: string) => r.root.findAll((n: any) =>
 // A heading like "Completed (1)" renders as separate children; compare without spaces.
 const flat = () => text().replace(/\s+/g, '');
 
-test('the count tiles are gone and an empty section is its heading alone', async () => {
+test('the count tiles are gone, In Progress hides when empty, Completed keeps its heading', async () => {
   await mount();
   const t = text();
   expect(t).toContain('Lakshmi');
   expect(t).not.toContain('Total');
-  expect(flat()).toContain('InProgress(0)');
+  expect(flat()).not.toContain('InProgress(');
   expect(flat()).toContain('Completed(0)');
   expect(t).not.toContain('No one in progress');
   expect(t).not.toContain('None completed yet');
@@ -151,4 +151,15 @@ test('In Progress and On Hold list their patients with the same actions as befor
   expect(flat()).toContain('OnHold(1)');
   expect(t).toContain('Hari');
   expect(t).toContain('Resume');
+});
+
+test('In Progress sits above Waiting, so Done is not under a long queue', async () => {
+  await mount({
+    ...EMPTY,
+    waiting: [booking(13, 'Lakshmi', 'CONFIRMED')],
+    inProgress: [booking(11, 'Geeta', 'IN_PROGRESS')],
+  });
+  const f = flat();
+  expect(f.indexOf('InProgress(1)')).toBeGreaterThan(-1);
+  expect(f.indexOf('InProgress(1)')).toBeLessThan(f.indexOf('Waiting(1)'));
 });

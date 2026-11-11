@@ -1785,7 +1785,58 @@ export default function HospitalDashboard() {
               })}
             </View>
 
-            <Text style={styles.queueSection}>Waiting ({fWaiting.length})</Text>
+            {/* In Progress first, and only when someone is in: below a long Waiting
+                list the desk had to scroll past everyone to reach Done. */}
+            {fInProgress.length > 0 && (
+              <>
+            <Text style={styles.queueSection}>
+              In Progress ({fInProgress.length})
+            </Text>
+            {fInProgress.map((p: Patient) => (
+                <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
+                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
+                    <TouchableOpacity
+                      onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
+                      disabled={!mobileOf(p)}
+                      accessibilityRole="link"
+                      accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
+                    >
+                      <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot?.replace(' ', '\u00a0')}</Text>
+                    <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
+                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
+                    <TouchableOpacity
+                      style={styles.tokenChip}
+                      onPress={() => showTokenDetail(p)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Token ${p.token}. Tap for details.`}
+                    >
+                      <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
+                      <Text style={styles.tokenChipText}>{p.token}</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.doneBtn}
+                    onPress={() => complete(p.id)}
+                    onLongPress={() => noShow(p.id, nameOf(p) || 'This patient')}
+                    delayLongPress={600}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Mark ${nameOf(p) || 'patient'} done, token ${p.token}`}
+                    accessibilityHint="Double tap to complete. Press and hold to mark as no-show."
+                  >
+                    <Text style={styles.doneBtnText}>Done ✓</Text>
+                    <Text style={[styles.btnHint, { color: Colors.successText }]}>hold: no-show</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            }
+              </>
+            )}
+
+            <Text style={[styles.queueSection, fInProgress.length > 0 && { marginTop: 16 }]}>Waiting ({fWaiting.length})</Text>
             {fWaiting.length === 0
               ? <Text style={styles.emptyMsg}>No patients waiting</Text>
               : fWaiting.map((p: Patient) => (
@@ -1806,7 +1857,7 @@ export default function HospitalDashboard() {
                     >
                       <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot?.replace(' ', '\u00a0')}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
                     <TouchableOpacity
@@ -1868,7 +1919,7 @@ export default function HospitalDashboard() {
                       >
                         <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                       </TouchableOpacity>
-                      <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                      <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot?.replace(' ', '\u00a0')}</Text>
                       <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                       <TouchableOpacity
                         style={styles.tokenChip}
@@ -1893,52 +1944,6 @@ export default function HospitalDashboard() {
                 ))}
               </>
             )}
-
-            {/* An empty section is its heading and nothing else. */}
-            <Text style={[styles.queueSection, { marginTop: 16 }, fInProgress.length === 0 && { marginBottom: 0 }]}>
-              In Progress ({fInProgress.length})
-            </Text>
-            {fInProgress.map((p: Patient) => (
-                <View key={String(p.id)} style={[styles.patientCard, { borderLeftColor: Colors.blue400 }]}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
-                    {p.is_for_other && p.user_name ? <Text style={styles.patientMeta}>Booked by {p.user_name}</Text> : null}
-                    <TouchableOpacity
-                      onPress={() => mobileOf(p) && Linking.openURL(`tel:${mobileOf(p)}`)}
-                      disabled={!mobileOf(p)}
-                      accessibilityRole="link"
-                      accessibilityLabel={`Call ${nameOf(p) || 'patient'} on ${mobileOf(p)}`}
-                    >
-                      <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
-                    <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
-                    {p.completed_by_name ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Handled by {p.completed_by_name}</Text> : null}
-                    <TouchableOpacity
-                      style={styles.tokenChip}
-                      onPress={() => showTokenDetail(p)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Token ${p.token}. Tap for details.`}
-                    >
-                      <Ionicons name="ticket-outline" size={12} color={Colors.blue700} />
-                      <Text style={styles.tokenChipText}>{p.token}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.doneBtn}
-                    onPress={() => complete(p.id)}
-                    onLongPress={() => noShow(p.id, nameOf(p) || 'This patient')}
-                    delayLongPress={600}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Mark ${nameOf(p) || 'patient'} done, token ${p.token}`}
-                    accessibilityHint="Double tap to complete. Press and hold to mark as no-show."
-                  >
-                    <Text style={styles.doneBtnText}>Done ✓</Text>
-                    <Text style={[styles.btnHint, { color: Colors.successText }]}>hold: no-show</Text>
-                  </TouchableOpacity>
-                </View>
-              ))
-            }
 
             {/* Read-only history, so it stays closed until asked for; the count
                 is on the heading either way. */}
@@ -1968,7 +1973,7 @@ export default function HospitalDashboard() {
                     >
                       <Text style={styles.patientPhone}>{mobileOf(p) || 'N/A'}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
+                    <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot?.replace(' ', '\u00a0')}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
                     {(deskStaff?.length ?? 0) > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
                     <TouchableOpacity
@@ -2374,7 +2379,8 @@ const styles = StyleSheet.create({
   logoutText: { fontSize: 13, fontWeight: '700', color: Colors.errorText },
 
   tabRow:        { flexDirection: 'row', marginTop: 12, marginHorizontal: 16, backgroundColor: Colors.blue50, borderRadius: 12, padding: 4, gap: 4 },
-  tab:           { flex: 1, flexDirection: 'row', gap: 4, paddingVertical: 10, paddingHorizontal: 2, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  // Icon above the label: side by side, a 320px phone cut 'Queue 2' to 'Queu…' and lost the count.
+  tab:           { flex: 1, flexDirection: 'column', gap: 2, paddingVertical: 7, paddingHorizontal: 2, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   tabActive:     { backgroundColor: Colors.white, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, elevation: 1 },
   tabText:       { fontSize: 12, fontWeight: '500', color: Colors.gray400, flexShrink: 1 },
   tabTextActive: { color: Colors.blue700, fontWeight: '700' },
