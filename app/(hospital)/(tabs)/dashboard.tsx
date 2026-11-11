@@ -423,10 +423,10 @@ export default function HospitalDashboard() {
   useEffect(() => {
     (async () => {
       const raw = await AsyncStorage.getItem('user');
-      if (!raw) { router.replace('/(hospital)/login'); return; }
+      if (!raw) { router.replace('/(hospital)/Hlogin'); return; }
       const user = JSON.parse(raw);
       if (user.role !== 'hospital' || !user.hospital) {
-        router.replace('/(hospital)/login');
+        router.replace('/(hospital)/Hlogin');
         return;
       }
       setHospital(user.hospital);
@@ -1657,7 +1657,7 @@ export default function HospitalDashboard() {
             audience="hospital"
             onPress={() => router.push('/(patient)/notifications?audience=hospital')}
           />
-          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(hospital)/profile')}>
+          <TouchableOpacity style={styles.profileBtn} onPress={() => router.push('/(hospital)/Hprofile')}>
             <Ionicons name="person" size={18} color={Colors.blue600} />
           </TouchableOpacity>
           <TouchableOpacity

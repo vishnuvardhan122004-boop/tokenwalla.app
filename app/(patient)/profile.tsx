@@ -78,7 +78,7 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.outlineBtn} onPress={() => router.push('/(auth)/register')}>
           <Text style={styles.outlineBtnText}>{t('create_account')}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.altLink} onPress={() => router.push('/(hospital)/login')}>
+        <TouchableOpacity style={styles.altLink} onPress={() => router.push('/(hospital)/Hlogin')}>
           <Text style={styles.altLinkText}>{t('hospital_login')} →</Text>
         </TouchableOpacity>
       </View>
@@ -128,7 +128,7 @@ export default function ProfileScreen() {
         {/* Menu Items */}
         <View style={styles.menuSection}>
           {([
-            { icon: 'create-outline',            label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/profile' : '/(patient)/edit-profile') },
+            { icon: 'create-outline',            label: t('menu_edit_profile'),    onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hprofile' : '/(patient)/edit-profile') },
             { icon: 'key-outline',               label: t('menu_change_password'), onPress: () => router.push(user.role === 'hospital' ? '/(hospital)/Hforgotpassword' : '/(auth)/forgot-password') },
             // Hospital-only: live queue + doctor management lives on the hospital dashboard.
             ...(user.role === 'hospital'
@@ -154,7 +154,7 @@ export default function ProfileScreen() {
             // patient can reach the hospital side. Hospitals are already in.
             ...(user.role === 'hospital'
               ? []
-              : [{ icon: 'business-outline' as IconName, label: t('hospital_login'), onPress: () => router.push('/(hospital)/login') }]),
+              : [{ icon: 'business-outline' as IconName, label: t('hospital_login'), onPress: () => router.push('/(hospital)/Hlogin') }]),
           ] as { icon: IconName; label: string; onPress: () => void }[]).map(({ icon, label, onPress }) => (
             <TouchableOpacity key={label} style={styles.menuItem} onPress={onPress}>
               <View style={styles.menuIconBox}>

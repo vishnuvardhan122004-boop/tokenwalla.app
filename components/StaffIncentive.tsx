@@ -33,9 +33,9 @@ type Totals = {
 
 // The same three choices as the website's CYCLES.
 const CYCLES = [
-  { value: 'WEEKLY',       label: 'Weekly' },
-  { value: 'FIFTEEN_DAYS', label: 'Every 15 days' },
-  { value: 'MONTHLY',      label: 'Monthly' },
+  { value: 'WEEKLY',       label: 'Weekly', when: 'Paid every Thursday, for the bookings from the last Thursday to this Thursday.' },
+  { value: 'FIFTEEN_DAYS', label: 'Every 15 days', when: 'Paid on the 15th (for the 1st to 14th) and on the 1st (for the 15th to month end).' },
+  { value: 'MONTHLY',      label: 'Monthly', when: 'Paid on the 5th, for the whole previous month.' },
 ];
 
 const MOBILE_RE = /^[6-9]\d{9}$/;
@@ -182,7 +182,7 @@ export default function StaffIncentive({ hospitalId, refresh = 0 }: { hospitalId
           <View style={styles.how}>
             <Text style={styles.howTitle}>How it works</Text>
             <Text style={styles.howLine}>{`• You earn ${inr(t.per_booking)} for every booking where the patient paid online and the visit was completed.`}</Text>
-            <Text style={styles.howLine}>{`• It is added up and paid by TokenWalla to the UPI below, ${cycle.label.toLowerCase()}. You get a WhatsApp message when it is sent.`}</Text>
+            <Text style={styles.howLine}>{`• It is added up and paid by TokenWalla to the UPI below. ${cycle.when} You get a WhatsApp message when it is sent.`}</Text>
             <Text style={styles.howLine}>• It does not count for walk-in or self check-in tokens, Appointment Pass visits, cancellations, no-shows or refunded bookings.</Text>
             <Text style={styles.howLine}>• Nothing is taken from your doctors or the hospital, and the patient pays the same price.</Text>
           </View>
@@ -258,6 +258,7 @@ export default function StaffIncentive({ hospitalId, refresh = 0 }: { hospitalId
           );
         })}
       </View>
+      <Text style={styles.hint}>{(CYCLES.find(c => c.value === payee.frequency) || CYCLES[2]).when}</Text>
 
       {!!error.general && <Text style={styles.error}>{error.general}</Text>}
       {saved && <Text style={styles.ok}>Staff incentive details saved.</Text>}

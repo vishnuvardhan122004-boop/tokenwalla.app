@@ -117,10 +117,17 @@ export default function LoginScreen() {
     // attach (best-effort on the backend) goes Home instead, which keeps it
     // signed in with Profile -> Logout — the dashboard would bounce it to the
     // hospital login, which clears the session it was just given.
-    // Drop the logged-out stack (login/register) so it can't sit under Home.
-    if (router.canDismiss()) router.dismissAll();
-    if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
-    else router.replace('/(patient)/home');
+    if (data.user?.role === 'hospital' && data.user?.hospital) {
+      // Drop the logged-out stack so it can't sit under the dashboard.
+      if (router.canDismiss()) router.dismissAll();
+      router.replace('/(hospital)/dashboard');
+    } else if (router.canGoBack()) {
+      // A patient sent here by "Login to Book" goes back to that doctor and
+      // slot; the screen re-reads the user on focus (useCurrentUser).
+      router.back();
+    } else {
+      router.replace('/(patient)/home');
+    }
   };
 
   // Closing the sheet lands back on the number, in case it was a typo.
@@ -131,7 +138,6 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     setLoading(true);
-    setError('');
     try {
       if (!mobile || !password) {
         // A new patient often types only their number and taps Sign In.
@@ -190,13 +196,6 @@ export default function LoginScreen() {
 
           <Text style={styles.formTitle}>{t('sign_in')}</Text>
           <Text style={styles.formSub}>{t('enter_mobile_continue')}</Text>
-
-          {!!error && (
-            <View style={styles.errorBox}>
-              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
 
           <Text style={styles.label}>{t('mobile_number')}</Text>
           <View style={styles.inputRow}>
@@ -258,6 +257,14 @@ export default function LoginScreen() {
               : <Text style={styles.submitBtnText}>{t('sign_in_arrow')}</Text>
             }
           </TouchableOpacity>
+          {/* Under the button, not above the form: appearing and clearing (on
+              every keystroke) must not move the fields or the button under a finger. */}
+          {!!error && (
+            <View style={styles.errorBox}>
+              <Ionicons name="alert-circle" size={16} color={Colors.errorText} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
 
           <TouchableOpacity
             style={styles.forgotWrap}
@@ -280,7 +287,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.altLink}
-            onPress={() => router.push('/(hospital)/login')}
+            onPress={() => router.push('/(hospital)/Hlogin')}
           >
             <Text style={styles.altLinkText}>{t('are_you_hospital')}</Text>
           </TouchableOpacity>
@@ -315,7 +322,7 @@ const styles = StyleSheet.create({
   divider: { height: 1, backgroundColor: Colors.blue50, marginVertical: 22 },
   formTitle: { fontSize: 20, fontWeight: '800', color: Colors.gray900, marginBottom: 4 },
   formSub:   { fontSize: 13, color: Colors.gray500, marginBottom: 20 },
-  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorBox:  { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 12, padding: 12, marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   errorText: { fontSize: 14, color: Colors.errorText, flex: 1 },
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7, letterSpacing: 0.4 },
   inputRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },

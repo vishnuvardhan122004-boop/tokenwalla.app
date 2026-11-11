@@ -37,9 +37,9 @@ const EXPECTED = [
   'app/(auth)/login.tsx',
   'app/(auth)/register.tsx',
   'app/(hospital)/Hforgotpassword.tsx',
+  'app/(hospital)/Hlogin.tsx',
+  'app/(hospital)/Hprofile.tsx',
   'app/(hospital)/Huser.tsx',
-  'app/(hospital)/login.tsx',
-  'app/(hospital)/profile.tsx',
   'app/(patient)/edit-profile.tsx',
 ];
 

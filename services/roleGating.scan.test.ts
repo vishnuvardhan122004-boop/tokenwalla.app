@@ -135,7 +135,7 @@ describe('no dead booking buttons are shown to a hospital', () => {
 describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile', () => {
   const TABS    = codeOnly(read('app/(hospital)/(tabs)/_layout.tsx'));
   const SCANNER = codeOnly(read('app/(hospital)/(tabs)/scanner.tsx'));
-  const HPROF   = codeOnly(read('app/(hospital)/profile.tsx'));
+  const HPROF   = codeOnly(read('app/(hospital)/Hprofile.tsx'));
 
   it('Home sends a hospital to its dashboard (Redirect = replace) only when the dashboard can open', () => {
     // The dashboard bounces to login without user.hospital, and login bounces
@@ -180,12 +180,12 @@ describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile'
 
   it('the patient login screen sends a hospital to the dashboard only when it will open', () => {
     const AUTH_LOGIN = codeOnly(read('app/(auth)/login.tsx'));
-    expect(AUTH_LOGIN).toMatch(/if \(data\.user\?\.role === 'hospital' && data\.user\?\.hospital\) router\.replace\('\/\(hospital\)\/dashboard'\);/);
+    expect(AUTH_LOGIN).toMatch(/if \(data\.user\?\.role === 'hospital' && data\.user\?\.hospital\) \{[^}]*router\.replace\('\/\(hospital\)\/dashboard'\);/);
   });
 
   it('hospital login only auto-opens the dashboard when the dashboard will open', () => {
     // Role alone looped login <-> dashboard for a user with no hospital object.
-    const LOGIN = codeOnly(read('app/(hospital)/login.tsx'));
+    const LOGIN = codeOnly(read('app/(hospital)/Hlogin.tsx'));
     expect(LOGIN).toMatch(/if \(u\?\.role === 'hospital' && u\?\.hospital\) \{\s*router\.replace\('\/\(hospital\)\/dashboard'\)/);
   });
 

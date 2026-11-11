@@ -65,9 +65,9 @@ export default function HospitalAnalytics() {
   useEffect(() => {
     (async () => {
       const raw = await AsyncStorage.getItem('user');
-      if (!raw) { router.replace('/(hospital)/login'); return; }
+      if (!raw) { router.replace('/(hospital)/Hlogin'); return; }
       const user = JSON.parse(raw);
-      if (user.role !== 'hospital' || !user.hospital) { router.replace('/(hospital)/login'); return; }
+      if (user.role !== 'hospital' || !user.hospital) { router.replace('/(hospital)/Hlogin'); return; }
       setHospitalId(user.hospital.id);
       load(user.hospital.id);
     })();

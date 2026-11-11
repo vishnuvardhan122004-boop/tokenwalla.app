@@ -1,5 +1,5 @@
 /**
- * app/(hospital)/profile.tsx — Hospital profile & operations hub.
+ * app/(hospital)/Hprofile.tsx — Hospital profile & operations hub.
  *
  * Shows the hospital's details and the operations a hospital can perform
  * (dashboard, QR scanner, doctor management, logout, support). Also provides
@@ -161,9 +161,9 @@ export default function HospitalProfile() {
   useEffect(() => {
     (async () => {
       const raw = await AsyncStorage.getItem('user');
-      if (!raw) { router.replace('/(hospital)/login'); return; }
+      if (!raw) { router.replace('/(hospital)/Hlogin'); return; }
       const user = JSON.parse(raw);
-      if (user.role !== 'hospital' || !user.hospital) { router.replace('/(hospital)/login'); return; }
+      if (user.role !== 'hospital' || !user.hospital) { router.replace('/(hospital)/Hlogin'); return; }
       const h: Hospital = user.hospital;
       setHospital(h);
       setOrigMobile(h.mobile || '');
