@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { useI18n } from '../../services/i18n';
 
 // ── SVG Icon Components ──────────────────────────────────────────────────────
 
@@ -101,6 +102,7 @@ function TabIcon({ icon, focused }: TabIconProps) {
 // ── Layout ────────────────────────────────────────────────────────────────────
 
 export default function PatientLayout() {
+  const { t } = useI18n();   // the icon-only tabs still need a name for screen readers
   // A hospital account has no business browsing or booking, and it still lands
   // here: app launch boots into Home, and it opens notifications from its
   // dashboard bell. HomeScreen redirects it to its own Dashboard | Scanner bar
@@ -153,6 +155,7 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="home"
         options={{
+          tabBarAccessibilityLabel: t('tab_home'),
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}
@@ -172,6 +175,7 @@ export default function PatientLayout() {
         <Tabs.Screen
           name="doctors"
           options={{
+          tabBarAccessibilityLabel: t('tab_doctors'),
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
@@ -184,6 +188,7 @@ export default function PatientLayout() {
         <Tabs.Screen
           name="my-bookings"
           options={{
+          tabBarAccessibilityLabel: t('my_bookings'),
             tabBarIcon: ({ focused }) => (
               <TabIcon
                 focused={focused}
@@ -197,6 +202,7 @@ export default function PatientLayout() {
       <Tabs.Screen
         name="profile"
         options={{
+          tabBarAccessibilityLabel: t('profile'),
           tabBarIcon: ({ focused }) => (
             <TabIcon
               focused={focused}

@@ -259,7 +259,7 @@ export default function HomeScreen() {
             <View style={styles.logoBox}>
               <Text style={styles.logoText}>TW</Text>
             </View>
-            <Text style={styles.brandName}>
+            <Text style={styles.brandName} numberOfLines={1}>
               <Text style={styles.accent}>Token</Text>walla
             </Text>
           </View>
@@ -608,13 +608,14 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.white },
 
   // Navbar
-  navbar:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
-  brand:      { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  navbar:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.white },
+  // flexShrink: on a 320px phone the name gives way instead of running under EN.
+  brand:      { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, marginRight: 6 },
   logoBox:    { width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.blue600, alignItems: 'center', justifyContent: 'center' },
   logoText:   { color: Colors.white, fontWeight: '800', fontSize: 12 },
-  brandName:  { fontSize: 17, fontWeight: '800', color: Colors.gray900 },
+  brandName:  { fontSize: 17, fontWeight: '800', color: Colors.gray900, flexShrink: 1 },
   accent:     { color: Colors.blue600 },
-  navRight:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  navRight:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
   langBtn:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   langBtnText:{ fontSize: 12, fontWeight: '700', color: Colors.blue700 },
   loginBtn:   { backgroundColor: Colors.blue600, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, minWidth: 76, alignItems: 'center', justifyContent: 'center' },
