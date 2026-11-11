@@ -178,13 +178,16 @@ test('signed in, My earnings posts the desk token and shows that person\'s own f
   await signInAsSita();
   (API.post as jest.Mock).mockResolvedValueOnce({ data: {
     name: 'Sita', enabled: true, upi_set: true, month_count: 2, month_amount: '14.00',
-    unpaid_amount: '14.00', paid_total: '0.00', daily: [{ date: '2026-11-09', count: 2, amount: '14.00' }], payments: [],
+    unpaid_amount: '14.00', paid_total: '0.00', today_count: 3, today_amount: '21.00',
+    daily: [{ date: '2026-11-09', count: 2, amount: '14.00' }], payments: [],
   } });
   await act(async () => { await byLabel('My earnings').props.onPress(); });
   expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
   expect(text()).toContain('Sita: my earnings');
   expect(text()).toContain('₹14.00');
   expect(text()).toContain('2 bookings');
+  // today is live, not waiting for the nightly ledger
+  expect(text()).toContain('Today: 3 bookings · ₹21.00');
 });
 
 // Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.

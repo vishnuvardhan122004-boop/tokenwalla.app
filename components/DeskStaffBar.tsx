@@ -18,6 +18,7 @@ type Person = { id: number; name: string; active: boolean };
 type Earnings = {
   error?: string; name?: string; enabled?: boolean; upi_set?: boolean; month_count?: number;
   month_amount?: string; unpaid_amount?: string; paid_total?: string;
+  today_count?: number; today_amount?: string;   // live; absent on an older server
   daily?: { date: string; count: number; amount: string }[];
   payments?: { paid_at: string; utr: string; amount: string }[];
 };
@@ -117,7 +118,14 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
             : (
               <>
                 {!earn.enabled && <Text style={st.muted}>The staff incentive is switched off right now.</Text>}
-                <Text style={st.muted}>Updated overnight.</Text>
+                {earn.today_count !== undefined && (
+                  <Text style={st.todayLine}>
+                    {`Today: ${bookings(earn.today_count)}${Number(earn.today_amount) > 0 ? ` · ${inr(earn.today_amount)}` : ''}`}
+                  </Text>
+                )}
+                <Text style={st.muted}>
+                  {earn.today_count !== undefined ? 'Today is live. This month and the totals update overnight.' : 'Updated overnight.'}
+                </Text>
                 <View style={st.tiles}>
                   <View style={st.tile}><Text style={st.muted}>This month</Text>
                     <Text style={st.big}>{inr(earn.month_amount)}</Text>
@@ -195,6 +203,7 @@ const st = StyleSheet.create({
   tile: { flex: 1, backgroundColor: '#f3f6fb', borderRadius: 10, padding: 8 },
   big: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
   muted: { color: Colors.gray500, fontSize: 13 },
+  todayLine: { color: Colors.gray900, fontSize: 15, fontWeight: '700' },
   who: { fontWeight: '700', fontSize: 13, color: Colors.gray900 },
   link: { color: Colors.blue600, fontSize: 13, fontWeight: '600', paddingVertical: 6 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
