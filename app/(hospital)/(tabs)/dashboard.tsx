@@ -377,6 +377,8 @@ export default function HospitalDashboard() {
   // "Lata +₹7 · ₹35 today" with a 10 s Change button (web ROADMAP 71c)
   const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
   const [changing,  setChanging]    = useState(false);
+  // The last count the server sent after a Done: the incentive figures below it are nightly.
+  const [lastStaffToday, setLastStaffToday] = useState('');
   const [mainDeskName, setMainDeskName] = useState('');
   // Re-read on each visit, so a person added on Payments is pickable here.
   const [focusTick,  setFocusTick]  = useState(0);
@@ -582,20 +584,31 @@ export default function HospitalDashboard() {
   };
 
   // ── Queue Actions ─────────────────────────────────────────────────────────
+  // In-flight guard per booking: a double tap must not send two WhatsApps.
+  const busyIds = useRef(new Set<string>());
   const callNext = async (id: number | string) => {
+    const key = `call:${id}`;
+    if (busyIds.current.has(key)) return;
+    busyIds.current.add(key);
     try { await API.patch(`/bookings/call/${id}/`); loadQueue(); }
     catch { Alert.alert('Error', 'Failed to call patient'); }
+    finally { busyIds.current.delete(key); }
   };
 
   // With desk staff, Done first asks who handled the patient (web ROADMAP 71)
   // and the pick rides Complete as staff_id; with none it completes straight
   // away, sending exactly what it always did (the main desk is credited).
   const sendComplete = async (id: number | string, body?: { staff_id: number | null }) => {
+    const key = `done:${id}`;
+    if (busyIds.current.has(key)) return false;
+    busyIds.current.add(key);
     try {
       const { data } = await (body ? API.patch(`/bookings/complete/${id}/`, body) : API.patch(`/bookings/complete/${id}/`));
       loadQueue();
-      if (body) {
-        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), staffId: body.staff_id, canChange: true });
+      // The count shows whenever the server sent one; only a pick can be changed.
+      if (data?.staff_today) setLastStaffToday(staffTodayMessage(data.staff_today));
+      if (body || data?.staff_today) {
+        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), staffId: body ? body.staff_id : null, canChange: !!body });
       }
       return true;
     } catch (e: any) {
@@ -603,13 +616,13 @@ export default function HospitalDashboard() {
         ? apiMessage(e, 'That staff member is not available any more. Pick again.')
         : 'Failed to mark complete');
       return false;
-    }
+    } finally { busyIds.current.delete(key); }
   };
   const complete = (id: number | string) => {
     const p = queue.inProgress.find(x => x.id === id) || queue.waiting.find(x => x.id === id);
     // Ask only when it can earn and nobody was named at the scan (web 71b);
     // otherwise the server keeps the scan's pick.
-    if (deskStaff.length > 0 && p?.earns_incentive && !p.staff_picked) setPickFor(p);
+    if ((deskStaff?.length ?? 0) > 0 && p?.earns_incentive && !p.staff_picked) setPickFor(p);
     else sendComplete(id);
   };
   const completePicked = async (staffId: number | null) => {
@@ -1134,7 +1147,7 @@ export default function HospitalDashboard() {
   // cannot present a second root modal on top of the first.
   const leaveModal = (
     <Modal visible={!!leaveFor} transparent animationType="fade" onRequestClose={() => setLeaveFor(null)}>
-      <View style={styles.sheetBackdrop}>
+      <KeyboardAvoidingView behavior="padding" style={styles.sheetBackdrop}>
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>{leaveFor ? providerLabel(leaveFor.name, 'DOCTOR') : ''} on leave</Text>
           <Text style={styles.sheetSub}>Date</Text>
@@ -1183,7 +1196,7 @@ export default function HospitalDashboard() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 
@@ -1242,11 +1255,11 @@ export default function HospitalDashboard() {
         </TouchableOpacity>
       </Modal>
 
-      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => !saving && setShowModal(false)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
           {showModal && leaveModal}
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             style={{ flex: 1 }}
           >
             {/* Modal header */}
@@ -1722,10 +1735,10 @@ export default function HospitalDashboard() {
         </View>
 
         {/* Staff incentive (ROADMAP 60): one line, absent while the flag is off */}
-        {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken}
+        {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken} refresh={focusTick}
                                                     onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
-          <DeskPicker visible={pickFor !== null || changing} hospitalId={hospital.id} staff={deskStaff}
+          <DeskPicker visible={pickFor !== null || changing} hospitalId={hospital.id} staff={deskStaff ?? []}
                       mainName={mainDeskName}
                       patient={!changing && pickFor ? nameOf(pickFor) : undefined}
                       initial={changing ? pickToast?.staffId : pickFor?.completed_by_staff_id}
@@ -1734,7 +1747,8 @@ export default function HospitalDashboard() {
         )}
         {hospital?.id != null && (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <StaffIncentiveCard hospitalId={hospital.id} onOpen={() => router.push('/(hospital)/payments')} />
+            <StaffIncentiveCard hospitalId={hospital.id} refresh={focusTick} today={lastStaffToday}
+                                onOpen={() => router.push('/(hospital)/payments')} />
           </View>
         )}
 
@@ -1956,7 +1970,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
-                    {deskStaff.length > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
+                    {(deskStaff?.length ?? 0) > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p, true)}

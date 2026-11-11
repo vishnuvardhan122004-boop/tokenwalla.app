@@ -20,7 +20,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -116,6 +115,7 @@ export default function HospitalPayments() {
   const [totals,     setTotals]     = useState<Totals>({});
   const [loading,    setLoading]    = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [staffTick, setStaffTick] = useState(0);   // pull-to-refresh also re-reads the staff blocks
   const [search,     setSearch]     = useState('');
 
   // Manage-details sheet
@@ -154,6 +154,7 @@ export default function HospitalPayments() {
 
   const onRefresh = async () => {
     setRefreshing(true);
+    setStaffTick(k => k + 1);
     await load();
     setRefreshing(false);
   };
@@ -244,9 +245,9 @@ export default function HospitalPayments() {
     <SafeAreaView style={styles.safe} edges={['top']}>
 
       {/* ══════════════ MANAGE DETAILS SHEET ══════════════ */}
-      <Modal visible={!!modalDoc} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={!!modalDoc} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => !saving && setModalDoc(null)}>
         <SafeAreaView style={{ flex: 1, backgroundColor: Colors.white }} edges={['top']}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => !saving && setModalDoc(null)} style={styles.modalCancel}>
                 <Ionicons name="close" size={15} color={Colors.errorText} />
@@ -492,8 +493,8 @@ export default function HospitalPayments() {
         </View>
 
         {/* Staff incentive: the dashboard, then who is paid and how often */}
-        {hospitalId != null && <StaffIncentive hospitalId={hospitalId} />}
-        {hospitalId != null && <StaffManager hospitalId={hospitalId} />}
+        {hospitalId != null && <StaffIncentive hospitalId={hospitalId} refresh={staffTick} />}
+        {hospitalId != null && <StaffManager hospitalId={hospitalId} refresh={staffTick} />}
 
         {/* Search + count */}
         <View style={styles.listHead}>

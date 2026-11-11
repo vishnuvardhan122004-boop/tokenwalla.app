@@ -22,11 +22,11 @@ import API from '../services/api';
 
 export type DeskPerson = { id: number; name: string; active?: boolean };
 
-/** The message after a pick, from the server's `staff_today`: "Lata +₹7 · ₹35 today". */
+/** The message after a pick, from the server's `staff_today`: "Lata +₹7 · 5 today · ₹35", or "Lata · 5 today" while the incentive is off. */
 export const staffTodayMessage = (t?: { name: string; count: number; amount: number; per_booking?: number } | null): string =>
   !t ? 'Saved.'
-  : t.amount > 0 ? `${t.name} +₹${t.per_booking ?? t.amount / t.count} · ₹${t.amount} today`
-  : `Saved: handled by ${t.name}`;
+  : t.amount > 0 ? `${t.name} +₹${t.per_booking ?? t.amount / t.count} · ${t.count} today · ₹${t.amount}`
+  : `${t.name} · ${t.count} today`;
 /** The 10-second "Change" after a pick (web ROADMAP 71c). A 409 = the nightly ledger has it: only admin can move it. */
 export async function changeHandledBy(bookingId: number | string, staffId: number | null):
   Promise<{ ok: boolean; msg: string; tooLate?: boolean }> {
@@ -42,16 +42,17 @@ export async function changeHandledBy(bookingId: number | string, staffId: numbe
 }
 const lastKey = (hid: number | string) => `tw_lastpick_${hid}`;
 
-/** The hospital's active desk people; [] while loading, with none, or on an older server.
+/** The hospital's active desk people; null until the first answer (so a caller can
+ *  tell "not loaded yet" from "none"), [] with none or on an older server.
  *  `refresh` re-reads them when it changes. */
-export function useDeskStaff(hospitalId?: number | string | null, refresh?: unknown): DeskPerson[] {
-  const [staff, setStaff] = useState<DeskPerson[]>([]);
+export function useDeskStaff(hospitalId?: number | string | null, refresh?: unknown): DeskPerson[] | null {
+  const [staff, setStaff] = useState<DeskPerson[] | null>(null);
   useEffect(() => {
     if (hospitalId == null) return undefined;
     let live = true;
     API.get(`/hospitals/${hospitalId}/staff/`)
-      .then(({ data }) => { if (live && Array.isArray(data)) setStaff(data.filter((s: DeskPerson) => s.active)); })
-      .catch(() => {});
+      .then(({ data }) => { if (live) setStaff(Array.isArray(data) ? data.filter((s: DeskPerson) => s.active) : []); })
+      .catch(() => { if (live) setStaff(prev => prev ?? []); });
     return () => { live = false; };
   }, [hospitalId, refresh]);
   return staff;

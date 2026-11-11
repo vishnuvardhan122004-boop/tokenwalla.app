@@ -10,7 +10,7 @@
  * website only (they are for reference and nothing reads them).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import API, { apiMessage } from '../services/api';
 import { tenDigitMobile } from '../utils/phone';
@@ -20,7 +20,7 @@ type Form = { id: number | null; name: string; upi: string; phone: string; pin: 
 
 const EMPTY: Form = { id: null, name: '', upi: '', phone: '', pin: '', active: true };
 
-export default function StaffManager({ hospitalId }: { hospitalId: number | string }) {
+export default function StaffManager({ hospitalId, refresh }: { hospitalId: number | string; refresh?: unknown }) {
   const base = `/hospitals/${hospitalId}/staff/`;
   const [rows, setRows] = useState<Person[] | null>(null);   // null = not loaded / older server
   const [form, setForm] = useState<Form | null>(null);
@@ -33,7 +33,7 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
   const load = useCallback(() => {
     API.get(base).then(({ data }) => { if (Array.isArray(data)) setRows(data); }).catch(() => {});
   }, [base]);
-  useEffect(load, [load]);
+  useEffect(load, [load, refresh]);
 
   if (rows === null) return null;
 
@@ -76,7 +76,10 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
       load();
     } catch (e: any) {
       const d = e?.response?.data;
-      if (d && typeof d === 'object' && !d.message) {
+      // Field errors go under their field; anything else ({detail}, non_field_errors)
+      // would otherwise vanish and leave a failed save looking like nothing happened.
+      const hasField = d && typeof d === 'object' && !d.message && ['name', 'phone', 'upi', 'pin'].some((k) => k in d);
+      if (hasField) {
         setErrors(Object.fromEntries(Object.entries(d).map(([k, v]) => [k, ([] as unknown[]).concat(v).join(' ')])));
       } else {
         setErrors({ message: apiMessage(e, 'Could not save. Try again.') });
@@ -159,7 +162,7 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
       </TouchableOpacity>
 
       <Modal visible={form !== null} transparent animationType="fade" onRequestClose={() => setForm(null)}>
-        <View style={st.backdrop}>
+        <KeyboardAvoidingView behavior="padding" style={st.backdrop}>
           {form && (
             <View style={st.sheet}>
               <Text style={st.title}>{form.id ? 'Edit person' : 'Add a person'}</Text>
@@ -185,7 +188,7 @@ export default function StaffManager({ hospitalId }: { hospitalId: number | stri
               </TouchableOpacity>
             </View>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

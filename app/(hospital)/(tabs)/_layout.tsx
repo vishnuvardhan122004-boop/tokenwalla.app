@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 
 // A logged-in hospital's own bottom bar: Dashboard | Scanner, the two things a
@@ -13,6 +14,8 @@ import { Colors } from '../../../constants/colors';
 // '/(hospital)/scanner' still resolve here, because route groups are optional
 // segments when expo-router matches an href.
 export default function HospitalTabsLayout() {
+  // The bar sits above the system nav bar (Android 3-button / gesture area).
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       // Back from Scanner is Dashboard; back from Dashboard leaves. NOT
@@ -22,7 +25,7 @@ export default function HospitalTabsLayout() {
       backBehavior="firstRoute"
       screenOptions={{
         headerShown: false,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: [styles.tabBar, { height: 72 + insets.bottom, paddingBottom: 10 + insets.bottom }],
         tabBarActiveTintColor: Colors.blue600,
         tabBarInactiveTintColor: Colors.gray400,
         tabBarLabelStyle: styles.label,
