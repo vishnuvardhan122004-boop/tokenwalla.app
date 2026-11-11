@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
   ScrollView,
   StyleSheet,
@@ -93,13 +94,22 @@ export default function PaymentScreen() {
     safeBack(router, '/(patient)/doctors');
   });
 
-  useEffect(() => {
+  // On focus, not mount: this is a tab screen that stays mounted, so a
+  // logout/login elsewhere must not leave the previous account in state.
+  useFocusEffect(useCallback(() => {
     (async () => {
       const raw = await AsyncStorage.getItem('user');
       if (!raw) { router.replace('/(auth)/login'); return; }
       setUser(JSON.parse(raw));
     })();
-  }, [router]);
+  }, [router]));
+
+  // The screen persists between bookings: a new provider/date/slot must not
+  // inherit the last one's priority seat, pass purchase or "someone else".
+  useEffect(() => {
+    setPriority(false); setBuyPass(false);
+    setForOther(false); setOtherName(''); setOtherMobile('');
+  }, [providerId, date, slot]);
 
   // ── Server-computed fee breakdown for this provider ────────────────────
   useEffect(() => {
@@ -597,7 +607,8 @@ export default function PaymentScreen() {
       </Modal>
 
       {/* ── Payment Summary Page ── */}
-      <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(patient)/doctors')}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backText}>{t('pay_back')}</Text>
@@ -896,6 +907,7 @@ export default function PaymentScreen() {
           {t('pay_refund_note')}
         </Text>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -37,7 +37,9 @@ export function usePolling(fn: () => void, intervalMs: number, enabled = true) {
     const start = () => { if (!id) id = setInterval(() => saved.current(), intervalMs); };
     const stop  = () => { if (id) { clearInterval(id); id = null; } };
 
-    if (AppState.currentState === 'active') start();
+    // Refresh on (re)focus too, not only on foregrounding: coming back from
+    // another tab must not show counts up to one interval stale.
+    if (AppState.currentState === 'active') { saved.current(); start(); }
 
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') { saved.current(); start(); }

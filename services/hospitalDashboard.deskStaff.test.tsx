@@ -122,7 +122,7 @@ test('with staff, Done asks who handled it; inactive people are not offered', as
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
   expect(text()).not.toContain('Who handled');
-  expect(text()).toContain('Sita +₹7 · ₹14 today');
+  expect(text()).toContain('Sita +₹7 · 2 today · ₹14');
 });
 
 test('a booking already picked at the scan, or one that earns nothing, completes with no picker', async () => {
@@ -198,7 +198,7 @@ test('the picker names the payee from the queue response; after a pick Change re
   expect(byLabel('Ravi K (main desk)')).toBeTruthy();
   await act(async () => { await byLabel('Sita').props.onPress(); });
   await flush3();
-  expect(text()).toContain('Sita +₹7 · ₹7 today');
+  expect(text()).toContain('Sita +₹7 · 1 today · ₹7');
   expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
   await act(async () => { byLabel('Change who handled it').props.onPress(); });
   expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
@@ -206,7 +206,7 @@ test('the picker names the payee from the queue response; after a pick Change re
   await act(async () => { await byLabel('Ravi K (main desk)').props.onPress(); });
   await flush3();
   expect(API.patch).toHaveBeenLastCalledWith('/bookings/handled-by/5/', { staff_id: null });
-  expect(text()).toContain('Ravi K +₹7 · ₹7 today');
+  expect(text()).toContain('Ravi K +₹7 · 1 today · ₹7');
   setT.mockRestore();
 });
 
@@ -222,4 +222,26 @@ test('a 409 on Change says it is too late and the button goes', async () => {
   await flush3();
   expect(text()).toContain('Ask admin to move it');
   expect(byLabel('Change who handled it')).toBeUndefined();
+});
+
+// The count shows whenever the server sends one, even with no picker (flag off, or
+// the person already named at the scan): "Sita · 3 today", no Change button.
+test('Done with no picker still shows the server\'s count', async () => {
+  await mount(SITA, [{ ...IN_PROGRESS, earns_incentive: false }]);
+  (API.patch as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 3, amount: 0 } } });
+  await act(async () => { done().props.onPress(); });
+  await act(async () => { await Promise.resolve(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
+  expect(text()).toContain('Sita · 3 today');
+  expect(byLabel('Change who handled it')).toBeUndefined();
+});
+
+// A double tap on Done must not send two Completes.
+test('a double tap on Done sends one request', async () => {
+  await mount([]);
+  let finish: (v: unknown) => void = () => {};
+  (API.patch as jest.Mock).mockReturnValue(new Promise(res => { finish = res; }));
+  await act(async () => { done().props.onPress(); done().props.onPress(); });
+  expect(API.patch).toHaveBeenCalledTimes(1);
+  await act(async () => { finish({ data: {} }); });
 });

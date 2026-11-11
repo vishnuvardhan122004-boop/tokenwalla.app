@@ -109,7 +109,7 @@ export default function DoctorDetails() {
   const [doctor,       setDoctor]       = useState<Doctor | null>(null);
   const [hospitalInfo, setHospitalInfo] = useState<Hospital | null>(null);
   const [loading,      setLoading]      = useState(true);
-  const { user } = useCurrentUser();
+  const { user } = useCurrentUser({ refetchOnFocus: true });
   const [slotAvail,    setSlotAvail]    = useState<Record<string, SlotInfo>>({}); // { "09:00 AM": { booked, max, full } }
   const [availLoading, setAvailLoading] = useState(false);
 

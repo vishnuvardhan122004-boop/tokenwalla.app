@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView,
+  ActivityIndicator, KeyboardAvoidingView, Modal, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { Colors } from '../constants/colors';
@@ -90,7 +90,7 @@ export default function GoogleMobileSheet({ linkToken, name, email, onClose, onS
 
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={styles.backdrop} behavior="padding">
         <View style={styles.sheet} accessibilityViewIsModal>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false} bounces={false}>

@@ -21,7 +21,7 @@ const TestRenderer = require('react-test-renderer');
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn(), canGoBack: () => true }),
+  useRouter: () => ({ push: jest.fn(), replace: mockReplace, back: jest.fn(), canGoBack: () => true, canDismiss: () => false, dismissAll: jest.fn() }),
 }));
 jest.mock('../hooks/useAndroidBack', () => ({ useAndroidBack: jest.fn() }));
 jest.mock('@expo/vector-icons', () => ({ Ionicons: () => null }));

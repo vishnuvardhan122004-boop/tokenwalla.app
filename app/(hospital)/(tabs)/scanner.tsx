@@ -18,7 +18,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -102,8 +101,11 @@ export default function HospitalScanner() {
   // auto-mark first open the picker and the pick rides the scan as staff_id.
   const [hospitalId, setHospitalId] = useState<number | string | null>(null);
   const [focusTick,  setFocusTick]  = useState(0);
+  const [userRead, setUserRead] = useState(false);
   const deskStaff = useDeskStaff(hospitalId, focusTick);
-  const hasStaff = deskStaff.length > 0;
+  const hasStaff = (deskStaff?.length ?? 0) > 0;
+  // No hospital id (nothing to fetch) counts as loaded: there is no staff list to wait for.
+  const staffLoaded = deskStaff !== null || (userRead && hospitalId == null);
   const [picking,    setPicking]    = useState(false);
   const [handledBy,  setHandledBy]  = useState<string | null>(null);
   const [pickedId,   setPickedId]   = useState<number | null>(null);   // highlighted on Change
@@ -112,7 +114,8 @@ export default function HospitalScanner() {
   useEffect(() => {
     AsyncStorage.getItem('user')
       .then(raw => setHospitalId(raw ? JSON.parse(raw)?.hospital?.id ?? null : null))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setUserRead(true));
   }, []);
   useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
 
@@ -143,8 +146,10 @@ export default function HospitalScanner() {
     try {
       const { data } = await (body ? API.post(`/bookings/scan/${token}/`, body) : API.post(`/bookings/scan/${token}/`));
       if (visit !== visitRef.current) return;
+      // The count shows whenever the server sent one, picked or not; only a
+      // pick can be changed.
+      if (body || data?.staff_today) setHandledBy(staffTodayMessage(data?.staff_today));
       if (body) {
-        setHandledBy(staffTodayMessage(data?.staff_today));
         setPickedId(body.staff_id);
         setCanChange(true);
       }
@@ -156,7 +161,10 @@ export default function HospitalScanner() {
     } catch (e: unknown) {
       if (visit !== visitRef.current) return;
       const err = e as { response?: { status?: number; data?: any } };
-      if (err?.response?.status === 409) { setScanState('already_done'); }
+      if (err?.response?.status === 409) {
+        if (err.response.data?.booking) setScanResult(err.response.data);
+        setScanState('already_done');
+      }
       else {
         setErrorMsg(err?.response?.data?.message || 'Failed to mark attendance. Try again.');
         setScanState('error');
@@ -180,6 +188,7 @@ export default function HospitalScanner() {
     setScanResult(null);
     setErrorMsg('');
     setHandledBy(null);
+    setPicking(false);
     setChanging(false);
     setCanChange(false);
     setScanState('fetching');
@@ -194,7 +203,9 @@ export default function HospitalScanner() {
       // Right patient, today's booking, still waiting → mark them in straight
       // away. Any other date keeps the manual button so staff decide.
       const b = data.booking;
-      if (autoConfirm && !data.already_done && b?.date === toLocalISODate(new Date()) &&
+      // staffLoaded: an early scan must not skip the picker; until the staff
+      // list is in, the manual Accept button (which opens it) is used instead.
+      if (autoConfirm && staffLoaded && !data.already_done && b?.date === toLocalISODate(new Date()) &&
           ['CONFIRMED', 'ON_HOLD'].includes(b.status)) {
         if (hasStaff && b.earns_incentive) setPicking(true);
         else await markAttended(b.token);
@@ -223,7 +234,7 @@ export default function HospitalScanner() {
         setScanState('error');
       }
     }
-  }, [autoConfirm, markAttended, hasStaff]);
+  }, [autoConfirm, markAttended, hasStaff, staffLoaded]);
 
   // ── Camera scan handler (with cooldown to avoid duplicate scans) ──────────
   const onBarcodeScanned = useCallback(({ data }: { data: string }) => {
@@ -270,6 +281,10 @@ export default function HospitalScanner() {
     setScanState('idle');
     setErrorMsg('');
     setManualToken('');
+    setPicking(false);
+    setChanging(false);
+    setHandledBy(null);
+    setCanChange(false);
     lastScannedRef.current = '';
     scanCooldown.current   = false;
   }, []));
@@ -317,6 +332,8 @@ export default function HospitalScanner() {
     setManualToken('');
     lastScannedRef.current = '';
     scanCooldown.current   = false;
+    // A camera scan stopped the camera; Scan Next / Cancel turns it back on.
+    if (fromCameraRef.current) setScanning(true);
   };
 
   const booking = (scanResult?.booking || scanResult) as Booking | null;
@@ -334,7 +351,7 @@ export default function HospitalScanner() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
@@ -533,7 +550,7 @@ export default function HospitalScanner() {
                     </TouchableOpacity>
                   )}
                   {hospitalId != null && (
-                    <DeskPicker visible={(picking && !isConfirmed) || changing} hospitalId={hospitalId} staff={deskStaff}
+                    <DeskPicker visible={(picking && !isConfirmed) || changing} hospitalId={hospitalId} staff={deskStaff ?? []}
                                 mainName={scanResult?.main_desk_name}
                                 patient={booking.patient_name} busy={confirming}
                                 initial={changing ? pickedId : undefined}

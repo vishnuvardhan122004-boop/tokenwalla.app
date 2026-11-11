@@ -218,13 +218,13 @@ describe('search', () => {
     const input = r.root.findByType(TextInput);
     await act(async () => { input.props.onChangeText('  heart  '); });
     await act(async () => { r.root.findByType(TextInput).props.onSubmitEditing(); });
-    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(patient)/doctors', params: { q: 'heart' } });
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(patient)/doctors', params: { q: 'heart', kind: 'doctors', ts: expect.any(String) } });
   });
 
   test('an empty search just opens the list', async () => {
     await mount();
     await act(async () => { r.root.findByType(TextInput).props.onSubmitEditing(); });
-    expect(mockPush).toHaveBeenCalledWith('/(patient)/doctors');
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/(patient)/doctors', params: { q: '', kind: 'doctors', ts: expect.any(String) } });
   });
 });
 

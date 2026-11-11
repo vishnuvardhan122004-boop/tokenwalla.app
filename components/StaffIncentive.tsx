@@ -64,8 +64,14 @@ function useTotals(hospitalId: number | string, refreshKey = 0) {
   return t;
 }
 
-export function StaffIncentiveCard({ hospitalId, onOpen }: { hospitalId: number | string; onOpen: () => void }) {
-  const t = useTotals(hospitalId);
+export function StaffIncentiveCard({ hospitalId, onOpen, refresh = 0, today }: {
+  hospitalId: number | string; onOpen: () => void;
+  /** Changes when the screen is revisited, so the figures are re-read. */
+  refresh?: number;
+  /** The last "Lata · 5 today" the server sent after a Done (the figures here are nightly). */
+  today?: string;
+}) {
+  const t = useTotals(hospitalId, refresh);
   if (!t || !t.enabled) return null;
   return (
     <View style={styles.card}>
@@ -73,6 +79,7 @@ export function StaffIncentiveCard({ hospitalId, onOpen }: { hospitalId: number 
         <Text style={styles.cardText}>
           {`Staff incentive: ${inr(t.month_amount)} this month (${t.month_count} booking${t.month_count === 1 ? '' : 's'}) · ${inr(t.unpaid_amount)} waiting to be paid `}
           <Text style={styles.link} onPress={onOpen}>See details</Text>
+          {`\nUpdated overnight${today ? `. Just now: ${today}` : ''}`}
         </Text>
       ) : (
         <Text style={styles.cardText}>
@@ -86,9 +93,9 @@ export function StaffIncentiveCard({ hospitalId, onOpen }: { hospitalId: number 
   );
 }
 
-export default function StaffIncentive({ hospitalId }: { hospitalId: number | string }) {
+export default function StaffIncentive({ hospitalId, refresh = 0 }: { hospitalId: number | string; refresh?: number }) {
   const [dashKey, setDashKey] = useState(0);   // reload the figures after a save
-  const t = useTotals(hospitalId, dashKey);
+  const t = useTotals(hospitalId, dashKey + refresh);
 
   const [payee, setPayee] = useState({ name: '', upi: '', phone: '', frequency: 'MONTHLY' });
   const [error, setError] = useState<{ upi?: string; phone?: string; general?: string }>({});
@@ -156,6 +163,7 @@ export default function StaffIncentive({ hospitalId }: { hospitalId: number | st
 
       {t && t.enabled && tiles && (
         <>
+          <Text style={styles.muted}>Figures update overnight.</Text>
           <Text style={styles.muted}>
             {t.payee_set
               ? `Paid to ${t.payee_name || 'your staff payee'}.`

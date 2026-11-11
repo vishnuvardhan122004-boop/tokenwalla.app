@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
@@ -124,6 +125,8 @@ export default function PatientLayout() {
   // so a hospital with a saved session can see the guarded tabs for a frame
   // on cold start. Cache the role at module level if that is ever visible.
   const { user } = useCurrentUser<{ role?: string; hospital?: unknown }>({ refetchOnFocus: true });
+  // The bar sits above the system nav bar (Android 3-button / gesture area).
+  const insets = useSafeAreaInsets();
   const isHospital = user?.role === 'hospital';
   // The bar is hidden only for a hospital Home actually sends to its dashboard
   // (HomeScreen: role AND user.hospital). One whose hospital object failed to
@@ -141,7 +144,7 @@ export default function PatientLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarStyle: hasHospitalBar ? { display: 'none' } : styles.tabBar,
+        tabBarStyle: hasHospitalBar ? { display: 'none' } : [styles.tabBar, { height: 72 + insets.bottom, paddingBottom: 10 + insets.bottom }],
         tabBarActiveTintColor: Colors.blue600,
         tabBarInactiveTintColor: Colors.gray400,
       }}

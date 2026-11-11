@@ -10,8 +10,8 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -45,20 +45,26 @@ export default function MyDocumentsScreen() {
 
   const [docs,    setDocs]    = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed,  setFailed]  = useState(false);
   const [busyId,  setBusyId]  = useState<number | string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const { data } = await API.get('/bookings/reports/mine/');
       setDocs(Array.isArray(data) ? data : []);
-    } catch {
-      setDocs([]);                 // 404 on a backend without the endpoint yet
+      setFailed(false);
+    } catch (e: any) {
+      // 404 = a backend without the endpoint yet: nothing to show. Anything
+      // else is a failure, not "no documents" — say so and offer a retry.
+      if (e?.response?.status === 404) { setDocs([]); setFailed(false); }
+      else setFailed(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  // On focus, so a document shared since the last visit shows up.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const open = async (doc: any) => {
     setBusyId(doc.id);
@@ -83,6 +89,14 @@ export default function MyDocumentsScreen() {
 
       {loading ? (
         <View style={st.center}><ActivityIndicator color={Colors.blue600} /></View>
+      ) : failed && docs.length === 0 ? (
+        <View style={st.center}>
+          <Ionicons name="cloud-offline-outline" size={44} color={Colors.gray400} />
+          <Text style={st.emptyTitle}>{t('connection_error')}</Text>
+          <TouchableOpacity onPress={() => { setLoading(true); load(); }}>
+            <Text style={[st.emptyText, { color: Colors.blue600, fontWeight: '700' }]}>{t('retry')}</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={docs}

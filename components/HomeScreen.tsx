@@ -182,9 +182,14 @@ export default function HomeScreen() {
     return () => { cancelled = true; };
   }, [user]);
 
-  useEffect(() => {
+  // On focus until it has loaded once: a failed first fetch (offline at launch)
+  // is retried when the patient comes back to Home, not left empty for the session.
+  const doctorsLoaded = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (doctorsLoaded.current) return;
     API.get('/doctors/')
       .then(({ data }) => {
+        doctorsLoaded.current = true;
         // Backend returns a DRF-paginated object { count, results: [...] };
         // older versions returned a plain array — handle both.
         const list = Array.isArray(data) ? data : (data.results || []);
@@ -193,17 +198,17 @@ export default function HomeScreen() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, []));
 
   const { cities, hospitals } = useMemo(() => summariseDoctors(allDoctors), [allDoctors]);
   const doctors = useMemo(() => featuredDoctors(allDoctors, MAX_DOCTORS), [allDoctors]);
 
   // `q` is the doctors tab's search box: a city, a hospital or a specialty all
   // match the doctor's searchable text there.
+  // Always the same params (empty q, a fresh ts): the Doctors tab stays mounted,
+  // so a bare push would leave the previous search and centre tab in place.
   const openDoctors = (q?: string) =>
-    q
-      ? router.push({ pathname: '/(patient)/doctors', params: { q } })
-      : router.push('/(patient)/doctors');
+    router.push({ pathname: '/(patient)/doctors', params: { q: q ?? '', kind: 'doctors', ts: String(Date.now()) } });
 
   // Only render the pass when the server says it is on sale. `credits` is what
   // the patient is holding right now; when they hold one we show that instead

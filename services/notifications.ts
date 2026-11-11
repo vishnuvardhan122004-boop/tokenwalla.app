@@ -204,14 +204,33 @@ export async function unregisterPushToken(): Promise<void> {
  * (a no-op in Expo Go). Used by the root layout for deep-linking on tap.
  */
 export function addNotificationResponseListener(
-  handler: (data: Record<string, any> | undefined) => void,
+  handler: (data: Record<string, any> | undefined, id?: string) => void,
 ): () => void {
   const N = getNotifications();
   if (!N) return () => {};
   const sub = N.addNotificationResponseReceivedListener((response) => {
-    handler(response.notification.request.content.data as Record<string, any> | undefined);
+    handler(response.notification.request.content.data as Record<string, any> | undefined,
+            response.notification.request.identifier);
   });
   return () => sub.remove();
+}
+
+/**
+ * The notification tap that LAUNCHED the app, if any. The listener above is
+ * registered after a cold start's tap has already happened, so without this a
+ * push tapped while the app was killed just opened Home. The caller dedupes by
+ * `id` against the live listener.
+ */
+export async function getLaunchNotificationTap(): Promise<{ data?: Record<string, any>; id?: string } | null> {
+  const N = getNotifications();
+  if (!N) return null;
+  try {
+    const r = await N.getLastNotificationResponseAsync();
+    return r ? { data: r.notification.request.content.data as Record<string, any> | undefined,
+                 id: r.notification.request.identifier } : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

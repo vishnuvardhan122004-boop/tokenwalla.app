@@ -10,7 +10,7 @@
  * predates this (404) it renders nothing.
  */
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import API, { apiMessage } from '../services/api';
 
@@ -24,8 +24,10 @@ type Earnings = {
 const inr = (v?: string) => `₹${Number(v || 0).toFixed(2)}`;
 const bookings = (n?: number) => `${n ?? 0} booking${n === 1 ? '' : 's'}`;
 
-export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
+export default function DeskStaffBar({ hospitalId, token, onToken, onManage, refresh }: {
   hospitalId: number | string;
+  /** Changes when the screen is revisited, so a person added elsewhere shows up. */
+  refresh?: unknown;
   /** The current token; the parent sets it to null when the server refuses it. */
   token: string | null;
   onToken: (token: string | null) => void;
@@ -47,7 +49,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
       .then(({ data }) => { if (live && Array.isArray(data)) setStaff(data.filter((s: Person) => s.active)); })
       .catch(() => {});
     return () => { live = false; };
-  }, [hospitalId]);
+  }, [hospitalId, refresh]);
 
   // The parent drops the token when the server says it expired: back to signed out.
   useEffect(() => { if (token === null) setWho(null); }, [token]);
@@ -69,6 +71,8 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
       const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token });
       setEarn(data);
     } catch (e) {
+      // The PIN session expired: sign out instead of keeping a dead "My earnings".
+      if ((e as any)?.response?.data?.code === 'staff_token_invalid') onToken(null);
       setEarn({ error: apiMessage(e, 'Could not load your earnings.') });
     }
   };
@@ -105,7 +109,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
       {manage}
 
       <Modal visible={earn !== null} transparent animationType="fade" onRequestClose={() => setEarn(null)}>
-        <View style={st.backdrop}>
+        <KeyboardAvoidingView behavior="padding" style={st.backdrop}>
           <View style={st.sheet}>
             <Text style={st.title}>{`${earn?.name || who || ''}: my earnings`}</Text>
             {earn?.error ? <Text style={st.error}>{earn.error}</Text>
@@ -113,6 +117,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
             : (
               <>
                 {!earn.enabled && <Text style={st.muted}>The staff incentive is switched off right now.</Text>}
+                <Text style={st.muted}>Updated overnight.</Text>
                 <View style={st.tiles}>
                   <View style={st.tile}><Text style={st.muted}>This month</Text>
                     <Text style={st.big}>{inr(earn.month_amount)}</Text>
@@ -137,11 +142,11 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
               <Text style={[st.link, { textAlign: 'center' }]}>Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <View style={st.backdrop}>
+        <KeyboardAvoidingView behavior="padding" style={st.backdrop}>
           <View style={st.sheet}>
             <Text style={st.title}>Whose earnings?</Text>
             <Text style={st.muted}>Pick your name and enter your PIN to see what you have earned.</Text>
@@ -178,7 +183,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage }: {
             )}
             <TouchableOpacity onPress={close}><Text style={st.link}>Cancel</Text></TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
@@ -34,6 +34,7 @@ export default function RegisterScreen() {
   const [otpLoading,  setOtpLoading]  = useState(false);
   const [cooldown,    startCooldown]  = useOtpCooldown();
   const [loading,     setLoading]     = useState(false);
+  const [verifying,   setVerifying]   = useState(false);
   const [showPass,    setShowPass]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error,       setError]       = useState('');
@@ -58,12 +59,16 @@ export default function RegisterScreen() {
   };
 
   const verifyOTP = async () => {
+    if (verifying) return;
+    setVerifying(true); setError('');
     try {
       const { data } = await API.post('/auth/otp/verify/', { mobile, otp });  // ← fixed endpoint
       if (data.verified) { setOtpVerified(true); setOtpToken(data.otp_token || ''); }
       else setError('Invalid OTP. Try again.');
     } catch (e) {
       setError(apiMessage(e, 'Invalid OTP. Try again.'));
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -73,6 +78,7 @@ export default function RegisterScreen() {
     await AsyncStorage.setItem('access',  data.access);
     await AsyncStorage.setItem('refresh', data.refresh);
     await AsyncStorage.setItem('user',    JSON.stringify(data.user));
+    if (router.canDismiss()) router.dismissAll();
     if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
     else router.replace('/(patient)/home');
   };
@@ -93,6 +99,7 @@ export default function RegisterScreen() {
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
+      if (router.canDismiss()) router.dismissAll();
       router.replace('/(patient)/home');
     } catch (e) {
       // apiMessage reads the field-keyed {password:[...]}/{mobile:[...]} body
@@ -107,8 +114,7 @@ export default function RegisterScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior="padding"
       >
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
@@ -153,7 +159,11 @@ export default function RegisterScreen() {
           <View style={styles.otpRow}>
             <View style={[styles.inputRow, { flex: 1 }]}>
               <Ionicons name="call-outline" size={17} color={Colors.gray400} />
-              <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => setMobile(tenDigitMobile(v))} editable={!otpVerified} />
+              <TextInput style={styles.input} placeholder="10-digit mobile number" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={mobile} onChangeText={v => {
+                setMobile(tenDigitMobile(v));
+                // A code was sent to the OLD number: back to step 1 for the new one.
+                if (otpSent) { setOtpSent(false); setOtp(''); }
+              }} editable={!otpVerified} />
             </View>
             {!otpVerified && (
               <TouchableOpacity style={styles.otpBtn} onPress={requestOTP} disabled={otpLoading || cooldown > 0}>
@@ -170,10 +180,10 @@ export default function RegisterScreen() {
               <Text style={styles.label}>Enter OTP</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="keypad-outline" size={17} color={Colors.gray400} />
-                <TextInput style={styles.input} placeholder="Enter the code you received" placeholderTextColor={Colors.gray400} keyboardType="numeric" value={otp} onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))} />
+                <TextInput style={styles.input} placeholder="Enter the code you received" placeholderTextColor={Colors.gray400} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" value={otp} onChangeText={v => setOtp(v.replace(/\D/g, '').slice(0, 6))} />
               </View>
-              <TouchableOpacity style={styles.verifyBtn} onPress={verifyOTP}>
-                <Text style={styles.verifyBtnText}>Verify OTP →</Text>
+              <TouchableOpacity style={[styles.verifyBtn, verifying && { opacity: 0.6 }]} onPress={verifyOTP} disabled={verifying}>
+                <Text style={styles.verifyBtnText}>{verifying ? '...' : 'Verify OTP →'}</Text>
               </TouchableOpacity>
             </>
           )}

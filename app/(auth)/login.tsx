@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
@@ -117,6 +117,8 @@ export default function LoginScreen() {
     // attach (best-effort on the backend) goes Home instead, which keeps it
     // signed in with Profile -> Logout — the dashboard would bounce it to the
     // hospital login, which clears the session it was just given.
+    // Drop the logged-out stack (login/register) so it can't sit under Home.
+    if (router.canDismiss()) router.dismissAll();
     if (data.user?.role === 'hospital' && data.user?.hospital) router.replace('/(hospital)/dashboard');
     else router.replace('/(patient)/home');
   };
@@ -151,8 +153,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior="padding"
       >
         <ScrollView contentContainerStyle={styles.root} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
@@ -220,6 +221,9 @@ export default function LoginScreen() {
                 placeholder={otpSent ? t('enter_otp') : t('password_or_otp')}
                 placeholderTextColor={Colors.gray400}
                 secureTextEntry={!otpSent && !showPass}
+                keyboardType={otpSent ? 'number-pad' : 'default'}
+                textContentType={otpSent ? 'oneTimeCode' : 'password'}
+                autoComplete={otpSent ? 'sms-otp' : 'current-password'}
                 value={password}
                 onChangeText={v => { setPassword(v); setError(''); }}
               />

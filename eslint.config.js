@@ -7,7 +7,7 @@ module.exports = defineConfig([
   {
     // Both are generated, not authored: dist/ by the web export and
     // .expo/types by expo-router's typed-routes codegen.
-    ignores: ['dist/*', '.expo/*'],
+    ignores: ['dist/*', '.expo/*', '.claude/**'],
   },
   {
     rules: {
