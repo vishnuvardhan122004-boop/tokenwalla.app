@@ -411,6 +411,9 @@ const en: Dict = {
   pay_incl_gst: 'incl. GST',
   pay_plus_priority: 'Plus ₹{price} for priority booking.',
   mb_priority: 'Priority — called first in your slot',
+  mb_call_hospital: 'Call hospital · {mobile}',
+  mb_free: 'FREE',
+  mb_running_late: '{who} is running ~{delay} late{reason}. Adjusted time:',
   pay_patient_name: "Patient's full name",
   pay_patient_mobile: "Patient's mobile number",
   pay_name_ph: 'e.g. Rahul Kumar',
@@ -1020,6 +1023,9 @@ const hi: Dict = {
   pay_incl_gst: 'GST सहित',
   pay_plus_priority: 'साथ में प्राथमिकता बुकिंग के ₹{price}।',
   mb_priority: 'प्राथमिकता — आपके स्लॉट में सबसे पहले',
+  mb_call_hospital: 'अस्पताल को कॉल करें · {mobile}',
+  mb_free: 'मुफ़्त',
+  mb_running_late: '{who} लगभग {delay} देरी से चल रहे हैं{reason}। नया समय:',
   pay_patient_name: 'मरीज़ का पूरा नाम',
   pay_patient_mobile: 'मरीज़ का मोबाइल नंबर',
   pay_name_ph: 'जैसे राहुल कुमार',
@@ -1629,6 +1635,9 @@ const te: Dict = {
   pay_incl_gst: 'GST సహా',
   pay_plus_priority: 'అదనంగా ప్రాధాన్య బుకింగ్‌కు ₹{price}.',
   mb_priority: 'ప్రాధాన్యం — మీ స్లాట్‌లో ముందుగా పిలుస్తారు',
+  mb_call_hospital: 'ఆసుపత్రికి కాల్ చేయండి · {mobile}',
+  mb_free: 'ఉచితం',
+  mb_running_late: '{who} సుమారు {delay} ఆలస్యంగా ఉన్నారు{reason}. కొత్త సమయం:',
   pay_patient_name: 'రోగి పూర్తి పేరు',
   pay_patient_mobile: 'రోగి మొబైల్ నంబర్',
   pay_name_ph: 'ఉదా. రాహుల్ కుమార్',
@@ -2238,6 +2247,9 @@ const kn: Dict = {
   pay_incl_gst: 'GST ಸೇರಿ',
   pay_plus_priority: 'ಜೊತೆಗೆ ಆದ್ಯತೆಯ ಬುಕಿಂಗ್‌ಗೆ ₹{price}.',
   mb_priority: 'ಆದ್ಯತೆ — ನಿಮ್ಮ ಸ್ಲಾಟ್‌ನಲ್ಲಿ ಮೊದಲು ಕರೆಯಲಾಗುತ್ತದೆ',
+  mb_call_hospital: 'ಆಸ್ಪತ್ರೆಗೆ ಕರೆ ಮಾಡಿ · {mobile}',
+  mb_free: 'ಉಚಿತ',
+  mb_running_late: '{who} ಸುಮಾರು {delay} ತಡವಾಗಿದ್ದಾರೆ{reason}. ಹೊಸ ಸಮಯ:',
   pay_patient_name: 'ರೋಗಿಯ ಪೂರ್ಣ ಹೆಸರು',
   pay_patient_mobile: 'ರೋಗಿಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ',
   pay_name_ph: 'ಉದಾ. ರಾಹುಲ್ ಕುಮಾರ್',
@@ -2550,7 +2562,7 @@ export function useI18n(): I18nValue {
     return {
       lang: 'en',
       setLang: () => {},
-      t: (key: string) => en[key] ?? key,
+      t: (key: string, vars?: Record<string, string | number>) => translate('en', key, vars),
     };
   }
   return ctx;

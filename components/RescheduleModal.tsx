@@ -37,7 +37,7 @@ import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
 import { useI18n } from '../services/i18n';
-import { providerLabel } from '../utils/booking';
+import { isSlotTooSoon, providerLabel } from '../utils/booking';
 import { money } from '../utils/fees';
 import { parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
@@ -63,13 +63,15 @@ function toISODate(d: Date): string {
 }
 
 // Set of bookable dates (skips today + Sundays), used to enable/disable calendar cells
-function buildAvailableDateSet(count = MAX_BOOKING_DAYS_AHEAD): Set<string> {
+const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];   // matches doctor.days
+function buildAvailableDateSet(count = MAX_BOOKING_DAYS_AHEAD, workingDays?: string[]): Set<string> {
   const set = new Set<string>();
   const d = new Date();
   d.setDate(d.getDate() + 1); // start from tomorrow
   let added = 0;
   while (added < count) {
-    if (d.getDay() !== 0) { // skip Sunday
+    // The doctor's own working days when known (as doctor/[id] does); else skip Sunday.
+    if (workingDays?.length ? workingDays.includes(DAY_KEYS[d.getDay()]) : d.getDay() !== 0) {
       set.add(toISODate(d));
       added++;
     }
@@ -125,6 +127,9 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   const [loading,       setLoading]      = useState(false);
   const [doctorSlots,   setDoctorSlots]  = useState<string[]>([]);
   const [slotsLoading,  setSlotsLoading] = useState(false);
+  const [workingDays,   setWorkingDays]  = useState<string[]>([]);
+  // The picked date's per-slot state ({ full, on_leave }) from the same endpoint doctor/[id] uses.
+  const [slotAvail,     setSlotAvail]    = useState<Record<string, { full?: boolean; on_leave?: boolean }>>({});
   // A paid reschedule order that was paid but refused at verify time because the target
   // slot was taken (409 retryable) — still redeemable against a different
   // slot, no new charge. Mirrors MyBookings.js's `unusedOrderId` on the
@@ -145,6 +150,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setSelectedSlot('');
     setWebviewHtml('');
     setDoctorSlots([]);
+    setWorkingDays([]);
+    setSlotAvail({});
     // The order's tags bind only the user and the plan, not this specific
     // booking — nothing stops a stale unused order being redeemed against
     // whatever the modal targets next. Drop it every time the modal opens.
@@ -160,6 +167,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     API.get(`/doctors/${booking.doctor}/`)
       .then(({ data }: { data: any }) => {
         setDoctorSlots(Array.isArray(data.slots) ? data.slots : []);
+        setWorkingDays(Array.isArray(data.days) ? data.days : []);
       })
       .catch(() => {
         setDoctorSlots([]);
@@ -175,7 +183,18 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   // ── All hooks must run unconditionally, on every render, in the same
   //    order — so these live ABOVE the `if (!booking) return null;` guard
   //    below. Computing them doesn't depend on `booking` being present.
-  const availableDateSet = useMemo(() => buildAvailableDateSet(MAX_BOOKING_DAYS_AHEAD), []);
+  const availableDateSet = useMemo(() => buildAvailableDateSet(MAX_BOOKING_DAYS_AHEAD, workingDays), [workingDays]);
+
+  // Which slots of the picked date are still takeable (full / on leave).
+  useEffect(() => {
+    if (!visible || !booking?.doctor || !selectedDate) return;
+    let live = true;
+    setSlotAvail({});
+    API.get(`/doctors/${booking.doctor}/slot-availability/?date=${selectedDate}`)
+      .then(({ data }: { data: any }) => { if (live && data && typeof data === 'object') setSlotAvail(data); })
+      .catch(() => {});   // no info: show every slot, the server still refuses a bad one
+    return () => { live = false; };
+  }, [visible, booking?.doctor, selectedDate]);
   const calendarRows = useMemo(() => buildCalendarGrid(calYear, calMonth), [calYear, calMonth]);
 
   // Bounds for prev/next nav — don't go before this month, or past the max-ahead window
@@ -203,7 +222,11 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
     setCalMonth(d.getMonth());
   };
 
-  const availableSlots: string[] = doctorSlots;
+  // Hide what can't be booked on the picked date: full, past the booking cutoff,
+  // or the whole day when the doctor is on leave.
+  const onLeave = Object.values(slotAvail).some(i => i?.on_leave);
+  const availableSlots: string[] = onLeave ? [] : doctorSlots.filter(sl =>
+    !slotAvail[sl]?.full && !(selectedDate && isSlotTooSoon(selectedDate, sl)));
   const amSlots = availableSlots.filter(s => s.includes('AM'));
   const pmSlots = availableSlots.filter(s => s.includes('PM'));
 
@@ -641,7 +664,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
               </View>
             ) : availableSlots.length === 0 ? (
               <View style={st.emptyBox}>
-                <Text style={st.emptyText}>{t('rs_no_slots')}</Text>
+                <Text style={st.emptyText}>{onLeave ? t('dr_on_leave') : t('rs_no_slots')}</Text>
                 <Text style={st.emptySubText}>{t('rs_contact_hospital')}</Text>
               </View>
             ) : (

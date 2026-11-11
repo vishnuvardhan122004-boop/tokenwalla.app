@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { ComponentProps, useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -42,7 +42,8 @@ export default function MyQRScreen() {
   const router = useRouter();
   useAndroidBack(() => safeBack(router, '/(patient)/my-bookings'));
   const { t } = useI18n();
-  const { user } = useCurrentUser();
+  const { id: wantedId } = useLocalSearchParams<{ id?: string }>();
+  const { user } = useCurrentUser({ refetchOnFocus: true });
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [activeQR, setActiveQR] = useState<string | number | null>(null);
@@ -88,11 +89,13 @@ export default function MyQRScreen() {
           return s === 'waiting' || s === 'in_progress';
         });
         setBookings(active);
-        if (active.length > 0) setActiveQR(active[0].id);
+        // The booking whose "Show QR" was tapped, else the first active one.
+        const wanted = active.find(b => String(b.id) === String(wantedId));
+        if (active.length > 0) setActiveQR((wanted ?? active[0]).id);
       } catch {}
       finally { setLoading(false); }
     })();
-  }, []));
+  }, [wantedId]));
 
   if (!user) return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -118,7 +121,7 @@ export default function MyQRScreen() {
         <Text style={styles.sub}>{t('my_qr_sub')}</Text>
       </View>
 
-      {loading ? (
+      {loading && bookings.length === 0 ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.blue600} />
           <Text style={{ marginTop: 12, color: Colors.gray400 }}>{t('loading_ellipsis')}</Text>

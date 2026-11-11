@@ -89,7 +89,7 @@ export default function MyBookings() {
   const [error,             setError]             = useState(false);
   const [refreshing,        setRefreshing]        = useState(false);
   const [tab,               setTab]               = useState('all');
-  const { user } = useCurrentUser();
+  const { user } = useCurrentUser({ refetchOnFocus: true });
   const [cancelling,        setCancelling]        = useState<number | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<Booking | null>(null);
   const [receiptBooking,    setReceiptBooking]    = useState<Booking | null>(null);
@@ -165,8 +165,10 @@ export default function MyBookings() {
     }
   };
 
-  const fetchBookings = useCallback(async (silent = false) => {
-    if (!silent) setLoading(true); else setRefreshing(true);
+  // 'load' = screen focus / retry, 'pull' = the user's pull-to-refresh (shows its
+  // spinner), 'poll' = background refresh (shows nothing: no spinner, no skeleton).
+  const fetchBookings = useCallback(async (mode: 'load' | 'pull' | 'poll' = 'load') => {
+    if (mode === 'load') setLoading(true); else if (mode === 'pull') setRefreshing(true);
     try {
       const { data } = await API.get('/bookings/my/');
       const list = Array.isArray(data) ? data : (data?.results || []);
@@ -191,7 +193,7 @@ export default function MyBookings() {
     return s === 'waiting' || s === 'in_progress';
   }), [bookings]);
 
-  usePolling(() => fetchBookings(true), 15_000, hasActive);
+  usePolling(() => fetchBookings('poll'), 15_000, hasActive);
 
   // Doctor Running Late: { [doctorId]: { minutes, reason } }. Bookings carry
   // only the doctor's id, not their live delay, so it's fetched separately for
@@ -245,7 +247,7 @@ export default function MyBookings() {
             setCancelling(booking.id);
             try {
               await API.patch(`/bookings/cancel/${booking.id}/`);
-              fetchBookings(true);
+              fetchBookings('poll');
             } catch (e: any) {
               Alert.alert(t('error'), e?.response?.data?.message || t('mb_cancel_failed'));
             } finally {
@@ -300,7 +302,7 @@ export default function MyBookings() {
       <View style={st.header}>
         <Text style={st.title}>{t('my_bookings')}</Text>
         <Text style={st.sub}>
-          {loading ? t('loading_ellipsis') : t('bookings_summary', { total: bookings.length, active: activeCount })}
+          {loading && bookings.length === 0 ? t('loading_ellipsis') : t('bookings_summary', { total: bookings.length, active: activeCount })}
         </Text>
         <View style={st.tabRow}>
           {TABS.map(tb => (
@@ -318,7 +320,7 @@ export default function MyBookings() {
       </View>
 
       {/* Loading */}
-      {loading ? (
+      {loading && bookings.length === 0 ? (
         <SkeletonList count={4} variant="booking" />
 
       /* Error */
@@ -337,7 +339,7 @@ export default function MyBookings() {
         <ScrollView
           contentContainerStyle={st.centreBox}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings(true)} tintColor={Colors.blue600} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings('pull')} tintColor={Colors.blue600} />
           }
         >
           <Ionicons name="ticket-outline" size={50} color={Colors.blue200} style={{ marginBottom: 12 }} />
@@ -360,7 +362,7 @@ export default function MyBookings() {
           contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings(true)} tintColor={Colors.blue600} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => fetchBookings('pull')} tintColor={Colors.blue600} />
           }
           // /bookings/my/ returns a patient's whole history, and every card
           // carries a status block, an action row and (for scans) a report
@@ -423,7 +425,7 @@ export default function MyBookings() {
                     {booking.hospital_mobile ? (
                       <TouchableOpacity style={st.iconTextRow} onPress={() => Linking.openURL(`tel:${booking.hospital_mobile}`)}>
                         <Ionicons name="call-outline" size={13} color={Colors.blue600} />
-                        <Text style={st.callHospital}>Call hospital · {booking.hospital_mobile}</Text>
+                        <Text style={st.callHospital}>{t('mb_call_hospital', { mobile: booking.hospital_mobile })}</Text>
                       </TouchableOpacity>
                     ) : null}
                     <View style={st.metaRow}>
@@ -481,7 +483,7 @@ export default function MyBookings() {
                 {isActive && (
                   <TouchableOpacity
                     style={st.qrBtn}
-                    onPress={() => router.push('/(patient)/my-qr')}
+                    onPress={() => router.push({ pathname: '/(patient)/my-qr', params: { id: String(booking.id) } })}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="qr-code-outline" size={16} color={Colors.white} />
@@ -551,7 +553,11 @@ export default function MyBookings() {
                   <View style={st.unavailBanner}>
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText ?? '#854F0B'} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      {providerLabel(booking.doctor_name, booking.provider_kind)} is running ~{formatDelay(doctorDelays[booking.doctor].minutes)} late{doctorDelays[booking.doctor].reason ? ` (${doctorDelays[booking.doctor].reason})` : ''}. Adjusted time:{' '}
+                      {t('mb_running_late', {
+                        who: providerLabel(booking.doctor_name, booking.provider_kind),
+                        delay: formatDelay(doctorDelays[booking.doctor].minutes),
+                        reason: doctorDelays[booking.doctor].reason ? ` (${doctorDelays[booking.doctor].reason})` : '',
+                      })}{' '}
                       <Text style={{ textDecorationLine: 'line-through' }}>{booking.slot}</Text>
                       {' → '}
                       {addDelayToSlot(booking.date, booking.slot, doctorDelays[booking.doctor].minutes)}
@@ -572,7 +578,7 @@ export default function MyBookings() {
                         <View>
                           <Text style={st.rescheduleBtnTitle}>{t('reschedule')}</Text>
                           <Text style={st.rescheduleBtnFee}>
-                            {booking.free_reschedule ? 'FREE' : t('reschedule_fee', { fee: RESCHEDULE_FEE })}
+                            {booking.free_reschedule ? t('mb_free') : t('reschedule_fee', { fee: RESCHEDULE_FEE })}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -614,7 +620,7 @@ export default function MyBookings() {
         visible={!!rescheduleBooking}
         booking={rescheduleBooking}
         onClose={() => setRescheduleBooking(null)}
-        onSuccess={() => fetchBookings(true)}
+        onSuccess={() => fetchBookings('poll')}
         user={user}
         free={!!rescheduleBooking?.free_reschedule}
       />
@@ -626,7 +632,7 @@ export default function MyBookings() {
           <View style={st.ticketBar} />
           <View style={st.ticketHeader}>
             <Text style={st.ticketBrand}><Text style={st.ticketAccent}>Token</Text>walla</Text>
-            <Text style={st.ticketConfirmed}>● Confirmed</Text>
+            <Text style={st.ticketConfirmed}>● {t(STATUS_LABEL_KEY[normalizeBookingStatus(ticketBooking.status)] ?? 'status_cancelled')}</Text>
           </View>
 
           <View style={st.ticketQrWrap}>

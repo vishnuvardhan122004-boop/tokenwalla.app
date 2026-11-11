@@ -146,7 +146,7 @@ describe('a hospital gets its own Dashboard | Scanner bar, never Home | Profile'
 
   it('hides the patient bar for exactly the hospitals Home redirects', () => {
     expect(LAYOUT).toMatch(/const hasHospitalBar = isHospital && !!user\?\.hospital;/);
-    expect(LAYOUT).toMatch(/tabBarStyle:\s*hasHospitalBar \? \{ display: 'none' \} : styles\.tabBar/);
+    expect(LAYOUT).toMatch(/tabBarStyle:\s*hasHospitalBar \? \{ display: 'none' \} : \[styles\.tabBar/);
   });
 
   it('the hospital bar is exactly Dashboard then Scanner, and back is not history-based', () => {

@@ -1,6 +1,6 @@
-import { router, Stack } from 'expo-router';
+import { router, Stack, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -9,6 +9,7 @@ import {
   addNotificationReceivedListener,
   addNotificationResponseListener,
   ensureNotificationSetup,
+  getLaunchNotificationTap,
 } from '../services/notifications';
 import { initSentry, wrapWithSentry } from '../services/sentry';
 import { checkForUpdate } from '../services/appUpdate';
@@ -22,7 +23,36 @@ initSentry();
 // Before any screen renders. No-op on iOS and Android. See utils/webAlert.ts.
 installWebAlert();
 
+// Where a tapped notification goes. `id` dedupes the live listener against the
+// launch tap, which can both report the same notification.
+const handledTaps = new Set<string>();
+function openFromNotification(data?: Record<string, any>, id?: string) {
+  if (id) {
+    if (handledTaps.has(id)) return;
+    handledTaps.add(id);
+  }
+  if (data?.screen === 'my-bookings') {
+    // A "doctor unavailable" alert deep-links to the free reschedule flow.
+    const params =
+      data?.reschedule === 'free' && data?.bookingId
+        ? { rescheduleId: String(data.bookingId) }
+        : undefined;
+    router.push({ pathname: '/(patient)/my-bookings', params });
+  } else if (data?.screen === 'hospital-dashboard') {
+    router.push('/(hospital)/dashboard');
+  }
+}
+
 function RootLayout() {
+  // A push tapped while the app was killed: route it once the navigator exists.
+  const navReady = !!useRootNavigationState()?.key;
+  const launchChecked = useRef(false);
+  useEffect(() => {
+    if (!navReady || launchChecked.current) return;
+    launchChecked.current = true;
+    getLaunchNotificationTap().then((tap) => { if (tap) openFromNotification(tap.data, tap.id); });
+  }, [navReady]);
+
   useEffect(() => {
     // Ask for notification permission + create the Android channel once at launch.
     // (No-op in Expo Go — notifications require a dev/production build.)
@@ -43,18 +73,7 @@ function RootLayout() {
     });
 
     // Tapping a notification opens the relevant screen.
-    const unsubTap = addNotificationResponseListener((data) => {
-      if (data?.screen === 'my-bookings') {
-        // A "doctor unavailable" alert deep-links to the free reschedule flow.
-        const params =
-          data?.reschedule === 'free' && data?.bookingId
-            ? { rescheduleId: String(data.bookingId) }
-            : undefined;
-        router.push({ pathname: '/(patient)/my-bookings', params });
-      } else if (data?.screen === 'hospital-dashboard') {
-        router.push('/(hospital)/dashboard');
-      }
-    });
+    const unsubTap = addNotificationResponseListener(openFromNotification);
 
     // Record every delivered notification into the in-app notification centre.
     const unsubReceived = addNotificationReceivedListener();

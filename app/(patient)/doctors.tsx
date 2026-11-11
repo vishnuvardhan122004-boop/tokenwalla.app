@@ -360,7 +360,7 @@ export default function DoctorsScreen() {
   // Doctors is a persistent tab, so re-apply the ?q= term each time a home
   // specialty chip deep-links here (the initial useState only runs once).
   useEffect(() => {
-    if (typeof params.q === 'string' && params.q) setSearch(params.q);
+    if (params.ts || params.q) setSearch(typeof params.q === 'string' ? params.q : '');
   }, [params.q, params.ts]);
 
   // Home's city question (components/CityIntentModal.tsx) also picks the tab.
