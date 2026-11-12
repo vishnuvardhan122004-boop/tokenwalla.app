@@ -184,7 +184,7 @@ const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
               </Text>
             </View>
             <Text style={styles.feeText}>₹{doc.fee ?? 0}</Text>
-            <Text style={styles.feeSub}>per visit</Text>
+            <Text style={styles.feeSub}>{t('dc_per_visit')}</Text>
           </View>
         </View>
 

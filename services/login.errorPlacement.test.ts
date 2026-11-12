@@ -32,5 +32,14 @@ describe.each(SCREENS)('%s notification hygiene', (file) => {
   test('a different account starts with an empty bell', () => {
     expect(src).toContain('clearNotifications()');
     expect(src.indexOf('clearNotifications()')).toBeLessThan(src.indexOf("AsyncStorage.setItem('user'"));
+
+// Four taps in the same instant sent four login requests (state had not caught
+// up yet), each spending a password attempt. A ref closes that.
+describe.each(SCREENS)('%s double submit', (file) => {
+  const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  test('Sign In ignores a second tap while one is in flight', () => {
+    const body = src.slice(src.indexOf('const handleLogin'));
+    expect(body.indexOf('if (signingIn.current) return;')).toBeGreaterThan(-1);
+    expect(src).toContain('signingIn.current = false;');
   });
 });

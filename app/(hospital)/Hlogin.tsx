@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAxiosError } from 'axios';
 import Constants from 'expo-constants';
 import { useRouter } from 'expo-router';
-import { ComponentProps, useEffect, useState } from 'react';
+import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView, Platform,
@@ -126,8 +126,11 @@ export default function HospitalLoginScreen() {
   };
 
   // ── Login ─────────────────────────────────────────────────────────────────
+  const signingIn = useRef(false);   // state lags a same-instant double tap; a ref does not
   const handleLogin = async () => {
     if (!mobile || !password) { setError('Enter mobile and password / OTP'); return; }
+    if (signingIn.current) return;
+    signingIn.current = true;
     setLoading(true);
     try {
       // Labels this phone in the hospital's signed-in devices list: an app's
@@ -152,6 +155,7 @@ export default function HospitalLoginScreen() {
         setError('Invalid credentials');
       }
     } finally {
+      signingIn.current = false;
       setLoading(false);
     }
   };

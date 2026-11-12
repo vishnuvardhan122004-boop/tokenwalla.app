@@ -463,7 +463,7 @@ export default function DoctorDetails() {
         {/* ── BANNER ── */}
         <View style={styles.banner}>
           <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router)}>
-            <Text style={styles.backText}>← Back</Text>
+            <Text style={styles.backText}>{t('back')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shareBtn} onPress={() => setShareOpen(true)}>
             <Text style={styles.shareText}>↗ Share</Text>
@@ -518,7 +518,7 @@ export default function DoctorDetails() {
                 </View>
                 <View style={styles.pill}>
                   <Ionicons name="time-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
-                  <Text style={styles.pillText}>{doctor.experience} yrs exp</Text>
+                  <Text style={styles.pillText}>{t('yrs_exp', { years: doctor.experience ?? 0 })}</Text>
                 </View>
                 <View style={[
                   styles.pill,
@@ -533,7 +533,7 @@ export default function DoctorDetails() {
                     fontSize: 11, fontWeight: '700',
                     color: doctor.available ? Colors.successText : Colors.errorText,
                   }}>
-                    {doctor.available ? 'Available' : 'Unavailable'}
+                    {doctor.available ? t('available') : t('unavailable')}
                   </Text>
                 </View>
               </View>
@@ -547,15 +547,15 @@ export default function DoctorDetails() {
           {/* Stats row */}
           <View style={styles.statsRow}>
             {[
-              { val: `${doctor.experience}+`, lbl: 'Years Exp'    },
+              { val: `${doctor.experience}+`, lbl: t('dd_years_exp') },
               // Slot counts are meaningless for a walk-in doctor — mirrors the
               // website's DoctorsDetails stats row.
               walkIn
-                ? { val: 'Walk-in', lbl: 'Visit Type' }
-                : { val: slots.length, lbl: 'Daily Slots' },
+                ? { val: t('dd_walk_in'), lbl: t('dd_visit_type') }
+                : { val: slots.length, lbl: t('dd_daily_slots') },
               walkIn
-                ? { val: (doctor.days || []).length || '—', lbl: 'Days Open' }
-                : { val: doctor.max_per_slot || 10, lbl: 'Per Slot' },
+                ? { val: (doctor.days || []).length || '—', lbl: t('dd_days_open') }
+                : { val: doctor.max_per_slot || 10, lbl: t('dd_per_slot') },
             ].map(({ val, lbl }, i) => (
               <View key={lbl} style={[styles.statBox, i < 2 && { borderRightWidth: 1, borderRightColor: Colors.blue50 }]}>
                 <Text style={styles.statVal}>{val}</Text>
