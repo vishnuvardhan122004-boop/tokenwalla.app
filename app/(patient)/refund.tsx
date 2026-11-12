@@ -42,8 +42,8 @@ export default function RefundScreen() {
             <Ionicons name="flash" size={15} color={Colors.blue600} />
             <Text style={styles.summaryTitle}>Quick Summary</Text>
           </View>
-          <View style={styles.summaryRow}><Ionicons name="checkmark-circle" size={17} color={Colors.successText} /><Text style={styles.summaryText}>Cancel 2+ hrs before slot → Full refund in 5–7 days</Text></View>
-          <View style={styles.summaryRow}><Ionicons name="close-circle" size={17} color={Colors.errorText} /><Text style={styles.summaryText}>Cancel less than 2hrs before → No refund</Text></View>
+          <View style={styles.summaryRow}><Ionicons name="checkmark-circle" size={17} color={Colors.successText} /><Text style={styles.summaryText}>Cancel 24+ hrs before → 70% back · 12–24 hrs → 60% · 2–12 hrs → 50%</Text></View>
+          <View style={styles.summaryRow}><Ionicons name="close-circle" size={17} color={Colors.errorText} /><Text style={styles.summaryText}>Cancel less than 2 hrs before → No refund</Text></View>
           <View style={styles.summaryRow}><Ionicons name="close-circle" size={17} color={Colors.errorText} /><Text style={styles.summaryText}>No-show without cancellation → No refund</Text></View>
         </View>
 
