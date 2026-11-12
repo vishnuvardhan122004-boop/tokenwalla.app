@@ -66,10 +66,10 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
 
   const close = () => { setOpen(false); setPick(null); setPin(''); setErr(''); };
 
-  const openEarnings = async () => {
+  const openEarnings = async (tk: string | null = token) => {
     setEarn({});
     try {
-      const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token });
+      const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token: tk });
       setEarn(data);
     } catch (e) {
       // The PIN session expired: sign out instead of keeping a dead "My earnings".
@@ -86,6 +86,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
       setWho(data.name);
       onToken(data.token);
       close();
+      openEarnings(data.token);   // show today's earnings right after the PIN
     } catch (e) {
       setErr(apiMessage(e, 'Could not check the PIN.'));
       setPin('');
@@ -103,7 +104,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
         <Text style={st.link}>{who ? '  Change' : '  Sign in with PIN'}</Text>
       </TouchableOpacity>
       {who && token ? (
-        <TouchableOpacity onPress={openEarnings} accessibilityRole="button" accessibilityLabel="My earnings">
+        <TouchableOpacity onPress={() => openEarnings()} accessibilityRole="button" accessibilityLabel="My earnings">
           <Text style={st.link}>  ·  My earnings</Text>
         </TouchableOpacity>
       ) : null}
