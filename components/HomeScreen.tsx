@@ -37,6 +37,7 @@ import { registerPushToken } from '../services/notifications';
 import CityIntentModal, { cityIntentRoute } from './CityIntentModal';
 import LanguageModal from './LanguageModal';
 import NotificationBell from './NotificationBell';
+import { localName } from '../utils/localize';
 
 // Icon name typed against Ionicons' glyph set, so tsc rejects any invalid name
 // (a typo fails the build — no broken glyph boxes ever ship).
@@ -355,7 +356,7 @@ export default function HomeScreen() {
                     <Ionicons name="location" size={20} color={Colors.white} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.cityName} numberOfLines={1}>{c.name}</Text>
+                    <Text style={styles.cityName} numberOfLines={1}>{localName(c.name)}</Text>
                     <Text style={styles.cityMeta} numberOfLines={1}>
                       {t('home_doctors_count', { count: c.doctors })} · {t('home_hospitals_count', { count: c.hospitals })}
                     </Text>
@@ -433,9 +434,9 @@ export default function HomeScreen() {
                   <Ionicons name="business-outline" size={22} color={Colors.blue600} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.hospName} numberOfLines={1}>{h.name}</Text>
+                  <Text style={styles.hospName} numberOfLines={1}>{localName(h.name)}</Text>
                   <Text style={styles.hospMeta} numberOfLines={1}>
-                    {[h.city, t('home_doctors_count', { count: h.doctors })].filter(Boolean).join(' · ')}
+                    {[localName(h.city), t('home_doctors_count', { count: h.doctors })].filter(Boolean).join(' · ')}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />
@@ -481,11 +482,11 @@ export default function HomeScreen() {
                     </View>
                   </View>
                   <View style={styles.docInfo}>
-                    <Text style={styles.docSpec} numberOfLines={1}>{doc.specialization}</Text>
+                    <Text style={styles.docSpec} numberOfLines={1}>{localName(doc.specialization)}</Text>
                     <Text style={styles.docName} numberOfLines={1}>{providerLabel(doc.name)}</Text>
                     <View style={styles.docMetaRow}>
                       <Ionicons name="location-outline" size={12} color={Colors.gray400} />
-                      <Text style={styles.docMeta} numberOfLines={1}>{doc.city} · {doc.experience}y exp</Text>
+                      <Text style={styles.docMeta} numberOfLines={1}>{localName(doc.city)} · {t('yrs_exp', { years: doc.experience ?? 0 })}</Text>
                     </View>
                     {/* The doctor's consultation fee. The ₹20 queue plan is
                         retired — checkout prices the bill server-side. */}

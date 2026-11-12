@@ -1,4 +1,4 @@
-import { doctorTitle, localName, setDisplayLang } from './localize';
+import { doctorTitle, localMonth, localName, localWeekday, setDisplayLang } from './localize';
 import { providerLabel } from './booking';
 
 describe('localName', () => {
@@ -41,4 +41,20 @@ describe('providerLabel follows the display language', () => {
     expect(providerLabel('MRI Brain', 'SCAN').startsWith('MRI ')).toBe(true);     // abbreviation kept
     expect(providerLabel('Blood Test', 'SCAN')).not.toContain('Dr');
   });
+});
+
+describe('localWeekday', () => {
+  test('English is unchanged; the other languages get their short day names', () => {
+    expect(localWeekday('Mon', 'en')).toBe('Mon');
+    expect(localWeekday('Mon', 'te')).toBe('సోమ');
+    expect(localWeekday('Sun', 'kn')).toBe('ಭಾನು');
+    expect(localWeekday('Fri', 'hi')).toBe('शुक्र');
+    expect(localWeekday('Xyz', 'te')).toBe('Xyz');
+  });
+});
+
+test('localMonth follows the language', () => {
+  expect(localMonth('Nov', 'en')).toBe('Nov');
+  expect(localMonth('Nov', 'te')).toBe('నవం');
+  expect(localMonth('Xyz', 'te')).toBe('Xyz');
 });
