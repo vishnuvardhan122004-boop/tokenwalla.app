@@ -153,3 +153,15 @@ const WEEKDAYS: Record<'hi' | 'te' | 'kn', Record<string, string>> = {
 /** "Mon" -> "సోమ" in the current language; anything else is returned as is. */
 export const localWeekday = (d: string, lang: DisplayLang = current): string =>
   (lang === 'en' ? d : WEEKDAYS[lang]?.[d]) ?? d;
+
+const MONTHS: Record<'hi' | 'te' | 'kn', string[]> = {
+  hi: ['जन', 'फ़र', 'मार्च', 'अप्रै', 'मई', 'जून', 'जुल', 'अग', 'सित', 'अक्टू', 'नव', 'दिस'],
+  te: ['జన', 'ఫిబ్ర', 'మార్చి', 'ఏప్రి', 'మే', 'జూన్', 'జూలై', 'ఆగ', 'సెప్టె', 'అక్టో', 'నవం', 'డిసెం'],
+  kn: ['ಜನ', 'ಫೆಬ್ರ', 'ಮಾರ್ಚ್', 'ಏಪ್ರಿ', 'ಮೇ', 'ಜೂನ್', 'ಜುಲೈ', 'ಆಗ', 'ಸೆಪ್ಟೆ', 'ಅಕ್ಟೋ', 'ನವೆಂ', 'ಡಿಸೆಂ'],
+};
+const MONTH_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "Nov" -> the short month name in the current language; anything else is returned as is. */
+export const localMonth = (m: string, lang: DisplayLang = current): string => {
+  const i = MONTH_EN.indexOf(m);
+  return lang === 'en' || i < 0 ? m : MONTHS[lang]?.[i] ?? m;
+};

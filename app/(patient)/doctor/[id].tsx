@@ -33,7 +33,7 @@ import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fe
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
-import { localName, localWeekday } from '../../../utils/localize';
+import { localMonth, localName, localWeekday } from '../../../utils/localize';
 
 interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
 interface GalleryPhoto { id: number | string; url: string; }
@@ -648,9 +648,9 @@ export default function DoctorDetails() {
                   onPress={() => handleDateChange(day.full)}
                   disabled={!isWorking}
                 >
-                  <Text style={[styles.dateDay,   isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.label}</Text>
+                  <Text style={[styles.dateDay,   isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.label === 'Today' ? t('dd_today') : localWeekday(day.label)}</Text>
                   <Text style={[styles.dateNum,   isActive && styles.dateNumActive,  !isWorking && styles.dateTextDisabled]}>{day.num}</Text>
-                  <Text style={[styles.dateMonth, isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{day.month}</Text>
+                  <Text style={[styles.dateMonth, isActive && styles.dateTextActive, !isWorking && styles.dateTextDisabled]}>{localMonth(day.month)}</Text>
                   {!isWorking && <Text style={styles.dayOff}>{t('dr_off')}</Text>}
                 </TouchableOpacity>
               );
@@ -782,7 +782,7 @@ export default function DoctorDetails() {
             walkIn
               ? { id: 'hours', label: t('dr_label_hours'), value: (hospitalInfo?.open_time || hospitalInfo?.close_time)
                   ? `${hospitalInfo?.open_time || '—'} – ${hospitalInfo?.close_time || '—'}` : t('dr_call_to_confirm') }
-              : { id: 'date',  label: t('bt_date'),  value: dateLabel ? `${dateLabel.label}, ${dateLabel.num} ${dateLabel.month}` : '—' },
+              : { id: 'date',  label: t('bt_date'),  value: dateLabel ? `${dateLabel.label === 'Today' ? t('dd_today') : localWeekday(dateLabel.label)}, ${dateLabel.num} ${localMonth(dateLabel.month)}` : '—' },
             walkIn
               ? { id: 'booking', label: t('dr_label_booking'), value: t('dr_walkin_no_token'), dim: true }
               : { id: 'slot',    label: t('bt_slot'),          value: selectedSlot || t('dr_not_selected_yet'), dim: !selectedSlot },

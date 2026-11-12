@@ -1,4 +1,4 @@
-import { doctorTitle, localName, localWeekday, setDisplayLang } from './localize';
+import { doctorTitle, localMonth, localName, localWeekday, setDisplayLang } from './localize';
 import { providerLabel } from './booking';
 
 describe('localName', () => {
@@ -51,4 +51,10 @@ describe('localWeekday', () => {
     expect(localWeekday('Fri', 'hi')).toBe('शुक्र');
     expect(localWeekday('Xyz', 'te')).toBe('Xyz');
   });
+});
+
+test('localMonth follows the language', () => {
+  expect(localMonth('Nov', 'en')).toBe('Nov');
+  expect(localMonth('Nov', 'te')).toBe('నవం');
+  expect(localMonth('Xyz', 'te')).toBe('Xyz');
 });

@@ -102,6 +102,7 @@ const en: Dict = {
   // profile
   profile: 'Profile',
   tab_home: 'Home',
+  dd_today: "Today",
   dd_share: "↗ Share",
   dd_open_now: "Open now",
   dd_closed: "Closed",
@@ -726,6 +727,7 @@ const hi: Dict = {
   // profile
   profile: 'प्रोफ़ाइल',
   tab_home: 'होम',
+  dd_today: "आज",
   dd_share: "↗ शेयर",
   dd_open_now: "अभी खुला",
   dd_closed: "बंद",
@@ -1350,6 +1352,7 @@ const te: Dict = {
   // profile
   profile: 'ప్రొఫైల్',
   tab_home: 'హోమ్',
+  dd_today: "ఈరోజు",
   dd_share: "↗ షేర్",
   dd_open_now: "ఇప్పుడు తెరిచి ఉంది",
   dd_closed: "మూసివేయబడింది",
@@ -1974,6 +1977,7 @@ const kn: Dict = {
   // profile
   profile: 'ಪ್ರೊಫೈಲ್',
   tab_home: 'ಮುಖಪುಟ',
+  dd_today: "ಇಂದು",
   dd_share: "↗ ಹಂಚಿಕೊಳ್ಳಿ",
   dd_open_now: "ಈಗ ತೆರೆದಿದೆ",
   dd_closed: "ಮುಚ್ಚಿದೆ",
