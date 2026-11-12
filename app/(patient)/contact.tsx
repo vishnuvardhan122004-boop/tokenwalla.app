@@ -16,6 +16,7 @@ import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { tenDigitMobile } from '../../utils/phone';
+import { YOUTUBE_URL } from '../../constants/config';
 
 export default function ContactScreen() {
   const router = useRouter();
@@ -60,6 +61,7 @@ export default function ContactScreen() {
             { icon: 'mail-outline',     label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
             { icon: 'call-outline',     label: t('ct_phone'),  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
             { icon: 'logo-whatsapp',    label: t('ct_whatsapp'), value: t('ct_chat_with_us'), onPress: () => Linking.openURL('https://wa.me/917286995933') },
+            { icon: 'logo-youtube',     label: 'YouTube', value: 'TokenWalla channel', onPress: () => Linking.openURL(YOUTUBE_URL) },
             { icon: 'business-outline', label: t('ct_office'), value: 'Hindupur, AP 515201', onPress: null },
           ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string; onPress: (() => void) | null }[]).map(({ icon, label, value, onPress }) => (
             <TouchableOpacity
