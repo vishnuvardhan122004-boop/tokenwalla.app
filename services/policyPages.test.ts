@@ -27,6 +27,8 @@ test('Refund and Terms state the real tiers, and never the old "2 hours or nothi
   expect(refund).toMatch(/payment-gateway fee and GST are never refunded/);
   expect(terms).toContain('70% at 24 hours or more, 60% at 12 to 24 hours, 50% at 2 to 12 hours');
   expect(terms).not.toContain('at least 2 hours before your slot');
+  expect(refund).not.toMatch(/Full refund/i);     // the quick summary once said so
+  expect(read('services/i18n.tsx')).not.toMatch(/Refundable if cancelled/);
 });
 
 test('Privacy states the real session lifetime and one support address', () => {
