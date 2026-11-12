@@ -1,18 +1,24 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { YOUTUBE_URL } from '../../constants/config';
 const SECTIONS = [
-  { title: '1. Eligibility',            body: 'You must be at least 18 years old and capable of entering into a legally binding contract to use TokenWalla services.' },
-  { title: '2. Services',               body: 'TokenWalla provides hospital token booking services to reduce patient wait times. We are not a medical provider and are not responsible for medical outcomes.' },
-  { title: '3. Account Responsibility', body: 'You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.' },
-  { title: '4. Accurate Information',   body: 'Users agree to provide accurate, current, and complete information while registering and booking. Misuse or false information may lead to account suspension.' },
-  { title: '5. Payments',               body: 'All payments are processed via Razorpay. Orders are confirmed only after successful payment. TokenWalla does not store card details.' },
-  { title: '6. Cancellations',          body: 'You may cancel a waiting booking at least 2 hours before your slot. Refunds are processed within 5–7 business days to your original payment method.' },
-  { title: '7. Limitation of Liability', body: 'TokenWalla is not liable for any direct or indirect damages resulting from your use of the platform, including delays in medical care or hospital-side cancellations.' },
-  { title: '8. Governing Law',          body: 'These terms are governed by the laws of India. Disputes are subject to the exclusive jurisdiction of courts in Andhra Pradesh.' },
+  { title: "1. Eligibility", body: "You must be at least 18 years old and capable of entering into a legally binding contract to use TokenWalla services." },
+  { title: "2. Services", body: "TokenWalla lets you book a token with a doctor or centre and follow the live queue. We are not a medical provider and are not responsible for medical outcomes. Each doctor and hospital is responsible for their own services, timings and fees." },
+  { title: "3. Account responsibility", body: "You are responsible for keeping your login details safe and for all activity under your account." },
+  { title: "4. Accurate information", body: "You agree to give accurate, current and complete information when registering and booking. False information or misuse may lead to account suspension." },
+  { title: "5. Payments and fees", body: "Payments are processed by Razorpay and a booking is confirmed only after the payment succeeds. TokenWalla charges the patient a service fee (platform fee, payment-gateway fee and GST), shown at checkout. The doctor's consultation fee, where it is collected online, is passed on to the doctor or hospital and is shown separately. TokenWalla never charges a hospital or doctor for your booking and does not store card details." },
+  { title: "6. Cancellations and refunds", body: "Refunds depend on how long before your slot you cancel: 70% at 24 hours or more, 60% at 12 to 24 hours, 50% at 2 to 12 hours, and none under 2 hours. The payment-gateway fee and GST are not refunded. See the Refund Policy for the full rules." },
+  { title: "7. Optional features", body: "Priority booking (where a doctor offers it) places you ahead of non-priority bookings in the same slot, up to the seats the doctor allows. The Appointment Pass, where available, covers the service fee for a limited number of visits for a limited time. The price and rules are shown before you pay." },
+  { title: "8. Messages", body: "We send booking confirmations, queue updates and reminders by app notification, SMS or WhatsApp, and OTPs for login. These are service messages, not advertising." },
+  { title: "9. KYC & verification", body: "By using TokenWalla, you consent to provide identity documents as required by TokenWalla, Razorpay, or regulatory authorities to comply with RBI guidelines and anti-money laundering regulations." },
+  { title: "10. Acceptable use", body: "Do not misuse the platform: no fake or duplicate bookings, no attempts to bypass the queue or payment, and no interference with the service or other users." },
+  { title: "11. Limitation of liability", body: "TokenWalla is not liable for any direct or indirect damages resulting from your use of the platform, including delays in medical care or hospital-side cancellations." },
+  { title: "12. Changes to these terms", body: "We may update these terms. The date above shows the latest version; continuing to use TokenWalla after a change means you accept it." },
+  { title: "13. Governing law", body: "These terms are governed by the laws of India. Disputes are subject to the exclusive jurisdiction of courts in Andhra Pradesh." },
 ];
 
 export default function TermsScreen() {
@@ -27,7 +33,7 @@ export default function TermsScreen() {
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>LEGAL</Text>
           <Text style={styles.title}>Terms & Conditions</Text>
-          <Text style={styles.updated}>Last updated: March 2026</Text>
+          <Text style={styles.updated}>Last updated: November 2026</Text>
         </View>
 
         <View style={styles.body}>
@@ -41,6 +47,9 @@ export default function TermsScreen() {
           <View style={styles.contactBox}>
             <Text style={styles.contactTitle}>Questions?</Text>
             <Text style={styles.contactText}>Email us at support@tokenwalla.com{'\n'}Hindupur – Nimpalli Road, AP – 515201</Text>
+            <TouchableOpacity onPress={() => Linking.openURL(YOUTUBE_URL)} accessibilityRole="link" accessibilityLabel="Know more on YouTube">
+              <Text style={[styles.contactText, { color: Colors.blue600, fontWeight: '700', marginTop: 6 }]}>▶ Know more on YouTube</Text>
+            </TouchableOpacity>
           </View>
         </View>
         <View style={{ height: 30 }} />
