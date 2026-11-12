@@ -102,6 +102,10 @@ const en: Dict = {
   // profile
   profile: 'Profile',
   tab_home: 'Home',
+  dd_share: "↗ Share",
+  dd_open_now: "Open now",
+  dd_closed: "Closed",
+  dd_works_on: "Works on: {days}",
   dd_years_exp: 'Years Exp',
   dd_daily_slots: 'Daily Slots',
   dd_per_slot: 'Per Slot',
@@ -722,6 +726,10 @@ const hi: Dict = {
   // profile
   profile: 'प्रोफ़ाइल',
   tab_home: 'होम',
+  dd_share: "↗ शेयर",
+  dd_open_now: "अभी खुला",
+  dd_closed: "बंद",
+  dd_works_on: "कार्य दिवस: {days}",
   dd_years_exp: 'वर्ष अनुभव',
   dd_daily_slots: 'दैनिक स्लॉट',
   dd_per_slot: 'प्रति स्लॉट',
@@ -1342,6 +1350,10 @@ const te: Dict = {
   // profile
   profile: 'ప్రొఫైల్',
   tab_home: 'హోమ్',
+  dd_share: "↗ షేర్",
+  dd_open_now: "ఇప్పుడు తెరిచి ఉంది",
+  dd_closed: "మూసివేయబడింది",
+  dd_works_on: "పని చేసే రోజులు: {days}",
   dd_years_exp: 'సం. అనుభవం',
   dd_daily_slots: 'రోజువారీ స్లాట్‌లు',
   dd_per_slot: 'ఒక్కో స్లాట్‌కు',
@@ -1962,6 +1974,10 @@ const kn: Dict = {
   // profile
   profile: 'ಪ್ರೊಫೈಲ್',
   tab_home: 'ಮುಖಪುಟ',
+  dd_share: "↗ ಹಂಚಿಕೊಳ್ಳಿ",
+  dd_open_now: "ಈಗ ತೆರೆದಿದೆ",
+  dd_closed: "ಮುಚ್ಚಿದೆ",
+  dd_works_on: "ಕೆಲಸದ ದಿನಗಳು: {days}",
   dd_years_exp: 'ವರ್ಷ ಅನುಭವ',
   dd_daily_slots: 'ದೈನಂದಿನ ಸ್ಲಾಟ್‌ಗಳು',
   dd_per_slot: 'ಪ್ರತಿ ಸ್ಲಾಟ್‌ಗೆ',

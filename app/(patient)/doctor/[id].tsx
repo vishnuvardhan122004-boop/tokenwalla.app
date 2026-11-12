@@ -33,7 +33,7 @@ import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fe
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
-import { localName } from '../../../utils/localize';
+import { localName, localWeekday } from '../../../utils/localize';
 
 interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
 interface GalleryPhoto { id: number | string; url: string; }
@@ -466,7 +466,7 @@ export default function DoctorDetails() {
             <Text style={styles.backText}>{t('back')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.shareBtn} onPress={() => setShareOpen(true)}>
-            <Text style={styles.shareText}>↗ Share</Text>
+            <Text style={styles.shareText}>{t('dd_share')}</Text>
           </TouchableOpacity>
           {(hospitalInfo?.image?.startsWith('http') || hasHospitalImage) ? (
             <Image
@@ -626,7 +626,7 @@ export default function DoctorDetails() {
           {doctor.days && doctor.days.length > 0 && (
             <View style={styles.workingDaysRow}>
               <Ionicons name="medkit-outline" size={13} color={Colors.blue600} />
-              <Text style={styles.workingDaysNote}>Works on: {doctor.days.join(', ')}</Text>
+              <Text style={styles.workingDaysNote}>{t('dd_works_on', { days: doctor.days.map((d: string) => localWeekday(d)).join(', ') })}</Text>
             </View>
           )}
           <ScrollView

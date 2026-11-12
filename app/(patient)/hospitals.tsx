@@ -101,7 +101,7 @@ export default function HospitalsScreen() {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={st.name} numberOfLines={1}>{localName(h.name)}</Text>
                 {!!h.city && <Text style={st.meta} numberOfLines={1}>{localName(h.city)}</Text>}
-                {!!h.address && <Text style={st.address} numberOfLines={2}>{h.address}</Text>}
+                {!!h.address && <Text style={st.address} numberOfLines={2}>{localName(h.address)}</Text>}
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />
             </TouchableOpacity>

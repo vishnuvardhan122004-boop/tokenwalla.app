@@ -115,7 +115,7 @@ export default function ProviderAboutPanel({
                 the Available/Unavailable pill uses. */}
             <View style={[st.dot, { backgroundColor: openNow ? Colors.successText : Colors.errorText }]} />
             <Text style={[st.openText, { color: openNow ? Colors.successText : Colors.errorText }]}>
-              {openNow ? 'Open now' : 'Closed'}
+              {openNow ? t('dd_open_now') : t('dd_closed')}
             </Text>
           </View>
         )}

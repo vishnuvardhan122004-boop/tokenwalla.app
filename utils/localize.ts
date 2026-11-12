@@ -144,3 +144,12 @@ export function localName(text?: string | null, lang: DisplayLang = current): st
 const DR: Record<'hi' | 'te' | 'kn', string> = { hi: 'डॉ.', te: 'డా.', kn: 'ಡಾ.' };
 /** The "Dr." title in the current language ("Dr." in English). */
 export const doctorTitle = (lang: DisplayLang = current): string => (lang === 'en' ? 'Dr.' : DR[lang]);
+
+const WEEKDAYS: Record<'hi' | 'te' | 'kn', Record<string, string>> = {
+  hi: { Mon: 'सोम', Tue: 'मंगल', Wed: 'बुध', Thu: 'गुरु', Fri: 'शुक्र', Sat: 'शनि', Sun: 'रवि' },
+  te: { Mon: 'సోమ', Tue: 'మంగళ', Wed: 'బుధ', Thu: 'గురు', Fri: 'శుక్ర', Sat: 'శని', Sun: 'ఆది' },
+  kn: { Mon: 'ಸೋಮ', Tue: 'ಮಂಗಳ', Wed: 'ಬುಧ', Thu: 'ಗುರು', Fri: 'ಶುಕ್ರ', Sat: 'ಶನಿ', Sun: 'ಭಾನು' },
+};
+/** "Mon" -> "సోమ" in the current language; anything else is returned as is. */
+export const localWeekday = (d: string, lang: DisplayLang = current): string =>
+  (lang === 'en' ? d : WEEKDAYS[lang]?.[d]) ?? d;
