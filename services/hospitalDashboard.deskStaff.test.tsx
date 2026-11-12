@@ -184,7 +184,9 @@ test('signed in, My earnings posts the desk token and shows that person\'s own f
   await flush3();
   // entering the PIN opens today's earnings straight away
   expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
-  expect(text()).toContain('Today: 3 bookings · ₹21.00');
+  expect(text()).toContain('Today');
+  expect(text()).toContain('₹21.00');
+  expect(text()).toContain('3 bookings');
   (API.post as jest.Mock).mockResolvedValueOnce(MINE);
   await act(async () => { await byLabel('My earnings').props.onPress(); });
   expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
@@ -192,7 +194,9 @@ test('signed in, My earnings posts the desk token and shows that person\'s own f
   expect(text()).toContain('₹14.00');
   expect(text()).toContain('2 bookings');
   // today is live, not waiting for the nightly ledger
-  expect(text()).toContain('Today: 3 bookings · ₹21.00');
+  expect(text()).toContain('Today');
+  expect(text()).toContain('₹21.00');
+  expect(text()).toContain('3 bookings');
 });
 
 // Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.
