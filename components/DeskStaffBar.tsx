@@ -14,11 +14,14 @@ import { ActivityIndicator, KeyboardAvoidingView, Modal, StyleSheet, Text, TextI
 import { Colors } from '../constants/colors';
 import API, { apiMessage } from '../services/api';
 
+type PeriodKey = 'today' | 'week' | 'month' | 'all';
+const PERIODS: [PeriodKey, string][] = [['today', 'Today'], ['week', '7 days'], ['month', 'This month'], ['all', 'All']];
 type Person = { id: number; name: string; active: boolean };
 type Earnings = {
   error?: string; name?: string; enabled?: boolean; upi_set?: boolean; month_count?: number;
   month_amount?: string; unpaid_amount?: string; paid_total?: string;
   today_count?: number; today_amount?: string;   // live; absent on an older server
+  periods?: Record<PeriodKey, { count: number; amount: string }>;   // absent on an older server
   daily?: { date: string; count: number; amount: string }[];
   payments?: { paid_at: string; utr: string; amount: string }[];
 };
@@ -37,6 +40,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
   const [staff, setStaff] = useState<Person[] | null>(null);   // null = older server
   const [who, setWho] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [period, setPeriod] = useState<PeriodKey>('today');
   const [pick, setPick] = useState<Person | null>(null);
   const [pin, setPin] = useState('');
   const [err, setErr] = useState('');
@@ -119,25 +123,53 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
             : (
               <>
                 {!earn.enabled && <Text style={st.muted}>The staff incentive is switched off right now.</Text>}
-                <Text style={st.muted}>
-                  {earn.today_count !== undefined ? 'Today is live. This month and the totals update overnight.' : 'Updated overnight.'}
-                </Text>
-                <View style={st.tiles}>
-                  {earn.today_count !== undefined && (
-                    <View style={st.tile}><Text style={st.muted}>Today</Text>
-                      <Text style={st.big}>{inr(earn.today_amount)}</Text>
-                      <Text style={st.muted}>{bookings(earn.today_count)}</Text></View>
-                  )}
-                  <View style={st.tile}><Text style={st.muted}>This month</Text>
-                    <Text style={st.big}>{inr(earn.month_amount)}</Text>
-                    <Text style={st.muted}>{bookings(earn.month_count)}</Text></View>
-                </View>
-                <View style={st.tiles}>
-                  <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
-                    <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
-                  <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
-                    <Text style={st.big}>{inr(earn.paid_total)}</Text></View>
-                </View>
+                {earn.periods ? (
+                  <>
+                    <View style={st.chips} accessibilityRole="tablist">
+                      {PERIODS.map(([k, label]) => (
+                        <TouchableOpacity key={k} onPress={() => setPeriod(k)} accessibilityRole="button"
+                                          accessibilityLabel={label} accessibilityState={{ selected: period === k }}
+                                          style={[st.chip, period === k && st.chipOn]}>
+                          <Text style={[st.chipText, period === k && st.chipTextOn]}>{label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <View style={st.tiles}>
+                      <View style={st.tile}><Text style={st.muted}>{PERIODS.find(([k]) => k === period)![1]}</Text>
+                        <Text style={st.big}>{inr(earn.periods[period].amount)}</Text>
+                        <Text style={st.muted}>{bookings(earn.periods[period].count)}</Text></View>
+                    </View>
+                    <View style={st.tiles}>
+                      <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
+                        <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
+                      <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
+                        <Text style={st.big}>{inr(earn.paid_total)}</Text></View>
+                    </View>
+                    <Text style={st.muted}>Today is live. Waiting and Paid update overnight.</Text>
+                  </>
+                ) : (
+                  <>
+                  <Text style={st.muted}>
+                    {earn.today_count !== undefined ? 'Today is live. This month and the totals update overnight.' : 'Updated overnight.'}
+                  </Text>
+                  <View style={st.tiles}>
+                    {earn.today_count !== undefined && (
+                      <View style={st.tile}><Text style={st.muted}>Today</Text>
+                        <Text style={st.big}>{inr(earn.today_amount)}</Text>
+                        <Text style={st.muted}>{bookings(earn.today_count)}</Text></View>
+                    )}
+                    <View style={st.tile}><Text style={st.muted}>This month</Text>
+                      <Text style={st.big}>{inr(earn.month_amount)}</Text>
+                      <Text style={st.muted}>{bookings(earn.month_count)}</Text></View>
+                  </View>
+                  <View style={st.tiles}>
+                    <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
+                      <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
+                    <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
+                      <Text style={st.big}>{inr(earn.paid_total)}</Text></View>
+                  </View>
+                  </>
+                )}
                 {!earn.upi_set && <Text style={st.error}>No UPI saved for you yet: ask the hospital to add it so we can pay you.</Text>}
                 {(earn.daily || []).slice(0, 7).map((d) => (
                   <Text key={d.date} style={st.muted}>{`${d.date}   ${bookings(d.count)}   ${inr(d.amount)}`}</Text>
@@ -202,6 +234,11 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
 
 const st = StyleSheet.create({
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
+  chips: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  chip: { borderWidth: 1, borderColor: Colors.blue600, borderRadius: 16, paddingVertical: 6, paddingHorizontal: 12 },
+  chipOn: { backgroundColor: Colors.blue600 },
+  chipText: { color: Colors.blue600, fontWeight: '600', fontSize: 13 },
+  chipTextOn: { color: '#fff' },
   tiles: { flexDirection: 'row', gap: 8 },
   tile: { flex: 1, backgroundColor: '#f3f6fb', borderRadius: 10, padding: 8 },
   big: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
