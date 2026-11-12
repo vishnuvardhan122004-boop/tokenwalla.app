@@ -25,6 +25,16 @@ describe.each(SCREENS)('%s', (file) => {
   });
 });
 
+// The notification cache is per audience, not per user: signing in as a different
+// account must empty it, or the next person sees the last one's bell (patient names).
+describe.each(SCREENS)('%s notification hygiene', (file) => {
+  const src = fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
+  test('a different account starts with an empty bell', () => {
+    expect(src).toContain('clearNotifications()');
+    expect(src.indexOf('clearNotifications()')).toBeLessThan(src.indexOf("AsyncStorage.setItem('user'"));
+  });
+});
+
 // Four taps in the same instant sent four login requests (state had not caught
 // up yet), each spending a password attempt. A ref closes that.
 describe.each(SCREENS)('%s double submit', (file) => {

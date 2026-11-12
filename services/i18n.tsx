@@ -12,6 +12,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setDisplayLang } from '../utils/localize';
 import * as Localization from 'expo-localization';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
@@ -2581,6 +2582,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     (key: string, vars?: Record<string, string | number>) => translate(lang, key, vars),
     [lang],
   );
+
+  // Database text (names, specialties) is transliterated by utils/localize; set the
+  // language before the children render so they all see the same one.
+  setDisplayLang(lang);
 
   const value = useMemo<I18nValue>(() => ({ lang, setLang, t }), [lang, setLang, t]);
 

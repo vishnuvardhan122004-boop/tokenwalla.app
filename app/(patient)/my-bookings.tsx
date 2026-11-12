@@ -36,6 +36,7 @@ import { syncAppointmentReminders } from '../../services/notifications';
 import { normalizeBookingStatus, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
 import { formatDelay } from '../../utils/formatDelay';
 import { shareCapturedView } from '../../utils/shareCapture';
+import { localName } from '../../utils/localize';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -408,7 +409,7 @@ export default function MyBookings() {
                     <Text style={st.doctorName}>{providerLabel(booking.doctor_name, booking.provider_kind)}</Text>
                     <View style={st.iconTextRow}>
                       <Ionicons name="business-outline" size={13} color={Colors.gray500} />
-                      <Text style={st.hospitalName} numberOfLines={1}>{booking.hospital_name}</Text>
+                      <Text style={st.hospitalName} numberOfLines={1}>{localName(booking.hospital_name)}</Text>
                     </View>
                     {booking.is_for_other ? (
                       <View style={st.forOther}>
@@ -662,7 +663,7 @@ export default function MyBookings() {
               { label: 'Patient',  value: ticketBooking.patient_name || user?.name || user?.username },
               { label: ticketBooking.provider_kind === 'SCAN' ? 'Scan' : 'Doctor',
                 value: providerLabel(ticketBooking.doctor_name, ticketBooking.provider_kind) },
-              { label: 'Hospital', value: ticketBooking.hospital_name },
+              { label: 'Hospital', value: localName(ticketBooking.hospital_name) },
               { label: 'Date',     value: ticketBooking.date },
               { label: 'Slot',     value: ticketBooking.slot },
             ].map(({ label, value }) => (

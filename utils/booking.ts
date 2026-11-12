@@ -12,6 +12,7 @@
  */
 
 import { BOOKING_LEAD_MS } from '../constants/config';
+import { doctorTitle, getDisplayLang, localName } from './localize';
 
 const DAY_NAMES   = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -220,6 +221,9 @@ export function directionsUrl(hospital?: DirectionsHospital): string {
  */
 export function providerLabel(name?: string, kind?: string): string {
   const n = (name ?? '').trim();
-  if (!n || kind === 'SCAN' || /^dr\.?\s/i.test(n)) return n;
-  return `Dr. ${n}`;
+  if (!n) return n;
+  if (kind === 'SCAN') return localName(n);
+  const m = n.match(/^dr\.?\s+(.*)$/i);
+  if (m && getDisplayLang() === 'en') return n;      // keep a stored "Dr …" exactly as entered
+  return `${doctorTitle()} ${localName(m ? m[1] : n)}`;
 }
