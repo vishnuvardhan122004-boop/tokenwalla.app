@@ -50,3 +50,6 @@ export function isTestHospital(hospitalName?: string | null): boolean {
   if (!hospitalName) return false;
   return hospitalName.toUpperCase().includes(TEST_HOSPITAL_MARKER);
 }
+
+/** The TokenWalla YouTube channel, linked from About, Contact and the policy pages. */
+export const YOUTUBE_URL = 'https://www.youtube.com/@tokenwalla-2026';

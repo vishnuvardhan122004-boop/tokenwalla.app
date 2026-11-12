@@ -1,17 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { YOUTUBE_URL } from '../../constants/config';
 
 const SECTIONS = [
-  { title: 'Cancellations',            body: 'You may cancel a waiting booking from your "My Bookings" page at least 2 hours before your scheduled slot. Refunds are processed within 5–7 business days to your original payment method.' },
-  { title: 'Non-refundable Situations', body: 'Bookings with status "In Consultation" or "Completed", cancellations made less than 2 hours before the slot, and no-shows without prior cancellation are non-refundable.' },
-  { title: 'Emergency Cancellations',  body: 'Emergency cancellations due to documented medical reasons may be considered on a case-by-case basis. Contact support@tokenwalla.com with documentation.' },
-  { title: 'Payment Partner Rights',   body: 'TokenWalla uses Razorpay as its payment partner. Razorpay and TokenWalla reserve the right to hold settlements or restrict account access in cases of compliance violations or chargebacks.' },
-  { title: 'Important Notice',         body: 'This service is for legitimate outpatient appointment booking only — not for medical emergencies. For emergencies, call 108.' },
+  { title: "Cancelling a booking", body: "You can cancel a booking that is still waiting from My Bookings. How much comes back depends on how long before your slot you cancel: 24 hours or more, 70%; 12 to 24 hours, 60%; 2 to 12 hours, 50%; less than 2 hours, no refund." },
+  { title: "What the percentage applies to", body: "It applies to what you paid online for the visit: the doctor's consultation fee (when it is collected online), any priority fee, and TokenWalla's platform fee. The payment-gateway fee and GST are never refunded, because the payment provider does not return them. If the consultation fee is paid at the clinic, nothing is charged or refunded online for it." },
+  { title: "When the money arrives", body: "Refunds go back to the original payment method, usually within 5 to 7 working days. You will see the refund amount in the cancellation message." },
+  { title: "Not refundable", body: "Bookings that are In Consultation or Completed, no-shows without a cancellation, and cancellations made less than 2 hours before the slot." },
+  { title: "Moving a booking instead", body: "You can move a booking to another day or slot from My Bookings. If your doctor is unavailable on your day (for example on leave), you can move it to another day at no charge. Other moves may carry a small fee, shown before you confirm, and a booking can be moved a limited number of times." },
+  { title: "Appointment Pass", body: "Cancelling a visit you booked with a pass gives that visit back to your pass. Cancelling the booking that bought the pass refunds only the part you have not used." },
+  { title: "Payment taken but no booking", body: "If your payment goes through but we cannot confirm the booking (for example the last seat was taken at the same moment), the amount is refunded to you. If you do not see it within 7 working days, write to us." },
+  { title: "Emergencies and special cases", body: "If a documented medical emergency stopped you from attending, email support@tokenwalla.com with the details and we will review it. Each case is looked at individually." },
+  { title: "Payment partner", body: "TokenWalla uses Razorpay for payments. Razorpay and TokenWalla may hold settlements or restrict an account where there is a compliance issue or a chargeback." },
+  { title: "Important notice", body: "This service is for outpatient appointment booking only, not for medical emergencies. In an emergency, call 108." },
 ];
 
 export default function RefundScreen() {
@@ -27,7 +33,7 @@ export default function RefundScreen() {
           </TouchableOpacity>
           <Text style={styles.sectionLabel}>LEGAL</Text>
           <Text style={styles.title}>Refund Policy</Text>
-          <Text style={styles.updated}>Last updated: March 2026</Text>
+          <Text style={styles.updated}>Last updated: November 2026</Text>
         </View>
 
         {/* Quick summary */}
@@ -51,6 +57,9 @@ export default function RefundScreen() {
           <View style={styles.contactBox}>
             <Text style={styles.contactTitle}>Questions?</Text>
             <Text style={styles.contactText}>Email us at support@tokenwalla.com{'\n'}Hindupur – Nimpalli Road, AP – 515201</Text>
+            <TouchableOpacity onPress={() => Linking.openURL(YOUTUBE_URL)} accessibilityRole="link" accessibilityLabel="Know more on YouTube">
+              <Text style={[styles.contactText, { color: Colors.blue600, fontWeight: '700', marginTop: 6 }]}>▶ Know more on YouTube</Text>
+            </TouchableOpacity>
           </View>
         </View>
         <View style={{ height: 30 }} />
