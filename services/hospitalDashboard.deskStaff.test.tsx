@@ -271,6 +271,8 @@ test('a priority booking says what the seat paid online and what to collect at t
   expect(text()).toContain('Priority ₹50 paid online · Collect ₹200 at the desk');
   expect(text()).toContain('Priority ₹50 paid online · Nothing to collect');
   expect(text().split('paid online').length - 1).toBe(2);          // the normal booking shows no money line
+});
+
 test('My earnings has period chips and the tile follows the one picked', async () => {
   await mount(SITA);
   (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } }).mockResolvedValueOnce({ data: {
