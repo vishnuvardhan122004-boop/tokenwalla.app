@@ -174,20 +174,29 @@ test('with staff the bar also links to Manage staff', async () => {
 test('signed in, My earnings posts the desk token and shows that person\'s own figures', async () => {
   await mount(SITA);
   expect(byLabel('My earnings')).toBeUndefined();          // main desk: nothing to show
-  (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } });
-  await signInAsSita();
-  (API.post as jest.Mock).mockResolvedValueOnce({ data: {
+  const MINE = { data: {
     name: 'Sita', enabled: true, upi_set: true, month_count: 2, month_amount: '14.00',
     unpaid_amount: '14.00', paid_total: '0.00', today_count: 3, today_amount: '21.00',
     daily: [{ date: '2026-11-09', count: 2, amount: '14.00' }], payments: [],
-  } });
+  } };
+  (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } }).mockResolvedValueOnce(MINE);
+  await signInAsSita();
+  await flush3();
+  // entering the PIN opens today's earnings straight away
+  expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
+  expect(text()).toContain('Today');
+  expect(text()).toContain('₹21.00');
+  expect(text()).toContain('3 bookings');
+  (API.post as jest.Mock).mockResolvedValueOnce(MINE);
   await act(async () => { await byLabel('My earnings').props.onPress(); });
   expect(API.post).toHaveBeenLastCalledWith('/hospitals/1/staff/me/', { token: 'tok-sita' });
   expect(text()).toContain('Sita: my earnings');
   expect(text()).toContain('₹14.00');
   expect(text()).toContain('2 bookings');
   // today is live, not waiting for the nightly ledger
-  expect(text()).toContain('Today: 3 bookings · ₹21.00');
+  expect(text()).toContain('Today');
+  expect(text()).toContain('₹21.00');
+  expect(text()).toContain('3 bookings');
 });
 
 // Web ROADMAP 71c: the payee's name, and a Change for 10 s after a pick.
@@ -262,4 +271,19 @@ test('a priority booking says what the seat paid online and what to collect at t
   expect(text()).toContain('Priority ₹50 paid online · Collect ₹200 at the desk');
   expect(text()).toContain('Priority ₹50 paid online · Nothing to collect');
   expect(text().split('paid online').length - 1).toBe(2);          // the normal booking shows no money line
+test('My earnings has period chips and the tile follows the one picked', async () => {
+  await mount(SITA);
+  (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } }).mockResolvedValueOnce({ data: {
+    name: 'Sita', enabled: true, upi_set: true, month_count: 2, month_amount: '14.00',
+    unpaid_amount: '14.00', paid_total: '0.00', daily: [], payments: [],
+    periods: { today: { count: 3, amount: '21.00' }, week: { count: 5, amount: '35.00' },
+               month: { count: 9, amount: '63.00' }, all: { count: 20, amount: '140.00' } },
+  } });
+  await signInAsSita();
+  await flush3();
+  expect(text()).toContain('₹21.00');                    // Today first
+  await act(async () => { byLabel('7 days').props.onPress(); });
+  expect(text()).toContain('₹35.00');
+  await act(async () => { byLabel('All').props.onPress(); });
+  expect(text()).toContain('20 bookings');
 });
