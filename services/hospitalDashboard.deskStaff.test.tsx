@@ -257,3 +257,20 @@ test('a double tap on Done sends one request', async () => {
   expect(API.patch).toHaveBeenCalledTimes(1);
   await act(async () => { finish({ data: {} }); });
 });
+
+test('My earnings has period chips and the tile follows the one picked', async () => {
+  await mount(SITA);
+  (API.post as jest.Mock).mockResolvedValueOnce({ data: { token: 'tok-sita', name: 'Sita' } }).mockResolvedValueOnce({ data: {
+    name: 'Sita', enabled: true, upi_set: true, month_count: 2, month_amount: '14.00',
+    unpaid_amount: '14.00', paid_total: '0.00', daily: [], payments: [],
+    periods: { today: { count: 3, amount: '21.00' }, week: { count: 5, amount: '35.00' },
+               month: { count: 9, amount: '63.00' }, all: { count: 20, amount: '140.00' } },
+  } });
+  await signInAsSita();
+  await flush3();
+  expect(text()).toContain('₹21.00');                    // Today first
+  await act(async () => { byLabel('7 days').props.onPress(); });
+  expect(text()).toContain('₹35.00');
+  await act(async () => { byLabel('All').props.onPress(); });
+  expect(text()).toContain('20 bookings');
+});
