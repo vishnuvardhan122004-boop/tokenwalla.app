@@ -1,24 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ComponentProps } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
+import { YOUTUBE_URL } from '../../constants/config';
+// How it works, not made-up numbers: only say what the product does.
 const STATS = [
-  { num: '2,400+', label: 'Tokens Issued'  },
-  { num: '18',     label: 'Hospitals'      },
-  { num: '94%',    label: 'On-time Rate'   },
-  { num: '4.8★',   label: 'Patient Rating' },
+  { num: '1', label: 'Find a doctor'        },
+  { num: '2', label: 'Book your token'      },
+  { num: '3', label: 'Track your turn live' },
+  { num: '4', label: 'Arrive on time'       },
 ];
 
 const VALUES: { icon: ComponentProps<typeof Ionicons>['name']; title: string; desc: string }[] = [
   { icon: 'refresh-outline',     title: 'Zero Waiting Rooms',  desc: 'Patients arrive when their number is close. Hospitals run on schedule.' },
-  { icon: 'lock-closed-outline', title: 'Privacy First',        desc: 'Patient data is encrypted and never sold. Period.'                      },
-  { icon: 'globe-outline',       title: 'Accessible Anywhere',  desc: 'Works on any device. No waiting room needed.'                          },
-  { icon: 'flash-outline',       title: 'Real-time Queue',      desc: 'Live position tracking refreshed every 15 seconds.'                    },
+  { icon: 'lock-closed-outline', title: 'Privacy First',        desc: 'Your data is protected in transit and never sold or used for advertising.' },
+  { icon: 'card-outline',        title: 'Clear Fees',           desc: "The doctor's fee and our small service fee are shown separately before you pay." },
+  { icon: 'flash-outline',       title: 'Real-time Queue',      desc: 'Live position tracking, refreshed every 15 seconds.' },
+  { icon: 'star-outline',        title: 'Priority Seats',       desc: 'Where a doctor offers it, pay a little extra to be called first in your slot.' },
+  { icon: 'language-outline',    title: 'Your Language',        desc: 'English, Hindi, Telugu and Kannada.' },
 ];
 
 export default function AboutScreen() {
@@ -87,6 +91,24 @@ export default function AboutScreen() {
           </View>
         </View>
 
+        {/* Know more */}
+        <View style={[styles.section, { alignItems: 'center' }]}>
+          <Text style={styles.sectionLabel}>KNOW MORE</Text>
+          <Text style={styles.sectionTitle}>See how TokenWalla works</Text>
+          <Text style={[styles.bodyText, { textAlign: 'center', marginBottom: 16 }]}>
+            Short videos on booking a token, tracking the queue and running a hospital desk.
+          </Text>
+          <TouchableOpacity
+            style={styles.ytBtn}
+            onPress={() => Linking.openURL(YOUTUBE_URL)}
+            accessibilityRole="link"
+            accessibilityLabel="Watch how it works on YouTube"
+          >
+            <Ionicons name="logo-youtube" size={20} color={Colors.white} />
+            <Text style={styles.ytBtnText}>Watch on YouTube</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* CTA — patients only. A hospital cannot book (the route is
             unregistered for it in app/(patient)/_layout.tsx), so this would be
             a dead "Find a Doctor" button inviting it to try. */}
@@ -132,6 +154,9 @@ const styles = StyleSheet.create({
   valueIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.blue50, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   valueTitle: { fontSize: 13, fontWeight: '700', color: Colors.gray900, marginBottom: 4 },
   valueDesc:  { fontSize: 12, color: Colors.gray500, lineHeight: 17 },
+
+  ytBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.blue600, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 13 },
+  ytBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 
   ctaBanner: { backgroundColor: Colors.blue600, margin: 20, borderRadius: 20, padding: 28, alignItems: 'center' },
   ctaTitle:  { fontSize: 20, fontWeight: '800', color: Colors.white, marginBottom: 8, textAlign: 'center' },
