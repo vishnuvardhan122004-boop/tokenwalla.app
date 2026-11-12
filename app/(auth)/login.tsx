@@ -136,7 +136,10 @@ export default function LoginScreen() {
     setTimeout(() => mobileRef.current?.focus(), 300);
   };
 
+  const signingIn = useRef(false);   // state lags a same-instant double tap; a ref does not
   const handleLogin = async () => {
+    if (signingIn.current) return;
+    signingIn.current = true;
     setLoading(true);
     try {
       if (!mobile || !password) {
@@ -151,6 +154,7 @@ export default function LoginScreen() {
       if ((e as { response?: { status?: number } })?.response?.status === 401 && await isUnregistered()) setSignUp(true);
       else setError(apiMessage(e, t('lg_invalid_credentials')));
     } finally {
+      signingIn.current = false;
       setLoading(false);
     }
   };
