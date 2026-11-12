@@ -21,6 +21,7 @@ import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { normalizeBookingStatus, providerLabel } from '../../utils/booking';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
+import { localName } from '../../utils/localize';
 
 interface Booking {
   id: string | number;
@@ -226,7 +227,7 @@ export default function MyQRScreen() {
                     { icon: 'medkit-outline',
                       label: booking.provider_kind === 'SCAN' ? 'Scan' : 'Doctor',
                       value: providerLabel(booking.doctor_name, booking.provider_kind) },
-                    { icon: 'business-outline', label: 'Hospital', value: booking.hospital_name         },
+                    { icon: 'business-outline', label: 'Hospital', value: localName(booking.hospital_name) },
                     { icon: 'calendar-outline', label: 'Date',     value: booking.date                  },
                     { icon: 'time-outline',     label: 'Slot',     value: booking.slot                  },
                   ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string }[]).map(({ icon, label, value }) => (

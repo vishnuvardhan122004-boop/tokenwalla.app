@@ -19,6 +19,7 @@ import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
+import { clearNotifications } from '../../services/notificationStore';
 
 export default function HospitalLoginScreen() {
   const router = useRouter();
@@ -137,6 +138,11 @@ export default function HospitalLoginScreen() {
         deviceName ? { mobile, password, device_name: deviceName } : { mobile, password });
       await AsyncStorage.setItem('access',  data.access);
       await AsyncStorage.setItem('refresh', data.refresh);
+      // A different account on this device starts with an empty bell (the cache is per audience, not per user).
+      try {
+        const prev = JSON.parse((await AsyncStorage.getItem('user')) || 'null');
+        if (prev?.id !== data.user?.id) await clearNotifications();
+      } catch { /* keep logging in */ }
       await AsyncStorage.setItem('user',    JSON.stringify(data.user));
       router.replace('/(hospital)/dashboard');
     } catch (e: unknown) {

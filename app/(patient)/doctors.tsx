@@ -26,6 +26,7 @@ import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from '../../utils/sca
 import PhotoViewer from '../../components/PhotoViewer';
 import { SkeletonList } from '../../components/Skeleton';
 import { useI18n } from '../../services/i18n';
+import { localName } from '../../utils/localize';
 
 // Last successful doctor list, cached so the screen paints instantly on reopen.
 const DOCTORS_CACHE_KEY = 'doctors_cache_v1';
@@ -132,17 +133,17 @@ const DoctorCard = memo(function DoctorCard({ doc, index, city, t, router }: {
 
           {/* ── CENTER INFO ── */}
           <View style={{ flex: 1 }}>
-            <Text style={styles.docSpec}>{doc.specialization}</Text>
+            <Text style={styles.docSpec}>{localName(doc.specialization)}</Text>
             <Text style={styles.docName}>{providerLabel(doc.name)}</Text>
             <View style={styles.docHospitalRow}>
               <Ionicons name="business-outline" size={12} color={Colors.gray500} />
-              <Text style={styles.docHospital} numberOfLines={1}>{doc.hospital_name}</Text>
+              <Text style={styles.docHospital} numberOfLines={1}>{localName(doc.hospital_name)}</Text>
             </View>
             <View style={styles.docMeta}>
               <View style={styles.metaChipRow}>
                 <Ionicons name="location-outline" size={12} color={isNearby ? Colors.blue600 : Colors.gray400} />
                 <Text style={[styles.metaChip, isNearby && { color: Colors.blue600, fontWeight: '700' }]}>
-                  {isNearby ? `Nearby · ${doc.city}` : doc.city}
+                  {isNearby ? `Nearby · ${localName(doc.city)}` : localName(doc.city)}
                 </Text>
               </View>
               <View style={styles.metaChipRow}>
@@ -638,7 +639,7 @@ export default function DoctorsScreen() {
                     color={active ? Colors.white : Colors.blue600}
                   />
                   <Text style={[styles.keywordChipText, active && styles.keywordChipTextActive]}>
-                    {kw}
+                    {localName(kw)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -746,8 +747,8 @@ export default function DoctorsScreen() {
               onPress={() => router.push(`/(patient)/scan-center/${c.id}?scan=${sc.id}` as never)}
             >
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.hitName} numberOfLines={1}>{sc.name}</Text>
-                <Text style={styles.hitSub} numberOfLines={1}>{c.name}{c.city ? ` · ${c.city}` : ''}</Text>
+                <Text style={styles.hitName} numberOfLines={1}>{localName(sc.name)}</Text>
+                <Text style={styles.hitSub} numberOfLines={1}>{localName(c.name)}{c.city ? ` · ${localName(c.city)}` : ''}</Text>
               </View>
               <Text style={styles.hitPrice}>₹{sc.price}</Text>
             </TouchableOpacity>

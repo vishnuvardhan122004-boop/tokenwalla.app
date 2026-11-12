@@ -21,6 +21,7 @@ import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { safeBack } from '../../utils/navigation';
 import { asList } from '../../utils/scanCenters';
+import { localName } from '../../utils/localize';
 
 /** Real remote URL, not a placeholder. Same test the doctor list applies. */
 const realImage = (u?: string | null) => !!u && u.startsWith('http') && !u.includes('placehold');
@@ -98,8 +99,8 @@ export default function HospitalsScreen() {
                 </View>
               )}
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={st.name} numberOfLines={1}>{h.name}</Text>
-                {!!h.city && <Text style={st.meta} numberOfLines={1}>{h.city}</Text>}
+                <Text style={st.name} numberOfLines={1}>{localName(h.name)}</Text>
+                {!!h.city && <Text style={st.meta} numberOfLines={1}>{localName(h.city)}</Text>}
                 {!!h.address && <Text style={st.address} numberOfLines={2}>{h.address}</Text>}
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.gray400} />

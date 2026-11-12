@@ -33,6 +33,7 @@ import { computeFeeBreakdown, money, type FeeBreakdown } from '../../../utils/fe
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
+import { localName } from '../../../utils/localize';
 
 interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
 interface GalleryPhoto { id: number | string; url: string; }
@@ -508,12 +509,12 @@ export default function DoctorDetails() {
             )}
 
             <View style={{ flex: 1 }}>
-              <Text style={styles.specLabel}>{doctor.specialization}</Text>
+              <Text style={styles.specLabel}>{localName(doctor.specialization)}</Text>
               <Text style={styles.doctorName}>{providerLabel(doctor.name)}</Text>
               <View style={styles.pillRow}>
                 <View style={styles.pill}>
                   <Ionicons name="location-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
-                  <Text style={styles.pillText}>{doctor.city}</Text>
+                  <Text style={styles.pillText}>{localName(doctor.city)}</Text>
                 </View>
                 <View style={styles.pill}>
                   <Ionicons name="time-outline" size={11} color={Colors.blue700} style={styles.pillIcon} />
@@ -538,7 +539,7 @@ export default function DoctorDetails() {
               </View>
               <View style={styles.hospitalNameRow}>
                 <Ionicons name="business-outline" size={13} color={Colors.gray500} />
-                <Text style={styles.hospitalName}>{doctor.hospital_name}</Text>
+                <Text style={styles.hospitalName}>{localName(doctor.hospital_name)}</Text>
               </View>
             </View>
           </View>
@@ -588,7 +589,7 @@ export default function DoctorDetails() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>{t('dr_hospital')}</Text>
-              <Text style={styles.infoValue}>{doctor.hospital_name}</Text>
+              <Text style={styles.infoValue}>{localName(doctor.hospital_name)}</Text>
             </View>
           </View>
 
@@ -599,7 +600,7 @@ export default function DoctorDetails() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.infoLabel}>{t('dr_location')}</Text>
-              <Text style={styles.infoValue}>{doctor.city}</Text>
+              <Text style={styles.infoValue}>{localName(doctor.city)}</Text>
             </View>
           </View>
         </View>
@@ -777,7 +778,7 @@ export default function DoctorDetails() {
               exact vocabulary. ROADMAP 28, claim 12. */}
           {[
             { id: 'doctor',   label: t('bt_doctor'),   value: providerLabel(doctor.name) },
-            { id: 'hospital', label: t('dr_hospital'), value: doctor.hospital_name       },
+            { id: 'hospital', label: t('dr_hospital'), value: localName(doctor.hospital_name) },
             walkIn
               ? { id: 'hours', label: t('dr_label_hours'), value: (hospitalInfo?.open_time || hospitalInfo?.close_time)
                   ? `${hospitalInfo?.open_time || '—'} – ${hospitalInfo?.close_time || '—'}` : t('dr_call_to_confirm') }
