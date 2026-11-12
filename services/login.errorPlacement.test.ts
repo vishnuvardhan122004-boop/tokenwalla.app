@@ -32,6 +32,8 @@ describe.each(SCREENS)('%s notification hygiene', (file) => {
   test('a different account starts with an empty bell', () => {
     expect(src).toContain('clearNotifications()');
     expect(src.indexOf('clearNotifications()')).toBeLessThan(src.indexOf("AsyncStorage.setItem('user'"));
+  });
+});
 
 // Four taps in the same instant sent four login requests (state had not caught
 // up yet), each spending a password attempt. A ref closes that.
