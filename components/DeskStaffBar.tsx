@@ -66,10 +66,10 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
 
   const close = () => { setOpen(false); setPick(null); setPin(''); setErr(''); };
 
-  const openEarnings = async () => {
+  const openEarnings = async (tk: string | null = token) => {
     setEarn({});
     try {
-      const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token });
+      const { data } = await API.post(`/hospitals/${hospitalId}/staff/me/`, { token: tk });
       setEarn(data);
     } catch (e) {
       // The PIN session expired: sign out instead of keeping a dead "My earnings".
@@ -86,6 +86,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
       setWho(data.name);
       onToken(data.token);
       close();
+      openEarnings(data.token);   // show today's earnings right after the PIN
     } catch (e) {
       setErr(apiMessage(e, 'Could not check the PIN.'));
       setPin('');
@@ -103,7 +104,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
         <Text style={st.link}>{who ? '  Change' : '  Sign in with PIN'}</Text>
       </TouchableOpacity>
       {who && token ? (
-        <TouchableOpacity onPress={openEarnings} accessibilityRole="button" accessibilityLabel="My earnings">
+        <TouchableOpacity onPress={() => openEarnings()} accessibilityRole="button" accessibilityLabel="My earnings">
           <Text style={st.link}>  ·  My earnings</Text>
         </TouchableOpacity>
       ) : null}
@@ -118,18 +119,20 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
             : (
               <>
                 {!earn.enabled && <Text style={st.muted}>The staff incentive is switched off right now.</Text>}
-                {earn.today_count !== undefined && (
-                  <Text style={st.todayLine}>
-                    {`Today: ${bookings(earn.today_count)}${Number(earn.today_amount) > 0 ? ` · ${inr(earn.today_amount)}` : ''}`}
-                  </Text>
-                )}
                 <Text style={st.muted}>
                   {earn.today_count !== undefined ? 'Today is live. This month and the totals update overnight.' : 'Updated overnight.'}
                 </Text>
                 <View style={st.tiles}>
+                  {earn.today_count !== undefined && (
+                    <View style={st.tile}><Text style={st.muted}>Today</Text>
+                      <Text style={st.big}>{inr(earn.today_amount)}</Text>
+                      <Text style={st.muted}>{bookings(earn.today_count)}</Text></View>
+                  )}
                   <View style={st.tile}><Text style={st.muted}>This month</Text>
                     <Text style={st.big}>{inr(earn.month_amount)}</Text>
                     <Text style={st.muted}>{bookings(earn.month_count)}</Text></View>
+                </View>
+                <View style={st.tiles}>
                   <View style={st.tile}><Text style={st.muted}>Waiting to be paid</Text>
                     <Text style={st.big}>{inr(earn.unpaid_amount)}</Text></View>
                   <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
@@ -203,7 +206,6 @@ const st = StyleSheet.create({
   tile: { flex: 1, backgroundColor: '#f3f6fb', borderRadius: 10, padding: 8 },
   big: { fontSize: 16, fontWeight: '800', color: Colors.gray900 },
   muted: { color: Colors.gray500, fontSize: 13 },
-  todayLine: { color: Colors.gray900, fontSize: 15, fontWeight: '700' },
   who: { fontWeight: '700', fontSize: 13, color: Colors.gray900 },
   link: { color: Colors.blue600, fontSize: 13, fontWeight: '600', paddingVertical: 6 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
