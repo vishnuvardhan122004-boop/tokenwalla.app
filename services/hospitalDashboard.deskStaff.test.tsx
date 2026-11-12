@@ -49,12 +49,12 @@ const IN_PROGRESS = {
 };
 
 let r: any;
-const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '') => {
+const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '', waiting: unknown[] = []) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting: [], onHold: [], inProgress, completed: [], main_desk_name: mainName } })
+      ? Promise.resolve({ data: { waiting, onHold: [], inProgress, completed: [], main_desk_name: mainName } })
     : url === '/hospitals/1/staff/'
       ? (staff instanceof Error ? Promise.reject(staff) : Promise.resolve({ data: staff }))
       : Promise.resolve({ data: [] }));
@@ -247,4 +247,19 @@ test('a double tap on Done sends one request', async () => {
   await act(async () => { done().props.onPress(); done().props.onPress(); });
   expect(API.patch).toHaveBeenCalledTimes(1);
   await act(async () => { finish({ data: {} }); });
+});
+
+test('a priority booking says what the seat paid online and what to collect at the desk', async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const wait = (id: number, extra: object) => ({ id, token: `TW-${id}`, status: 'CONFIRMED', date: today, slot: '09:00 AM',
+    doctor_name: 'Dr. Kumar', user_name: 'Ravi', user_mobile: '9800000001', patient_name: 'Ravi', patient_mobile: '9800000001',
+    is_for_other: false, ...extra });
+  await mount([], [], '', [
+    wait(1, { is_priority: true, priority_paid: '50.00', collect_at_desk: '200.00' }),
+    wait(2, { is_priority: true, priority_paid: '50.00', collect_at_desk: '0.00' }),
+    wait(3, { is_priority: false, priority_paid: null, collect_at_desk: null }),
+  ]);
+  expect(text()).toContain('Priority ₹50 paid online · Collect ₹200 at the desk');
+  expect(text()).toContain('Priority ₹50 paid online · Nothing to collect');
+  expect(text().split('paid online').length - 1).toBe(2);          // the normal booking shows no money line
 });

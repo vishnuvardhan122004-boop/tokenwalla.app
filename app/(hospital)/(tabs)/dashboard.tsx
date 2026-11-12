@@ -125,6 +125,8 @@ interface Patient {
   date?: string; // "YYYY-MM-DD" from the backend BookingSerializer
   provider_kind?: string; // 'DOCTOR' | 'SCAN'
   is_priority?: boolean;  // paid to be called first in its slot
+  priority_paid?: string | null;     // what that seat paid online (hospital queue only)
+  collect_at_desk?: string | null;   // what the patient still settles at the desk
   completed_by_staff_id?: number | null;  // who handled it at the desk (web ROADMAP 71)
   completed_by_name?: string | null;
   earns_incentive?: boolean;  // pays the staff incentive (web ROADMAP 71b)
@@ -1845,6 +1847,11 @@ export default function HospitalDashboard() {
                     {p.is_priority ? (
                       <Text style={[styles.patientMeta, { color: Colors.warningText, fontWeight: '700' }]}>
                         ★ Priority — call first in slot
+                      </Text>
+                    ) : null}
+                    {p.is_priority && p.priority_paid != null ? (
+                      <Text style={[styles.patientMeta, { color: Colors.warningText, fontWeight: '600' }]} testID="priority-money">
+                        {`Priority ₹${Number(p.priority_paid)} paid online${Number(p.collect_at_desk) > 0 ? ` · Collect ₹${Number(p.collect_at_desk)} at the desk` : ' · Nothing to collect'}`}
                       </Text>
                     ) : null}
                     <Text style={styles.patientName}>{nameOf(p) || 'Patient'}</Text>
