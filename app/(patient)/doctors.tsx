@@ -66,6 +66,7 @@ interface Doctor {
   fee: number;
   slots: string[];
   view_count?: number;
+  booking_count?: number;
   max_per_slot: number;
   image: string | null;
   hospital_image: string | null;
@@ -412,16 +413,21 @@ export default function DoctorsScreen() {
   // doctor as much as the next ninety do, and the cap keeps the boost below the
   // availability weight, so a popular doctor who is unavailable today never
   // outranks one who can actually see you.
-  const popularityBoost = (views?: number): number =>
-    Math.min(30, Math.round(12 * Math.log10(1 + (views || 0))));
+  // Taps count early (max 30), completed bookings count more as they grow
+  // (max 40). Experience and slots are capped so a newly added doctor with a
+  // long slot list can't outrank one patients have opened. Mirrors the web's
+  // services/doctorRank.js — change one, change the other.
+  const popularityBoost = (views?: number, bookings?: number): number =>
+    Math.min(30, Math.round(12 * Math.log10(1 + (views || 0)))) +
+    Math.min(40, Math.round(15 * Math.log10(1 + (bookings || 0))));
 
   const rankDoctor = (doc: Doctor): number => {
     let score = 0;
     if (doc.available) score += 100;
     if (city && (doc.city || '').toLowerCase() === city.toLowerCase()) score += 50;
-    score += (doc.experience || 0);
-    score += (doc.slots?.length || 0) * 2;
-    score += popularityBoost(doc.view_count);
+    score += Math.min(doc.experience || 0, 10);
+    score += Math.min(doc.slots?.length || 0, 5) * 2;
+    score += popularityBoost(doc.view_count, doc.booking_count);
     return score;
   };
 
