@@ -596,7 +596,7 @@ export default function MyBookings() {
                       ) : (
                         <>
                           <Ionicons name="close-circle-outline" size={18} color={Colors.errorText} />
-                          <View>
+                          <View style={{ flexShrink: 1 }}>
                             <Text style={st.cancelBtnTitle}>{t('cancel')}</Text>
                             <Text style={st.cancelBtnFee}>{t('refund_in_days')}</Text>
                           </View>
@@ -735,7 +735,7 @@ const st = StyleSheet.create({
   hospitalName: { fontSize: 12, color: Colors.gray500, flexShrink: 1 },
   forOther:     { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4 },
   forOtherText: { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
-  callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600 },
+  callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600, flexShrink: 1 },
   metaRow:      { flexDirection: 'row', gap: 12, marginBottom: 8, marginTop: 4, flexWrap: 'wrap' },
   metaChipRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metaChip:     { fontSize: 12, color: Colors.gray400 },

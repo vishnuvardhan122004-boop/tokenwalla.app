@@ -2202,7 +2202,7 @@ export default function HospitalDashboard() {
                         {toggling === doc.id ? (
                           <ActivityIndicator size="small" color={Colors.blue600} />
                         ) : (
-                          <Text style={styles.availBtnText}>
+                          <Text style={styles.availBtnText} numberOfLines={1} adjustsFontSizeToFit>
                             {doc.available ? 'Available' : 'Unavailable'}
                           </Text>
                         )}
@@ -2218,12 +2218,12 @@ export default function HospitalDashboard() {
                         accessibilityLabel={`Poster for ${doc.name}`}
                       >
                         <Ionicons name="qr-code-outline" size={14} color={Colors.blue700} />
-                        <Text style={styles.editBtnText}>Poster</Text>
+                        <Text style={styles.editBtnText} numberOfLines={1} adjustsFontSizeToFit>Poster</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.editBtn} onPress={() => openEdit(doc)}>
                         <Ionicons name="create-outline" size={14} color={Colors.blue700} />
-                        <Text style={styles.editBtnText}>Edit</Text>
+                        <Text style={styles.editBtnText} numberOfLines={1} adjustsFontSizeToFit>Edit</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity style={styles.deleteBtn} onPress={() => deleteDoctor(doc)}>
@@ -2480,7 +2480,7 @@ const styles = StyleSheet.create({
   availBtnOff:   { backgroundColor: Colors.gray100, borderWidth: 1, borderColor: Colors.gray200 },
   availBtnText:  { fontSize: 12, fontWeight: '700', color: Colors.gray700 },
   editBtn:       { flex: 1.2, flexDirection: 'row', gap: 5, justifyContent: 'center', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 10, paddingVertical: 9, alignItems: 'center' },
-  editBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700 },
+  editBtnText:   { fontSize: 13, fontWeight: '700', color: Colors.blue700, flexShrink: 1 },
   deleteBtn:     { backgroundColor: Colors.errorBg, borderWidth: 1, borderColor: Colors.errorBorder, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignItems: 'center' },
   deleteBtnText: { fontSize: 14 },
 

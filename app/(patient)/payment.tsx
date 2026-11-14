@@ -941,8 +941,8 @@ const styles = StyleSheet.create({
   feeErrorText:  { fontSize: 13, color: Colors.errorText, lineHeight: 19 },
   retryBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', borderWidth: 1, borderColor: Colors.blue200, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
   retryText:     { fontSize: 13, fontWeight: '700', color: Colors.blue600 },
-  totalRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.blue50 },
-  totalLabel: { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
+  totalRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 16, backgroundColor: Colors.bg, borderTopWidth: 1, borderTopColor: Colors.blue50 },
+  totalLabel: { fontSize: 15, fontWeight: '700', color: Colors.gray800, flexShrink: 1 },
   totalAmt:   { fontSize: 28, fontWeight: '800', color: Colors.blue600 },
 
   passCard:        { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 20, padding: 16, marginBottom: 16 },
@@ -972,9 +972,9 @@ const styles = StyleSheet.create({
   chip:        { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   chipText:    { fontSize: 11, color: Colors.blue700, fontWeight: '600' },
 
-  payBtn:     { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 17, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, marginBottom: 14 },
+  payBtn:     { flexDirection: 'row', gap: 8, justifyContent: 'center', backgroundColor: Colors.blue600, borderRadius: 14, paddingVertical: 17, paddingHorizontal: 16, alignItems: 'center', shadowColor: Colors.blue600, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 10, elevation: 6, marginBottom: 14 },
   payBtnDisabled: { backgroundColor: Colors.gray400, shadowOpacity: 0 },
-  payBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15 },
+  payBtnText: { color: Colors.white, fontWeight: '700', fontSize: 15, flexShrink: 1, textAlign: 'center' },
   note:       { fontSize: 12, color: Colors.gray400, textAlign: 'center', lineHeight: 18 },
 
   modalHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.blue100 },

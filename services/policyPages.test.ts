@@ -43,3 +43,10 @@ test('every policy page and Contact link the YouTube channel', () => {
     expect(read(`app/(patient)/${f}.tsx`)).toContain('YOUTUBE_URL');
   }
 });
+
+test('the app claims Andhra Pradesh only, in every language (Vishnu, 2026-11-14)', () => {
+  const i18n = read('services/i18n.tsx');
+  expect(i18n.match(/live_region: '[^']*'/g)).toHaveLength(4);
+  expect(i18n).not.toMatch(/live_region: '[^']*(Telangana|తెలంగాణ|तेलंगाना|ತೆಲಂಗಾಣ)/);
+  expect(read('app/(patient)/about.tsx')).not.toMatch(/Telangana/);
+});

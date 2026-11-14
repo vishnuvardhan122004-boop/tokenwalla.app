@@ -154,7 +154,7 @@ export default function BookingTokenScreen() {
           {/* Queue Access */}
           <View style={styles.queueRow}>
             <Ionicons name="navigate" size={18} color={Colors.blue600} style={{ marginRight: 10 }} />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.queueTitle}>{t('bt_queue_active')}</Text>
               <Text style={styles.queueDesc}>{t('bt_queue_active_desc')}</Text>
             </View>
