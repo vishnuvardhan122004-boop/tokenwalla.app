@@ -69,7 +69,7 @@ export default function AboutScreen() {
             a waiting room when a mobile notification can tell you exactly when to arrive.
           </Text>
           <Text style={[styles.bodyText, { marginTop: 12 }]}>
-            Currently live in Andhra Pradesh and Telangana, we're expanding hospital by
+            Currently live in Andhra Pradesh, we're expanding hospital by
             hospital, city by city — making every visit predictable, fair, and stress-free.
           </Text>
         </View>

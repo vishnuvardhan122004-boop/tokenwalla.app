@@ -32,7 +32,7 @@ type Dict = Record<string, string>;
 
 const en: Dict = {
   login: 'Login →',
-  live_region: 'Live in AP & Telangana',
+  live_region: 'Live in Andhra Pradesh',
   hero_line1: 'Skip the Queue.',
   hero_line2: 'Book Your Token Online.',
   hero_sub: 'Book doctor appointments instantly, get a digital token, and walk in right on time. No more waiting rooms.',
@@ -657,7 +657,7 @@ const en: Dict = {
 
 const hi: Dict = {
   login: 'लॉगिन →',
-  live_region: 'AP और तेलंगाना में उपलब्ध',
+  live_region: 'आंध्र प्रदेश में उपलब्ध',
   hero_line1: 'कतार छोड़ें।',
   hero_line2: 'अपना टोकन ऑनलाइन बुक करें।',
   hero_sub: 'तुरंत डॉक्टर अपॉइंटमेंट बुक करें, डिजिटल टोकन पाएं, और सही समय पर पहुँचें। अब इंतज़ार नहीं।',
@@ -1282,7 +1282,7 @@ const hi: Dict = {
 
 const te: Dict = {
   login: 'లాగిన్ →',
-  live_region: 'AP & తెలంగాణలో అందుబాటులో',
+  live_region: 'ఆంధ్రప్రదేశ్‌లో అందుబాటులో',
   hero_line1: 'క్యూను దాటండి.',
   hero_line2: 'మీ టోకెన్ ఆన్‌లైన్‌లో బుక్ చేయండి.',
   hero_sub: 'వెంటనే డాక్టర్ అపాయింట్‌మెంట్ బుక్ చేయండి, డిజిటల్ టోకెన్ పొందండి, సరైన సమయానికి వెళ్లండి. ఇక వెయిటింగ్ రూమ్‌లు లేవు.',
@@ -1907,7 +1907,7 @@ const te: Dict = {
 
 const kn: Dict = {
   login: 'ಲಾಗಿನ್ →',
-  live_region: 'AP ಮತ್ತು ತೆಲಂಗಾಣದಲ್ಲಿ ಲಭ್ಯ',
+  live_region: 'ಆಂಧ್ರಪ್ರದೇಶದಲ್ಲಿ ಲಭ್ಯ',
   hero_line1: 'ಸಾಲನ್ನು ಬಿಟ್ಟುಬಿಡಿ.',
   hero_line2: 'ನಿಮ್ಮ ಟೋಕನ್ ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಬುಕ್ ಮಾಡಿ.',
   hero_sub: 'ತಕ್ಷಣ ವೈದ್ಯರ ಅಪಾಯಿಂಟ್‌ಮೆಂಟ್ ಬುಕ್ ಮಾಡಿ, ಡಿಜಿಟಲ್ ಟೋಕನ್ ಪಡೆಯಿರಿ, ಸರಿಯಾದ ಸಮಯಕ್ಕೆ ಬನ್ನಿ. ಇನ್ನು ಕಾಯುವ ಕೊಠಡಿಗಳಿಲ್ಲ.',
