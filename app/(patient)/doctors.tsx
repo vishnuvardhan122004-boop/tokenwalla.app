@@ -711,7 +711,7 @@ export default function DoctorsScreen() {
               accessibilityState={{ selected: active }}
             >
               <Ionicons name={m.icon} size={14} color={active ? Colors.blue700 : Colors.gray500} />
-              <Text numberOfLines={1} style={[styles.modeText, active && styles.modeTextActive]}>
+              <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.modeText, active && styles.modeTextActive]}>
                 {t(m.labelKey)}
               </Text>
             </TouchableOpacity>
@@ -996,9 +996,9 @@ const styles = StyleSheet.create({
   docName:     { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
   docHospitalRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
   docHospital: { fontSize: 12, color: Colors.gray500, flexShrink: 1 },
-  docMeta:     { flexDirection: 'row', gap: 12, marginBottom: 8 },
-  metaChipRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metaChip:    { fontSize: 11, color: Colors.gray400 },
+  docMeta:     { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginBottom: 8 },
+  metaChipRow: { flexDirection: 'row', alignItems: 'center', gap: 3, flexShrink: 1 },
+  metaChip:    { fontSize: 11, color: Colors.gray400, flexShrink: 1 },
 
   slotRow:  { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   slotChip: { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
@@ -1014,11 +1014,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 14,
     marginTop: -4,
   },
-  slotsCount:      { fontSize: 12, color: Colors.gray400 },
+  slotsCount:      { fontSize: 12, color: Colors.gray400, flexShrink: 1 },
 
   // alignSelf: 'stretch', NOT 'flex-start'. Sizing the row to its content fit
   // while there were two tabs and silently overflowed the screen at three —
@@ -1035,7 +1036,7 @@ const styles = StyleSheet.create({
     gap: 5, paddingVertical: 7, paddingHorizontal: 6, borderRadius: 999,
   },
   modeBtnActive: { backgroundColor: Colors.white },
-  modeText:       { fontSize: 12, fontWeight: '600', color: Colors.gray500 },
+  modeText:       { fontSize: 12, fontWeight: '600', color: Colors.gray500, flexShrink: 1 },
   modeTextActive: { color: Colors.blue700 },
 
   hits:      { paddingHorizontal: 16, paddingTop: 12 },

@@ -58,15 +58,16 @@ export default function ContactScreen() {
         {/* Contact Info Cards */}
         <View style={styles.contactGrid}>
           {([
-            { icon: 'mail-outline',     label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com') },
+            { icon: 'mail-outline',     label: t('ct_email'),  value: 'support@tokenwalla.com', onPress: () => Linking.openURL('mailto:support@tokenwalla.com'), wide: true },
             { icon: 'call-outline',     label: t('ct_phone'),  value: '+91-7286995933',       onPress: () => Linking.openURL('tel:+917286995933')          },
             { icon: 'logo-whatsapp',    label: t('ct_whatsapp'), value: t('ct_chat_with_us'), onPress: () => Linking.openURL('https://wa.me/917286995933') },
             { icon: 'logo-youtube',     label: 'YouTube', value: 'TokenWalla channel', onPress: () => Linking.openURL(YOUTUBE_URL) },
             { icon: 'business-outline', label: t('ct_office'), value: 'Hindupur, AP 515201', onPress: null },
-          ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string; onPress: (() => void) | null }[]).map(({ icon, label, value, onPress }) => (
+          ] as { icon: ComponentProps<typeof Ionicons>['name']; label: string; value: string; onPress: (() => void) | null; wide?: boolean }[]).map(({ icon, label, value, onPress, wide }) => (
             <TouchableOpacity
               key={label}
-              style={styles.contactCard}
+              // The email is one unbreakable word: at half width it ran past the card edge, so it gets the full row.
+              style={[styles.contactCard, wide && { width: '100%' }]}
               onPress={onPress || undefined}
               disabled={!onPress}
             >
