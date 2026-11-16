@@ -5,6 +5,7 @@ import { ComponentProps, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   ScrollView,
   StyleSheet,
   Text, TextInput, TouchableOpacity,
@@ -21,6 +22,7 @@ import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 import { clearNotifications } from '../../services/notificationStore';
+import { WEB_URL } from '../../utils/poster';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -300,6 +302,14 @@ export default function LoginScreen() {
             onPress={() => router.push('/(hospital)/Hlogin')}
           >
             <Text style={styles.altLinkText}>{t('are_you_hospital')}</Text>
+          </TouchableOpacity>
+
+          {/* Shops (stationery or medical) sign up and book on the website (web ROADMAP 72d). */}
+          <TouchableOpacity
+            style={styles.altLink}
+            onPress={() => Linking.openURL(`${WEB_URL}/shop/register`)}
+          >
+            <Text style={styles.altLinkText}>{t('shop_register_link')}</Text>
           </TouchableOpacity>
 
         </ScrollView>
