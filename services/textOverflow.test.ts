@@ -35,3 +35,13 @@ test('a wrapper holding text beside an icon can shrink', () => {
 test('the support email, one unbreakable word, gets a full-width card', () => {
   expect(read('app/(patient)/contact.tsx')).toMatch(/mailto:support@tokenwalla\.com'\), wide: true/);
 });
+
+// A text field beside "Get OTP": without minWidth 0 an HTML <input> (Expo web)
+// won't shrink below its 20-character default width, so the password eye is
+// pushed out of the field and under the button.
+test.each([
+  'app/(auth)/login.tsx', 'app/(hospital)/Hlogin.tsx',
+  'app/(auth)/register.tsx', 'app/(hospital)/Huser.tsx',
+])('%s: the text field beside Get OTP can shrink', file => {
+  expect(style(read(file), 'input')).toMatch(/minWidth: 0/);
+});
