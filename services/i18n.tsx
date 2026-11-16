@@ -227,6 +227,7 @@ const en: Dict = {
   no_account: "Don't have an account? ",
   create_one_free: 'Create one free →',
   are_you_hospital: 'Are you a hospital?  Hospital Login →',
+  shop_register_link: 'Stationery or medical shop?  Register here →',
 
   // common (shared)
   ok: 'OK',
@@ -852,6 +853,7 @@ const hi: Dict = {
   no_account: 'खाता नहीं है? ',
   create_one_free: 'मुफ़्त में बनाएं →',
   are_you_hospital: 'क्या आप अस्पताल हैं?  अस्पताल लॉगिन →',
+  shop_register_link: 'स्टेशनरी या मेडिकल दुकान?  यहाँ रजिस्टर करें →',
 
   // common (shared)
   ok: 'ठीक है',
@@ -1477,6 +1479,7 @@ const te: Dict = {
   no_account: 'ఖాతా లేదా? ',
   create_one_free: 'ఉచితంగా సృష్టించండి →',
   are_you_hospital: 'మీరు ఆసుపత్రినా?  ఆసుపత్రి లాగిన్ →',
+  shop_register_link: 'స్టేషనరీ లేదా మెడికల్ షాప్?  ఇక్కడ నమోదు చేసుకోండి →',
 
   // common (shared)
   ok: 'సరే',
@@ -2102,6 +2105,7 @@ const kn: Dict = {
   no_account: 'ಖಾತೆ ಇಲ್ಲವೇ? ',
   create_one_free: 'ಉಚಿತವಾಗಿ ರಚಿಸಿ →',
   are_you_hospital: 'ನೀವು ಆಸ್ಪತ್ರೆಯೇ?  ಆಸ್ಪತ್ರೆ ಲಾಗಿನ್ →',
+  shop_register_link: 'ಸ್ಟೇಷನರಿ ಅಥವಾ ಮೆಡಿಕಲ್ ಅಂಗಡಿ?  ಇಲ್ಲಿ ನೋಂದಾಯಿಸಿ →',
 
   // common (shared)
   ok: 'ಸರಿ',
