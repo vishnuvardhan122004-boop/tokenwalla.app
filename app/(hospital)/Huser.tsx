@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
   inputRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },
   inputRowError: { borderColor: Colors.errorBorder, backgroundColor: Colors.errorBg },
   textAreaRow:   { alignItems: 'flex-start', paddingVertical: 10 },
-  input:         { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
+  input:         { flex: 1, minWidth: 0, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
   textArea:      { paddingVertical: 4, minHeight: 60, textAlignVertical: 'top' },
   fieldError:    { fontSize: 12, color: Colors.errorText, marginTop: -10, marginBottom: 12 },
 

@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '700', color: Colors.gray600, marginBottom: 7, letterSpacing: 0.4 },
 
   inputRow:  { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gray50, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 12, paddingHorizontal: 14, marginBottom: 14, gap: 10 },
-  input:     { flex: 1, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
+  input:     { flex: 1, minWidth: 0, fontSize: 15, color: Colors.gray900, paddingVertical: 13 },
 
   otpRow:     { flexDirection: 'row', gap: 10, marginBottom: 6 },
   otpBtn:     { backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 12, paddingHorizontal: 14, justifyContent: 'center', minWidth: 80, alignItems: 'center', minHeight: 50 },
