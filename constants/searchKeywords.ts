@@ -68,24 +68,60 @@ export function suggestKeywords(query: string, extra: string[] = [], limit = 6):
   return [...startsWith, ...contains].slice(0, limit);
 }
 
+// What patients type when they need each kind of doctor, so an orthopedic
+// surgeon is offered "joint pain" and "fracture" first, not "fever". Matched
+// against the free-text specialization. Same table as the website's copy.
+const BY_SPECIALTY: [RegExp, string[]][] = [
+  [/cardio|heart/i,                 ['chest pain', 'heart', 'bp', 'blood pressure', 'ecg']],
+  [/diabet|endocrin/i,              ['sugar', 'diabetes', 'thyroid', 'weight loss']],
+  [/dermat|skin/i,                  ['skin', 'rash', 'acne', 'hair fall', 'allergy']],
+  [/dent|oral/i,                    ['tooth pain', 'dental', 'teeth cleaning', 'braces']],
+  [/pa?ediat|child|neonat/i,        ['child', 'vaccination', 'newborn', 'fever', 'cough']],
+  [/ortho|bone|joint/i,             ['joint pain', 'back pain', 'knee pain', 'fracture', 'bones']],
+  [/ophthal|eye|optom/i,            ['eye', 'vision', 'spectacles', 'cataract']],
+  [/\bent\b|otolar|throat/i,       ['ear pain', 'nose', 'throat', 'sinus', 'tonsils']],
+  [/gyn|obstet|women|maternity/i,   ['pregnancy', 'period problem', 'women health', 'infertility']],
+  [/neuro/i,                        ['migraine', 'headache', 'seizure', 'nerve pain', 'paralysis']],
+  [/psych|mental/i,                 ['stress', 'anxiety', 'depression', 'sleep problem']],
+  [/nephro|urolog|kidney|renal/i,   ['kidney stone', 'urine problem', 'dialysis']],
+  [/gastro|stomach|liver|hepat/i,   ['stomach pain', 'acidity', 'gas', 'piles', 'liver']],
+  [/pulmon|lung|chest|respir/i,     ['asthma', 'breathing problem', 'cough', 'tb']],
+  [/physio|rehab/i,                 ['physiotherapy', 'rehab', 'back pain', 'joint pain']],
+  [/general|physician|family|medicine/i, ['fever', 'cold', 'cough', 'general checkup', 'body pain', 'bp', 'sugar']],
+];
+
+/** The terms that fit this specialization, most specific group first. */
+export function keywordsForSpecialization(specialization = ''): string[] {
+  return BY_SPECIALTY.filter(([re]) => re.test(specialization)).flatMap(([, terms]) => terms);
+}
+
+// The last segment is "done" when nothing completes it: a saved list like
+// "bones, knee pain" (no trailing comma) or a word of the hospital's own. Then
+// the chips offer new terms and a tap adds after it instead of replacing it.
+const lastIsDone = (value: string): boolean => {
+  const current = value.split(',').pop() ?? '';
+  return Boolean(current.trim()) && suggestKeywords(current).length === 0;
+};
+
 /**
  * Same idea for a comma-separated field: completes only the segment the caret
- * is in, ignoring terms already present in the field.
+ * is in, ignoring terms already present in the field. Terms that fit the
+ * doctor's specialization lead.
  *
- * `suggestForCommaList('heart, ch')` → suggestions for "ch" minus "heart".
+ * `suggestKeywordsForList('heart, ch')` → suggestions for "ch" minus "heart".
  */
-export function suggestKeywordsForList(value: string, limit = 6): string[] {
-  const parts   = value.split(',');
+export function suggestKeywordsForList(value: string, limit = 6, specialization = ''): string[] {
+  const parts   = (lastIsDone(value) ? `${value},` : value).split(',');
   const current = parts[parts.length - 1];
   const already = new Set(parts.slice(0, -1).map(norm).filter(Boolean));
-  return suggestKeywords(current, [], limit + already.size)
+  return suggestKeywords(current, keywordsForSpecialization(specialization), limit + already.size)
     .filter(t => !already.has(norm(t)))
     .slice(0, limit);
 }
 
-/** Replace the segment being typed with `term`, leaving a trailing ", ". */
+/** Replace the segment being typed with `term` (or add after a finished one), leaving a trailing ", ". */
 export function appendKeyword(value: string, term: string): string {
-  const parts = value.split(',');
+  const parts = (lastIsDone(value) ? `${value.trimEnd()},` : value).split(',');
   parts[parts.length - 1] = ` ${term}`;
   return `${parts.join(',').replace(/^\s+/, '')}, `;
 }
