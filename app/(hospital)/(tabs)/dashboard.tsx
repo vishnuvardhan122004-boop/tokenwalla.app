@@ -983,7 +983,7 @@ export default function HospitalDashboard() {
   };
 
   const specSuggestions    = suggestSpecializations(form.specialization);
-  const keywordSuggestions = suggestKeywordsForList(form.keywords, 8);
+  const keywordSuggestions = suggestKeywordsForList(form.keywords, 8, form.specialization);
 
   // ── Submit doctor form ────────────────────────────────────────────────────
   const submitForm = async () => {
