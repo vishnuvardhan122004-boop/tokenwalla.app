@@ -417,7 +417,7 @@ export default function MyBookings() {
                     {shared ? (
                       <View style={st.forOther}>
                         <Ionicons name="people-outline" size={12} color={Colors.blue700} />
-                        <Text style={st.forOtherText}>Booked for you by {booking.user_name || 'family'}</Text>
+                        <Text style={st.forOtherText}>{t('mb_booked_for_you_by', { payer: booking.user_name || 'family' })}</Text>
                       </View>
                     ) : booking.is_for_other ? (
                       <View style={st.forOther}>
