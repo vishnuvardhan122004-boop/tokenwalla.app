@@ -64,7 +64,7 @@ const BANNED: Record<string, string[]> = {
   ],
   // claim 14 — the two share sheets that hard-coded what the third translates
   'app/(patient)/booking-token.tsx': ['Save your appointment ticket'],
-  'app/(patient)/my-qr.tsx': ['Save your appointment ticket'],
+  'app/(patient)/my-qr.tsx': ['Save your appointment ticket', 'You have paid only for the service'],
 };
 
 describe('no hard-coded English on the screens fixed for claims 11-14', () => {

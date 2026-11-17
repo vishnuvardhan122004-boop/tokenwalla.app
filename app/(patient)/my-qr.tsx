@@ -32,6 +32,8 @@ interface Booking {
   hospital_name?: string;
   date?: string;
   slot?: string;
+  is_shared?: boolean;   // booked for this number by someone else (web ROADMAP 77)
+  user_name?: string;    // the payer
 }
 
 const STATUS_MAP: Record<string, { label: string; bg: string; text: string }> = {
@@ -208,7 +210,10 @@ export default function MyQRScreen() {
                   <View style={styles.feeNote}>
                     <Ionicons name="information-circle-outline" size={15} color={Colors.blue600} style={{ marginRight: 7, marginTop: 1 }} />
                     <Text style={styles.feeNoteText}>
-                      You have paid only for the service to Tokenwalla. The doctor&apos;s consultation fee is to be paid separately at the hospital.
+                      {/* A token someone else booked for this number (is_shared): they paid, not the viewer. */}
+                      {booking.is_shared
+                        ? t('qr_fee_note_shared', { payer: booking.user_name || 'The person who booked' })
+                        : t('qr_fee_note')}
                     </Text>
                   </View>
                 </View>
