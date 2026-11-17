@@ -82,7 +82,7 @@ export default function MyQRScreen() {
       // otherwise leave the Download button spinning and disabled here.
       setDownloading(false);
       try {
-        const { data } = await API.get('/bookings/my/');
+        const { data } = await API.get('/bookings/my/', { params: { shared: 1 } });
         const list: Booking[] = Array.isArray(data) ? data : (data?.results || []);
         // Only active bookings (waiting / in_progress) have a usable QR
         const active = list.filter(b => {

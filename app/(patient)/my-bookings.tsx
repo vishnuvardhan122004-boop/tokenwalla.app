@@ -171,7 +171,7 @@ export default function MyBookings() {
   const fetchBookings = useCallback(async (mode: 'load' | 'pull' | 'poll' = 'load') => {
     if (mode === 'load') setLoading(true); else if (mode === 'pull') setRefreshing(true);
     try {
-      const { data } = await API.get('/bookings/my/');
+      const { data } = await API.get('/bookings/my/', { params: { shared: 1 } });
       const list = Array.isArray(data) ? data : (data?.results || []);
       setBookings(list);
       setError(false);
@@ -386,7 +386,10 @@ export default function MyBookings() {
             // are left. A server that sends nothing (older) means allowed. The
             // free, hospital-caused reschedule is never capped.
             const paidLimitReached = !booking.free_reschedule && booking.paid_reschedules_left === 0;
-            const canReschedule = isWaiting && booking.provider_kind !== 'SCAN' && !paidLimitReached;
+            // A token someone else booked for this number (is_shared, opt-in
+            // via ?shared=1) is view-only: only the payer can move or cancel it.
+            const shared = !!booking.is_shared;
+            const canReschedule = isWaiting && booking.provider_kind !== 'SCAN' && !paidLimitReached && !shared;
 
             return (
               <View key={booking.id} style={st.card}>
@@ -411,7 +414,12 @@ export default function MyBookings() {
                       <Ionicons name="business-outline" size={13} color={Colors.gray500} />
                       <Text style={st.hospitalName} numberOfLines={1}>{localName(booking.hospital_name)}</Text>
                     </View>
-                    {booking.is_for_other ? (
+                    {shared ? (
+                      <View style={st.forOther}>
+                        <Ionicons name="people-outline" size={12} color={Colors.blue700} />
+                        <Text style={st.forOtherText}>Booked for you by {booking.user_name || 'family'}</Text>
+                      </View>
+                    ) : booking.is_for_other ? (
                       <View style={st.forOther}>
                         <Ionicons name="people-outline" size={12} color={Colors.blue700} />
                         <Text style={st.forOtherText}>For {booking.patient_name}</Text>
@@ -443,7 +451,7 @@ export default function MyBookings() {
                       <Text style={st.amount}>₹{booking.amount}</Text>
                       {/* A free booking (a pass visit at a SERVICE_ONLY provider)
                           has nothing to itemise. */}
-                      {Number(booking.amount) > 0 && (
+                      {Number(booking.amount) > 0 && !shared && (
                         <TouchableOpacity
                           style={st.receiptLink}
                           onPress={() => setReceiptBooking(booking)}
@@ -537,11 +545,14 @@ export default function MyBookings() {
 
                 {/* Doctor-unavailable banner: hospital marked the doctor off,
                     so this booking can be rescheduled for free. */}
-                {canReschedule && booking.free_reschedule && (
+                {(canReschedule || (shared && isWaiting)) && booking.free_reschedule && (
                   <View style={st.unavailBanner}>
                     <Ionicons name="alert-circle" size={15} color={Colors.warningText} style={{ marginRight: 7 }} />
                     <Text style={st.unavailBannerText}>
-                      {t('mb_free_reschedule', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}
+                      {t(shared ? 'mb_shared_free_reschedule' : 'mb_free_reschedule', {
+                        name: providerLabel(booking.doctor_name, booking.provider_kind),
+                        payer: booking.user_name || 'the person who booked',
+                      })}
                       {booking.leave_reason ? ` (${booking.leave_reason})` : ''}
                     </Text>
                   </View>
@@ -567,7 +578,7 @@ export default function MyBookings() {
                 )}
 
                 {/* Action row */}
-                {isWaiting && (
+                {isWaiting && !shared && (
                   <View style={st.actionRow}>
                     {canReschedule && (
                       <TouchableOpacity
