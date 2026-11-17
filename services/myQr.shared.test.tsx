@@ -73,3 +73,13 @@ test('your own token still says you paid', async () => {
   await mount({ is_shared: false });
   expect(text()).toContain('You have paid only for the service');
 });
+
+test('no "pay at the hospital" note when the full fee was paid online', async () => {
+  await mount({ offline_doctor_fee: '0.00' });
+  expect(text()).not.toContain('paid only for the service');
+});
+
+test('the note stays when a fee is due at the clinic', async () => {
+  await mount({ offline_doctor_fee: '200.00' });
+  expect(text()).toContain('You have paid only for the service');
+});
