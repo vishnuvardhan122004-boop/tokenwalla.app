@@ -75,7 +75,8 @@
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keepattributes Signature,InnerClasses,EnclosingMethod,RuntimeVisibleAnnotations,RuntimeVisibleParameterAnnotations,AnnotationDefault\n-keep class kotlin.Metadata { *; }\n-keep class kotlin.reflect.jvm.internal.** { *; }\n-keep class expo.modules.** { *; }\n"
           }
         }
       ],
