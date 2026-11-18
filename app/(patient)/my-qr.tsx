@@ -35,6 +35,7 @@ interface Booking {
   is_shared?: boolean;   // booked for this number by someone else (web ROADMAP 77)
   user_name?: string;    // the payer
   offline_doctor_fee?: string | null;  // due at the clinic; "0.00" = paid in full online
+  instructions?: string; // the doctor's "Before you come" note (web ROADMAP 78)
 }
 
 const STATUS_MAP: Record<string, { label: string; bg: string; text: string }> = {
@@ -251,6 +252,13 @@ export default function MyQRScreen() {
                   ))}
                 </View>
 
+                {booking.instructions ? (
+                  <View style={styles.note}>
+                    <Text style={styles.noteTitle}>{t('sc_before_you_come')}</Text>
+                    <Text style={styles.noteBody}>{String(booking.instructions)}</Text>
+                  </View>
+                ) : null}
+
                 {/* Footer note */}
                 <View style={styles.qrFooter}>
                   <Ionicons name="lock-closed" size={12} color={Colors.gray400} style={{ marginRight: 5 }} />
@@ -340,6 +348,10 @@ const styles = StyleSheet.create({
   qrDivider: { height: 1, borderStyle: 'dashed', borderWidth: 1, borderColor: Colors.blue100, marginHorizontal: 20 },
 
   qrDetails:  { padding: 20 },
+  note:      { marginHorizontal: 20, marginBottom: 14, padding: 10, borderRadius: 10, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A' },
+  noteTitle: { fontSize: 12.5, fontWeight: '800', color: '#92400E' },
+  noteBody:  { fontSize: 13, color: '#78350F', marginTop: 3, lineHeight: 18 },
+
   detailRow:  { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.gray100 },
   detailIcon: { width: 26 },
   detailLabel: { fontSize: 12, color: Colors.gray500, width: 64 },

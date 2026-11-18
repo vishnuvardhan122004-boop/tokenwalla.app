@@ -463,6 +463,13 @@ export default function MyBookings() {
                         </TouchableOpacity>
                       )}
                     </View>
+                    {/* The doctor's "Before you come" note (web ROADMAP 78), upcoming tokens only. */}
+                    {isActive && booking.instructions ? (
+                      <View style={st.note}>
+                        <Text style={st.noteTitle}>{t('sc_before_you_come')}</Text>
+                        <Text style={st.noteBody}>{String(booking.instructions)}</Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
 
@@ -685,6 +692,13 @@ export default function MyBookings() {
             ))}
           </View>
 
+          {ticketBooking.instructions ? (
+            <View style={[st.note, { marginHorizontal: 20 }]}>
+              <Text style={st.noteTitle}>{t('sc_before_you_come')}</Text>
+              <Text style={st.noteBody}>{String(ticketBooking.instructions)}</Text>
+            </View>
+          ) : null}
+
           <Text style={st.ticketFooter}>{t('mb_show_at_reception')}</Text>
         </View>
       )}
@@ -744,6 +758,9 @@ const st = StyleSheet.create({
   doctorName:   { fontSize: 15, fontWeight: '800', color: Colors.gray900, marginBottom: 3 },
   iconTextRow:  { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
   hospitalName: { fontSize: 12, color: Colors.gray500, flexShrink: 1 },
+  note:      { marginTop: 10, padding: 10, borderRadius: 10, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A' },
+  noteTitle: { fontSize: 12.5, fontWeight: '800', color: '#92400E' },
+  noteBody:  { fontSize: 13, color: '#78350F', marginTop: 3, lineHeight: 18 },
   forOther:     { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: Colors.blue50, borderWidth: 1, borderColor: Colors.blue200, borderRadius: 100, paddingHorizontal: 10, paddingVertical: 3, marginBottom: 4 },
   forOtherText: { fontSize: 12, fontWeight: '700', color: Colors.blue700 },
   callHospital: { fontSize: 12, fontWeight: '700', color: Colors.blue600, flexShrink: 1 },
