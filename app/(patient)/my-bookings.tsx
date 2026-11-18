@@ -474,7 +474,8 @@ export default function MyBookings() {
                 </View>
 
                 {/* Queue panel */}
-                {isActive && booking.queue_access && (
+                {/* The booking's own day only (web ROADMAP 79): a future token first in its slot must not say "you're next". */}
+                {isActive && booking.queue_access && booking.date === todayISO && (
                   <View style={st.queuePanel}>
                     <View style={st.queueCircle}>
                       {cs === 'in_progress' ? (
@@ -603,6 +604,15 @@ export default function MyBookings() {
                       </TouchableOpacity>
                     )}
 
+                    {/* A shop paid for it, so only the shop can cancel (web ROADMAP 79). */}
+                    {booking.booked_by_shop_name ? (
+                      <View style={st.cancelBtn}>
+                        <Ionicons name="storefront-outline" size={18} color={Colors.errorText} />
+                        <Text style={[st.cancelBtnFee, { flexShrink: 1 }]}>
+                          {t('mb_ask_shop_to_cancel', { shop: booking.booked_by_shop_name })}
+                        </Text>
+                      </View>
+                    ) : (
                     <TouchableOpacity
                       style={[st.cancelBtn, cancelling === booking.id && { opacity: 0.5 }]}
                       onPress={() => handleCancel(booking)}
@@ -621,6 +631,7 @@ export default function MyBookings() {
                         </>
                       )}
                     </TouchableOpacity>
+                    )}
                   </View>
                 )}
               </View>
