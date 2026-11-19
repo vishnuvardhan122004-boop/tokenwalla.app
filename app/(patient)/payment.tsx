@@ -418,6 +418,10 @@ export default function PaymentScreen() {
         // A priority seat: the server prices it from the doctor and re-checks
         // the seat; this flag only asks.
         ...(prioritySelected ? { priority: true } : {}),
+        // Saved on the order, so if the app never reaches /verify/ (closed
+        // mid-UPI) the server's Razorpay webhook still books it for the right
+        // person and the WhatsApp names them (web ROADMAP 76f).
+        ...(bookedForName ? { bookedForName, bookedForMobile } : {}),
         notes:    { providerId, providerName, hospital, date, slot },
       });
 
