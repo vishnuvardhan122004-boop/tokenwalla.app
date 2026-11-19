@@ -5,6 +5,7 @@
  * tested without a WebView or React tree. Used by `app/(patient)/payment.tsx`
  * and `components/RescheduleModal.tsx`.
  */
+import { Linking } from 'react-native';
 
 /**
  * The message the payment WebView posts back to React Native via
@@ -76,4 +77,33 @@ export function checkoutPayable(opts: {
   if (redeemNeedsPay) return doctorFeeOnline + priorityExtra;
   if (passSelected)   return doctorFeeOnline + passPrice + priorityExtra;
   return total === null ? null : total + priorityExtra;
+}
+
+/**
+ * A link the payment WebView must hand to the phone instead of loading itself,
+ * or null for a normal web page. With `webview_intent: true` Razorpay's PhonePe /
+ * GPay / Paytm buttons navigate to `upi://…`, an app scheme, or Android's
+ * `intent://…#Intent;scheme=upi;…;end` wrapper; a WebView can load none of them.
+ * The wrapper is unwrapped to `upi://…`, which React Native's Linking can open.
+ */
+export function externalPaymentUrl(url: string): string | null {
+  if (/^(https?|about|data|blob|javascript):/i.test(url)) return null;
+  const intent = /^intent:\/\/([^#]*)#Intent;(.*)$/i.exec(url);
+  if (intent) {
+    const scheme = /(?:^|;)scheme=([^;]+)/i.exec(intent[2])?.[1];
+    return scheme ? `${scheme}://${intent[1]}` : null;
+  }
+  return url;
+}
+
+/**
+ * The payment WebView's `onShouldStartLoadWithRequest`: opens a UPI app link
+ * in that app (and calls `onNoApp` if none is installed), loads everything else.
+ * Needed because the WebView's `originWhitelist={['*']}` keeps every link inside.
+ */
+export function handlePaymentLink(url: string, onNoApp: () => void): boolean {
+  const ext = externalPaymentUrl(url);
+  if (!ext) return true;
+  Linking.openURL(ext).catch(onNoApp);
+  return false;
 }

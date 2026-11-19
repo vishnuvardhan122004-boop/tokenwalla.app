@@ -39,7 +39,7 @@ import API from '../services/api';
 import { useI18n } from '../services/i18n';
 import { isSlotTooSoon, providerLabel } from '../utils/booking';
 import { money } from '../utils/fees';
-import { parsePaymentMessage } from '../utils/payment';
+import { handlePaymentLink, parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -425,6 +425,9 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
           contact: ${jsStr('91' + userMobile)},
         },
         theme: { color: '#185FA5' },
+        // Shows the PhonePe / GPay / Paytm buttons inside this WebView; the
+        // links they open are handed to the phone by handlePaymentLink.
+        webview_intent: true,
         handler: function(response) {
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type:      'SUCCESS',
@@ -756,6 +759,8 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
             domStorageEnabled
             startInLoadingState
             originWhitelist={['*']}
+            onShouldStartLoadWithRequest={(req) => handlePaymentLink(req.url,
+              () => Alert.alert(t('pay_upi_app_missing'), t('pay_upi_app_missing_msg')))}
             mixedContentMode="always"
             renderLoading={() => (
               <View style={st.centreLoader}>
