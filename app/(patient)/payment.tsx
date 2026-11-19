@@ -21,7 +21,7 @@ import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
-import { checkoutPayable, handlePaymentLink, parsePaymentMessage } from '../../utils/payment';
+import { afterPayFailure, checkoutPayable, handlePaymentLink, parsePaymentMessage } from '../../utils/payment';
 import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
 import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
@@ -442,6 +442,20 @@ export default function PaymentScreen() {
     }
   };
 
+  // The card is already charged when verify fails, so this must never read like
+  // a failed payment (the patient would pay again). The webhook may have made
+  // the token already, so point them at My Bookings.
+  const tellAfterPayFailure = (data: any, paymentId?: string) => {
+    if (afterPayFailure(data) === 'server') {
+      Alert.alert(t('error'), data.message);
+      return;
+    }
+    Alert.alert(t('pay_received_title'), t('pay_received_msg') + (paymentId || ''), [
+      { text: t('my_bookings'), onPress: () => router.replace('/(patient)/my-bookings') },
+      { text: 'OK', style: 'cancel' },
+    ]);
+  };
+
   // ── Step 2: Handle messages back from the WebView ─────────────────────
   const handleMessage = async (event: any) => {
     const msg = parsePaymentMessage(event?.nativeEvent?.data);
@@ -516,11 +530,11 @@ export default function PaymentScreen() {
             },
           });
         } else {
-          Alert.alert(t('pay_verify_failed'), t('pay_verify_failed_msg') + msg.paymentId);
+          tellAfterPayFailure(verifyData, msg.paymentId);
         }
       } catch (e: any) {
-        const errMsg = e?.response?.data?.message || e?.message || t('pay_verify_error');
-        Alert.alert(t('error'), errMsg + '\n\nPayment ID: ' + msg.paymentId);
+        // A slot-full refund is a 409 with the server's plain reply in the body.
+        tellAfterPayFailure(e?.response?.data, msg.paymentId);
       } finally {
         setLoading(false);
       }

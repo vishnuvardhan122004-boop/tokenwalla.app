@@ -107,3 +107,15 @@ export function handlePaymentLink(url: string, onNoApp: () => void): boolean {
   Linking.openURL(ext).catch(onNoApp);
   return false;
 }
+
+/**
+ * What to tell a patient whose verify failed AFTER the card was charged.
+ *  - 'server':   the server already put the money back and said so in plain
+ *                words (`refunded` is true or false) — show its message.
+ *  - 'received': anything else (a dropped connection, a 5xx, a mismatch). The
+ *                webhook may already have made the token, so say the payment
+ *                arrived and not to pay again; never "verification failed".
+ */
+export function afterPayFailure(data: any): 'server' | 'received' {
+  return data && data.refunded !== undefined && data.message ? 'server' : 'received';
+}
