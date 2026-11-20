@@ -56,6 +56,7 @@ import type { PosterTarget } from '../../../utils/poster';
 import { suggestionsFor } from '../../../constants/testSuggestions';
 import { notifyHospitalNewBooking, registerPushToken } from '../../../services/notifications';
 import BookingNoticePicker from '../../../components/BookingNoticePicker';
+import WalkInForm from '../../../components/WalkInForm';
 import BookingWindowPicker from '../../../components/BookingWindowPicker';
 import { providerLabel, toLocalISODate } from '../../../utils/booking';
 import { formatDelay } from '../../../utils/formatDelay';
@@ -388,6 +389,8 @@ export default function HospitalDashboard() {
   const deskStaff = useDeskStaff(hospital?.id, focusTick);
   const [queue,      setQueue]      = useState<QueueState>({ waiting: [], onHold: [], inProgress: [], completed: [] });
   const [doctors,    setDoctors]    = useState<Doctor[]>([]);
+  // Add walk-in shows only while the server's WALK_IN_ENABLED is on (web ROADMAP 50).
+  const [walkInEnabled, setWalkInEnabled] = useState(false);
   const [scans,      setScans]      = useState<Scan[]>([]);
   // The QR poster being shown (ROADMAP item 58): one doctor's, or this centre's.
   const [poster,     setPoster]     = useState<PosterTarget | null>(null);
@@ -452,6 +455,7 @@ export default function HospitalDashboard() {
       const completed  = Array.isArray(data.completed)  ? data.completed  : [];
       setQueue({ waiting, onHold, inProgress, completed });
       setMainDeskName(typeof data.main_desk_name === 'string' ? data.main_desk_name : '');
+      setWalkInEnabled(data.walk_in_enabled === true);
 
       // ── Notify hospital of newly-booked (waiting) patients ──
       // `onHold` belongs in this baseline and was missing. The set means "every
@@ -1759,6 +1763,8 @@ export default function HospitalDashboard() {
         ══════════════════════════════════════════════════════════════════ */}
         {activeTab === 'queue' && (
           <View style={{ padding: 16 }}>
+            {sellsConsults && walkInEnabled && <WalkInForm doctors={doctors} onAdded={loadQueue} />}
+
             {/* ── DAY FILTER: Today / Tomorrow / All ── */}
             <View style={styles.dayFilterRow}>
               {([
