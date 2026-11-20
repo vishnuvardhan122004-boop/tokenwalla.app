@@ -79,6 +79,12 @@ export default function PaymentScreen() {
   const [forOther,    setForOther]    = useState(false);
   const [otherName,   setOtherName]   = useState('');
   const [otherMobile, setOtherMobile] = useState('');
+  // Influencer promo code. The server decides whether a code works and what it
+  // saves (/influencers/check-code/); this screen only shows and sends it.
+  const [promoInput,   setPromoInput]   = useState('');
+  const [promoApplied, setPromoApplied] = useState<{ code: string; saving: string } | null>(null);
+  const [promoMsg,     setPromoMsg]     = useState('');
+  const [promoBusy,    setPromoBusy]    = useState(false);
   const bookedForName   = forOther ? otherName.trim()   : '';
   const bookedForMobile = forOther ? otherMobile.trim() : '';
   // FIX 1: Store the full HTML string after order is confirmed
@@ -180,13 +186,41 @@ export default function PaymentScreen() {
   const priorityOn = prioritySelected ? priorityExtra : 0;
   // What is actually charged now — see utils/payment.checkoutPayable, which
   // holds the table so it can be unit tested without a React tree.
+  // A code is for a plain booking only: not a scan, not with a pass bought or spent.
+  const promoOffered = !isScan && !redeemIsFree && !redeemNeedsPay && !passSelected;
+  const promoOn      = promoOffered ? promoApplied : null;
+  const promoSaving  = promoOn ? Number(promoOn.saving) : 0;
   const payable = checkoutPayable({
-    redeemIsFree, redeemNeedsPay, passSelected,
+    redeemIsFree, redeemNeedsPay, passSelected, promoSaving,
     doctorFeeOnline,
     passPrice: Number(passData?.price || 0),
     total,
     priorityExtra: priorityOn,
   });
+
+  // A different "booking for" mobile is a different first-booking check.
+  useEffect(() => { setPromoApplied(null); setPromoMsg(''); }, [bookedForMobile]);
+
+  const applyPromo = async () => {
+    const code = promoInput.trim();
+    if (!code || promoBusy) return;
+    setPromoBusy(true);
+    setPromoMsg('');
+    try {
+      const { data } = await API.post('/influencers/check-code/', {
+        code, ...(bookedForMobile ? { bookedForMobile } : {}),
+      });
+      setPromoApplied({ code: data.code, saving: data.saving });
+      setPromoMsg(data.message || '');
+    } catch (err: any) {
+      setPromoApplied(null);
+      setPromoMsg(err?.response?.data?.message || t('pay_promo_fail'));
+    } finally {
+      setPromoBusy(false);
+    }
+  };
+
+  const removePromo = () => { setPromoApplied(null); setPromoMsg(''); setPromoInput(''); };
 
   // Spending a credit: no order, no WebView, no Razorpay. The server re-checks
   // the pass, the doctor and the slot — this only asks.
@@ -418,6 +452,8 @@ export default function PaymentScreen() {
         // A priority seat: the server prices it from the doctor and re-checks
         // the seat; this flag only asks.
         ...(prioritySelected ? { priority: true } : {}),
+        // The server re-judges the code and prices the order; this only names it.
+        ...(promoOn ? { promoCode: promoOn.code } : {}),
         // Saved on the order, so if the app never reaches /verify/ (closed
         // mid-UPI) the server's Razorpay webhook still books it for the right
         // person and the WhatsApp names them (web ROADMAP 76f).
@@ -753,6 +789,12 @@ export default function PaymentScreen() {
                   <Text style={styles.feeValue}>₹{money(priorityExtra)}</Text>
                 </View>
               )}
+              {promoOn && (
+                <View style={styles.feeRow}>
+                  <Text style={styles.feeLabel}>{t('pay_promo_row', { code: promoOn.code })}</Text>
+                  <Text style={styles.feeValue}>−₹{money(promoSaving)}</Text>
+                </View>
+              )}
             </View>
           )}
           <View style={styles.totalRow}>
@@ -896,6 +938,41 @@ export default function PaymentScreen() {
           )}
         </View>
 
+        {promoOffered && (
+          <View style={[styles.otherCard, { padding: 16 }]}>
+            <Text style={[styles.otherLabel, { marginTop: 0 }]}>{t('pay_promo_title')}</Text>
+            {promoOn ? (
+              <View style={styles.promoRow}>
+                <Text style={styles.promoOk}>{promoMsg}</Text>
+                <TouchableOpacity style={styles.promoBtn} onPress={removePromo}>
+                  <Text style={styles.promoBtnText}>{t('pay_promo_remove')}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.promoRow}>
+                <TextInput
+                  style={[styles.otherInput, { flex: 1 }]}
+                  placeholder={t('pay_promo_ph')}
+                  placeholderTextColor={Colors.gray400}
+                  value={promoInput}
+                  onChangeText={(v) => setPromoInput(v.toUpperCase())}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={20}
+                />
+                <TouchableOpacity
+                  style={[styles.promoBtn, (promoBusy || !promoInput.trim()) && { opacity: 0.5 }]}
+                  onPress={applyPromo}
+                  disabled={promoBusy || !promoInput.trim()}
+                >
+                  <Text style={styles.promoBtnText}>{promoBusy ? t('pay_promo_checking') : t('pay_promo_apply')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {!promoOn && !!promoMsg && <Text style={styles.otherNote}>{promoMsg}</Text>}
+          </View>
+        )}
+
         <View style={styles.secureBadge}>
           <Ionicons name="shield-checkmark" size={26} color={Colors.blue600} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
@@ -991,6 +1068,10 @@ const styles = StyleSheet.create({
   otherDesc:      { fontSize: 12, color: Colors.gray500 },
   otherFields:    { paddingHorizontal: 16, paddingBottom: 18, paddingTop: 4, borderTopWidth: 1, borderTopColor: Colors.blue50 },
   otherLabel:     { fontSize: 12, fontWeight: '600', color: Colors.gray700, marginBottom: 6, marginTop: 10 },
+  promoRow:       { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  promoOk:        { flex: 1, fontSize: 14, color: Colors.blue600 },
+  promoBtn:       { borderWidth: 1, borderColor: Colors.blue600, borderRadius: 11, paddingHorizontal: 16, paddingVertical: 12 },
+  promoBtnText:   { fontSize: 14, fontWeight: '700', color: Colors.blue600 },
   otherInput:     { backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 11, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: Colors.gray900 },
   otherNote:      { fontSize: 11.5, color: Colors.gray500, lineHeight: 17, marginTop: 12 },
 

@@ -81,6 +81,10 @@ describe('checkoutPayable — a priority seat on top', () => {
       ...base, redeemNeedsPay: true, doctorFeeOnline: 200, priorityExtra: 59,
     })).toBe(259);
   });
+  it('takes a promo saving off a plain booking only', () => {
+    expect(checkoutPayable({ ...base, promoSaving: 5 })).toBe(21);
+    expect(checkoutPayable({ ...base, promoSaving: 5, priorityExtra: 59 })).toBe(80);
+  });
   it('never turns a free redemption into a charge, or a loading bill into a number', () => {
     expect(checkoutPayable({ ...base, redeemIsFree: true, priorityExtra: 59 })).toBe(0);
     expect(checkoutPayable({ ...base, total: null, priorityExtra: 59 })).toBeNull();

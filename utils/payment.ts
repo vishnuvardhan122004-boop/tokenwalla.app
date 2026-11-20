@@ -70,13 +70,16 @@ export function checkoutPayable(opts: {
   // A priority seat, GST included (0 = none). Rides on top of every paid
   // case; a free redemption never offers one (there is no checkout to carry it).
   priorityExtra?: number;
+  // An influencer promo code's saving (0 = none). The server says how much;
+  // it only ever applies to a plain booking, so it comes off `total` alone.
+  promoSaving?: number;
 }): number | null {
   const { redeemIsFree, redeemNeedsPay, passSelected,
-          doctorFeeOnline, passPrice, total, priorityExtra = 0 } = opts;
+          doctorFeeOnline, passPrice, total, priorityExtra = 0, promoSaving = 0 } = opts;
   if (redeemIsFree)   return 0;
   if (redeemNeedsPay) return doctorFeeOnline + priorityExtra;
   if (passSelected)   return doctorFeeOnline + passPrice + priorityExtra;
-  return total === null ? null : total + priorityExtra;
+  return total === null ? null : total + priorityExtra - promoSaving;
 }
 
 /**
