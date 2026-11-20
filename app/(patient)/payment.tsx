@@ -22,7 +22,7 @@ import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
 import { afterPayFailure, checkoutPayable, handlePaymentLink, parsePaymentMessage } from '../../utils/payment';
-import { computeFeeBreakdown, money, type FeeBreakdown } from '../../utils/fees';
+import { computeFeeBreakdown, money, SERVICE_FEE_WAS, type FeeBreakdown } from '../../utils/fees';
 import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
 import { safeBack } from '../../utils/navigation';
@@ -768,15 +768,29 @@ export default function PaymentScreen() {
                 </View>
               ) : (
                 [
+                  // The single-booking offer: ₹35 struck out, the real service fee beside it.
+                  // Not shown for a shop booking (its own, lower price).
+                  ...(Number((breakdown as any).shop_discount) > 0 ? [] : [{
+                    label: t('pay_offer_price'),
+                    was: SERVICE_FEE_WAS,
+                    value: Number(breakdown.platform_fee) + Number(breakdown.gateway_fee) + Number(breakdown.gst_amount),
+                  }]),
                   { label: t('price_platform'), value: breakdown.platform_fee },
                   { label: t('price_gateway'),  value: breakdown.gateway_fee  },
                   { label: t('price_gst'),      value: breakdown.gst_amount   },
-                ].map(({ label, value }) => (
+                ].map(({ label, value, was }: { label: string; value: number | string; was?: number }) => {
+                  // With the offer row on top, the three lines under it are its parts.
+                  const part = !was && Number((breakdown as any).shop_discount) <= 0 && label !== t('pay_offer_price');
+                  return (
                   <View key={label} style={styles.feeRow}>
-                    <Text style={styles.feeLabel}>{label}</Text>
-                    <Text style={styles.feeValue}>₹{money(value)}</Text>
+                    <Text style={[styles.feeLabel, part && styles.feePart]}>{label}</Text>
+                    <Text style={part ? [styles.feeValue, styles.feePart] : styles.feeValue}>
+                      {was ? <Text style={styles.wasPrice}>₹{money(was)} </Text> : null}
+                      ₹{money(value)}
+                    </Text>
                   </View>
-                ))
+                  );
+                })
               )}
               {prioritySelected && (
                 <View style={styles.feeRow}>
@@ -1039,6 +1053,7 @@ const styles = StyleSheet.create({
   feeLabel:    { fontSize: 13, color: Colors.gray500 },
   feeValue:    { fontSize: 13, fontWeight: '600', color: Colors.gray900 },
   feeValueMuted: { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
+  feePart: { color: Colors.gray500, fontWeight: '400', fontSize: 12.5 },
   wasPrice: { fontSize: 12, fontWeight: '500', color: Colors.gray500, textDecorationLine: 'line-through' },
   clinicTag:     { backgroundColor: Colors.blue50, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   clinicTagText: { fontSize: 10, fontWeight: '700', color: Colors.blue700, textTransform: 'uppercase', letterSpacing: 0.3 },

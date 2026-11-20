@@ -12,6 +12,8 @@
 
 export const PLATFORM_FEE = 20.53;
 export const GATEWAY_FEE  = 1.5;
+// The "was" price shown struck out beside the single-booking service fee. Display only: the amount charged is always the server's.
+export const SERVICE_FEE_WAS = 35;
 export const GST_RATE     = 0.18;
 
 const round2 = (n: number): number =>
