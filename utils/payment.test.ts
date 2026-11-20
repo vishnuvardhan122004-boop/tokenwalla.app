@@ -70,16 +70,20 @@ describe('parsePaymentMessage', () => {
 describe('checkoutPayable — a priority seat on top', () => {
   const base = {
     redeemIsFree: false, redeemNeedsPay: false, passSelected: false,
-    doctorFeeOnline: 0, passPrice: 35, total: 25.37,
+    doctorFeeOnline: 0, passPrice: 40, total: 26,
   };
   it('adds the GST-inclusive priority price to an ordinary bill', () => {
-    expect(checkoutPayable({ ...base, priorityExtra: 59 })).toBeCloseTo(84.37, 2);
+    expect(checkoutPayable({ ...base, priorityExtra: 59 })).toBeCloseTo(85, 2);
   });
   it('rides on a pass purchase and on a paid FULL redemption', () => {
-    expect(checkoutPayable({ ...base, passSelected: true, priorityExtra: 59 })).toBe(94);
+    expect(checkoutPayable({ ...base, passSelected: true, priorityExtra: 59 })).toBe(99);
     expect(checkoutPayable({
       ...base, redeemNeedsPay: true, doctorFeeOnline: 200, priorityExtra: 59,
     })).toBe(259);
+  });
+  it('takes a promo saving off a plain booking only', () => {
+    expect(checkoutPayable({ ...base, promoSaving: 5 })).toBe(21);
+    expect(checkoutPayable({ ...base, promoSaving: 5, priorityExtra: 59 })).toBe(80);
   });
   it('never turns a free redemption into a charge, or a loading bill into a number', () => {
     expect(checkoutPayable({ ...base, redeemIsFree: true, priorityExtra: 59 })).toBe(0);
@@ -90,7 +94,7 @@ describe('checkoutPayable — a priority seat on top', () => {
 describe('checkoutPayable — what the patient is charged', () => {
   const base = {
     redeemIsFree: false, redeemNeedsPay: false, passSelected: false,
-    doctorFeeOnline: 0, passPrice: 35, total: 25.37,
+    doctorFeeOnline: 0, passPrice: 40, total: 26,
   };
 
   it('a SERVICE_ONLY redemption is free', () => {
@@ -100,24 +104,24 @@ describe('checkoutPayable — what the patient is charged', () => {
   it('a FULL redemption charges the consultation fee alone', () => {
     // The pass waived the service fee; the ₹200 consultation fee still stands.
     expect(checkoutPayable({
-      ...base, redeemNeedsPay: true, doctorFeeOnline: 200, total: 225.37,
+      ...base, redeemNeedsPay: true, doctorFeeOnline: 200, total: 226,
     })).toBe(200);
   });
 
   it('buying a pass at a SERVICE_ONLY doctor costs the pass price', () => {
-    expect(checkoutPayable({ ...base, passSelected: true })).toBe(35);
+    expect(checkoutPayable({ ...base, passSelected: true })).toBe(40);
   });
 
   it('buying a pass at a FULL doctor costs the pass price PLUS the fee', () => {
-    // The regression this helper exists for: 35 alone would have been shown,
-    // then Razorpay would have asked for 235.
+    // The regression this helper exists for: 40 alone would have been shown,
+    // then Razorpay would have asked for 240.
     expect(checkoutPayable({
-      ...base, passSelected: true, doctorFeeOnline: 200, total: 225.37,
-    })).toBe(235);
+      ...base, passSelected: true, doctorFeeOnline: 200, total: 226,
+    })).toBe(240);
   });
 
   it('no pass in play just uses the server total', () => {
-    expect(checkoutPayable(base)).toBe(25.37);
+    expect(checkoutPayable(base)).toBe(26);
     expect(checkoutPayable({ ...base, total: null })).toBeNull();
   });
 });
