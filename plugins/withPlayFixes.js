@@ -20,6 +20,13 @@
 //    extraProguardRules in app.json) and must pass a device check with photos
 //    on screen before it ships.
 //
+// 3. "Required hardware feature declarations are restricting your app's
+//    availability: android.hardware.screen.portrait" (Play Console, 1.13.0).
+//    Not our activity: the Google code scanner that expo-camera pulls in
+//    (GmsBarcodeScanningDelegateActivity) is locked to portrait, and Play turns
+//    any portrait-locked activity in the merged manifest into a REQUIRED
+//    portrait screen. Declaring the feature with required="false" overrides it.
+//
 // Not covered here: optimised resource shrinking needs AGP >= 8.12
 // (react-native 0.81 pins 8.11), and AGP 9 needs a newer Expo SDK.
 const { withAndroidManifest, withAppBuildGradle } = require('expo/config-plugins');
@@ -33,6 +40,19 @@ function stripScreenOrientation(manifest) {
       delete activity.$?.['android:screenOrientation'];
     }
   }
+  return manifest;
+}
+
+const PORTRAIT_FEATURE = 'android.hardware.screen.portrait';
+
+/** Declares the portrait screen as optional so Play stops treating it as required.
+ *  Idempotent; leaves any other uses-feature alone. */
+function makePortraitOptional(manifest) {
+  const m = manifest.manifest;
+  const features = (m['uses-feature'] = m['uses-feature'] ?? []);
+  const existing = features.find((f) => f.$?.['android:name'] === PORTRAIT_FEATURE);
+  if (existing) existing.$['android:required'] = 'false';
+  else features.push({ $: { 'android:name': PORTRAIT_FEATURE, 'android:required': 'false' } });
   return manifest;
 }
 
@@ -51,7 +71,7 @@ function useOptimizedProguardFile(contents) {
 
 module.exports = function withPlayFixes(config) {
   config = withAndroidManifest(config, (c) => {
-    c.modResults = stripScreenOrientation(c.modResults);
+    c.modResults = makePortraitOptional(stripScreenOrientation(c.modResults));
     return c;
   });
   return withAppBuildGradle(config, (c) => {
@@ -61,4 +81,5 @@ module.exports = function withPlayFixes(config) {
 };
 
 module.exports.stripScreenOrientation = stripScreenOrientation;
+module.exports.makePortraitOptional = makePortraitOptional;
 module.exports.useOptimizedProguardFile = useOptimizedProguardFile;
