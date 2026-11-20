@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- a CommonJS config plugin
-const { stripScreenOrientation, useOptimizedProguardFile } = require('./withPlayFixes');
+const { stripScreenOrientation, makePortraitOptional, useOptimizedProguardFile } = require('./withPlayFixes');
 
 describe('stripScreenOrientation', () => {
   it('removes the orientation lock and keeps the rest of the activity', () => {
@@ -22,6 +22,33 @@ describe('stripScreenOrientation', () => {
   it('survives a manifest with no application or activity entries', () => {
     expect(() => stripScreenOrientation({ manifest: {} })).not.toThrow();
     expect(() => stripScreenOrientation({ manifest: { application: [{}] } })).not.toThrow();
+  });
+});
+
+describe('makePortraitOptional', () => {
+  const FEATURE = 'android.hardware.screen.portrait';
+
+  it('adds the portrait screen as not required', () => {
+    const m = makePortraitOptional({ manifest: {} });
+    expect(m.manifest['uses-feature']).toEqual([{ $: { 'android:name': FEATURE, 'android:required': 'false' } }]);
+  });
+
+  it('keeps other features and flips an existing required one to false', () => {
+    const m = makePortraitOptional({
+      manifest: { 'uses-feature': [
+        { $: { 'android:name': 'android.hardware.camera', 'android:required': 'false' } },
+        { $: { 'android:name': FEATURE, 'android:required': 'true' } },
+      ] },
+    });
+    const f = m.manifest['uses-feature'];
+    expect(f).toHaveLength(2);
+    expect(f[0].$['android:name']).toBe('android.hardware.camera');
+    expect(f[1].$['android:required']).toBe('false');
+  });
+
+  it('is idempotent', () => {
+    const once = makePortraitOptional({ manifest: {} });
+    expect(makePortraitOptional(once).manifest['uses-feature']).toHaveLength(1);
   });
 });
 
