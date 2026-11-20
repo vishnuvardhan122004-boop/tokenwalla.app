@@ -701,7 +701,7 @@ export default function PaymentScreen() {
                 </View>
               )}
               {/* A pass replaces the three service-fee lines with one. The GST
-                  split of ₹35 is computed server-side and itemised on the
+                  split of the pass price is computed server-side and itemised on the
                   receipt — this screen never does money math. */}
               {canRedeem ? (
                 <View style={styles.feeRow}>
@@ -723,7 +723,12 @@ export default function PaymentScreen() {
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.feeValue}>₹{money(passData.price)}</Text>
+                  <Text style={styles.feeValue}>
+                    {Number(passData.original_price) > Number(passData.price) && (
+                      <Text style={styles.wasPrice}>₹{money(passData.original_price)} </Text>
+                    )}
+                    ₹{money(passData.price)}
+                  </Text>
                 </View>
               ) : (
                 [
@@ -957,6 +962,7 @@ const styles = StyleSheet.create({
   feeLabel:    { fontSize: 13, color: Colors.gray500 },
   feeValue:    { fontSize: 13, fontWeight: '600', color: Colors.gray900 },
   feeValueMuted: { fontSize: 13, fontWeight: '600', color: Colors.gray500 },
+  wasPrice: { fontSize: 12, fontWeight: '500', color: Colors.gray500, textDecorationLine: 'line-through' },
   clinicTag:     { backgroundColor: Colors.blue50, borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
   clinicTagText: { fontSize: 10, fontWeight: '700', color: Colors.blue700, textTransform: 'uppercase', letterSpacing: 0.3 },
   feeLoadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },

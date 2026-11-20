@@ -7,19 +7,19 @@ describe('computeFeeBreakdown', () => {
     const b = computeFeeBreakdown(200);
     expect(b.doctor_fee).toBe(0);
     expect(b.offline_doctor_fee).toBe(200);
-    expect(b.final_amount).toBe(25.37);   // 20 + 1.5 + 3.87 GST
+    expect(b.final_amount).toBe(26);   // 20.53 + 1.5 + 3.97 GST
   });
 
   it('treats a blank or unknown mode as SERVICE_ONLY', () => {
-    expect(computeFeeBreakdown(200, '').final_amount).toBe(25.37);
-    expect(computeFeeBreakdown(200, 'WHATEVER').final_amount).toBe(25.37);
+    expect(computeFeeBreakdown(200, '').final_amount).toBe(26);
+    expect(computeFeeBreakdown(200, 'WHATEVER').final_amount).toBe(26);
   });
 
   it('FULL adds the consultation fee to the online total', () => {
     const b = computeFeeBreakdown(200, 'FULL');
     expect(b.doctor_fee).toBe(200);
     expect(b.offline_doctor_fee).toBe(0);
-    expect(b.final_amount).toBe(225.37);
+    expect(b.final_amount).toBe(226);
   });
 
   it('reports a canonical collection_mode — checkout gates the pass on it', () => {
@@ -32,7 +32,7 @@ describe('computeFeeBreakdown', () => {
 
   it('money() keeps whole rupees clean and pads fractions to 2dp', () => {
     expect(money(200)).toBe('200');
-    expect(money('25.37')).toBe('25.37');
+    expect(money('26')).toBe('26');
     expect(money(25.4)).toBe('25.40');
   });
 });

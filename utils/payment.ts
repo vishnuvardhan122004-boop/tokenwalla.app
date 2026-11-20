@@ -50,11 +50,11 @@ export function parsePaymentMessage(raw: unknown): PaymentWebViewMessage | null 
  * What the patient is charged right now, given what the pass is doing.
  *
  * Extracted because this is the one line the FULL-doctor pass path got wrong:
- * a pass PURCHASE replaces the service fee with ₹35, it does not replace the
- * consultation fee, so at a FULL doctor the bill is ₹35 PLUS that fee. While
+ * a pass PURCHASE replaces the service fee with ₹40, it does not replace the
+ * consultation fee, so at a FULL doctor the bill is ₹40 PLUS that fee. While
  * the pass was only ever offered at SERVICE_ONLY doctors `doctorFeeOnline` was
  * always 0 and the missing term was invisible — the moment the pass became
- * universal it would have shown ₹35 and then opened Razorpay for ₹235.
+ * universal it would have shown ₹40 and then opened Razorpay for ₹240.
  *
  * `total` is the server's own `final_amount` for an ordinary booking, so the
  * no-pass case does no arithmetic at all. Returns null while the fee breakdown

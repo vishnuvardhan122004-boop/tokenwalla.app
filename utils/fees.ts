@@ -10,7 +10,7 @@
  * order amount. Keep the constants below in sync with payments/fees.py.
  */
 
-export const PLATFORM_FEE = 20.0;
+export const PLATFORM_FEE = 20.53;
 export const GATEWAY_FEE  = 1.5;
 export const GST_RATE     = 0.18;
 
