@@ -107,6 +107,23 @@ export function slotDateTime(dateStr: string, slot: string): Date | null {
   return new Date(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hours, Number(sm[2]), 0, 0);
 }
 
+/** How close to the slot "You're next! Head to the clinic" starts showing. */
+export const NEAR_SLOT_MINUTES = 30;
+
+/**
+ * True when the slot starts within NEAR_SLOT_MINUTES on `now`'s day, or has
+ * already started. Hours before it a patient first in their slot would rush in
+ * too early (web ROADMAP 83, src/services/nearSlot.js). A slot we can't read
+ * (a walk-in) keeps the old message: telling someone to go is safer than hiding it.
+ */
+export function nearSlot(slot?: string, date?: string, now: Date = new Date()): boolean {
+  const day   = toLocalISODate(now);
+  const start = slotDateTime(day, slot || '');
+  if (!start) return true;
+  if (date && date !== day) return false;
+  return start.getTime() - now.getTime() <= NEAR_SLOT_MINUTES * 60 * 1000;
+}
+
 /**
  * A slot is "too soon" (not bookable) unless it is at least `leadMs` in the
  * future. Also returns false for unparseable inputs (matches original behaviour:

@@ -112,9 +112,3 @@ async function runCheck(): Promise<void> {
     { text: 'Update', onPress: () => openStore(url) },
   ]);
 }
-
-/** Test seam — clears the nag cooldown so a fresh check prompts again. */
-export function _resetUpdatePromptForTests() {
-  lastNagAt = 0;
-  inFlight = false;
-}

@@ -25,7 +25,6 @@ export const BLOOD_CENTER = 'BLOOD_CENTER';
 
 /** Every kind whose bookable unit is a Scan rather than a Doctor. */
 export const CENTER_KINDS = [SCAN_CENTER, BLOOD_CENTER] as const;
-export type CenterKind = typeof CENTER_KINDS[number];
 
 /** Segment keys the API reports in `segments`. */
 export const SEG_CONSULT = 'CONSULT';
