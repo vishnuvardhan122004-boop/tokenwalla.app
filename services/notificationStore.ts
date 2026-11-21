@@ -118,12 +118,6 @@ export async function recordNotification(input: {
   if (next !== items) await persist(next); // no-op when the id was a duplicate
 }
 
-export async function getStoredNotifications(
-  audience?: NotificationAudience,
-): Promise<AppNotification[]> {
-  return selectForAudience(await load(), audience);
-}
-
 export async function markAsRead(id: string): Promise<void> {
   const items = await load();
   const next = markOneRead(items, id);

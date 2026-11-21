@@ -3,6 +3,7 @@ import {
   directionsUrl,
   getNext7Days,
   hmToMinutes,
+  nearSlot,
   isOpenNow,
   isSlotTooSoon,
   normalizeBookingStatus,
@@ -351,5 +352,38 @@ describe('providerLabel', () => {
 
   it('defaults to prefixing when kind is absent (older payloads)', () => {
     expect(providerLabel('Test Sharma')).toBe('Dr. Test Sharma');
+  });
+});
+
+// nearSlot: copied from the web repo's src/services/nearSlot.test.js (ROADMAP 83).
+describe('nearSlot', () => {
+  const at = (h: number, min = 0) => new Date(2026, 10, 20, h, min);   // 20 Nov 2026
+  const D = '2026-11-20';
+
+  test('hours before the slot is not near', () => {
+    expect(nearSlot('10:30 AM', D, at(8, 0))).toBe(false);
+    expect(nearSlot('10:30 AM', D, at(9, 59))).toBe(false);
+  });
+
+  test('inside the last 30 minutes, and after the slot started, is near', () => {
+    expect(nearSlot('10:30 AM', D, at(10, 0))).toBe(true);
+    expect(nearSlot('10:30 AM', D, at(10, 29))).toBe(true);
+    expect(nearSlot('10:30 AM', D, at(11, 15))).toBe(true);
+  });
+
+  test('12 PM and 12 AM read correctly, PM slots too', () => {
+    expect(nearSlot('12:00 PM', D, at(11, 40))).toBe(true);
+    expect(nearSlot('12:00 PM', D, at(9, 0))).toBe(false);
+    expect(nearSlot('04:00 PM', D, at(15, 0))).toBe(false);
+    expect(nearSlot('04:00 PM', D, at(15, 40))).toBe(true);
+  });
+
+  test('another day is never near', () => {
+    expect(nearSlot('10:30 AM', '2026-11-21', at(10, 30))).toBe(false);
+  });
+
+  test('a slot we cannot read keeps the old message', () => {
+    expect(nearSlot('Walk-in', D, at(8, 0))).toBe(true);
+    expect(nearSlot(undefined, D, at(8, 0))).toBe(true);
   });
 });

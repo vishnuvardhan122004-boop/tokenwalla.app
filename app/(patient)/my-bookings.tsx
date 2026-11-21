@@ -33,7 +33,7 @@ import { useI18n } from '../../services/i18n';
 import { useCurrentUser } from '../../hooks/useCurrentUser';
 import { usePolling } from '../../hooks/usePolling';
 import { syncAppointmentReminders } from '../../services/notifications';
-import { normalizeBookingStatus, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
+import { normalizeBookingStatus, nearSlot, providerLabel, slotDateTime, toLocalISODate } from '../../utils/booking';
 import { formatDelay } from '../../utils/formatDelay';
 import { shareCapturedView } from '../../utils/shareCapture';
 import { localName } from '../../utils/localize';
@@ -260,10 +260,10 @@ export default function MyBookings() {
     );
   };
 
-  const queueMsg = (pos: number | null | undefined) => {
+  const queueMsg = (pos: number | null | undefined, b: Booking) => {
     if (pos == null) return t('mb_queue_loading');
     if (pos === 0)   return t('mb_queue_your_turn');
-    if (pos === 1)   return t('mb_queue_next');
+    if (pos === 1)   return nearSlot(b.slot, b.date) ? t('mb_queue_next') : t('mb_queue_first', { slot: b.slot });
     return t('mb_queue_ahead', { count: pos - 1 });
   };
 
@@ -489,7 +489,7 @@ export default function MyBookings() {
                       <Text style={st.queueDesc}>
                         {cs === 'in_progress'
                           ? t('your_turn')
-                          : queueMsg(booking.queue_position)}
+                          : queueMsg(booking.queue_position, booking)}
                       </Text>
                       <Text style={st.queueNote}>{t('auto_refresh_15')}</Text>
                     </View>

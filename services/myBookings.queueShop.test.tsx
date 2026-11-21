@@ -81,10 +81,32 @@ test('a token for next week shows no queue position', async () => {
 test('a shop booking says ask the shop, with no Cancel button', async () => {
   await mount({ booked_by_shop_name: 'Sri Xerox' });
   expect(text()).toContain('Booked at Sri Xerox. Ask the shop to cancel it.');
+  expect(text()).not.toContain('Part refund');
+});
+
+test('a patient booking still has its Cancel button, which never promises a refund', async () => {
+  await mount({});
+  expect(text()).toContain('Part refund if 2h+ before');
   expect(text()).not.toContain('Refund in 5');
 });
 
-test('a patient booking still has its Cancel button', async () => {
-  await mount({});
-  expect(text()).toContain('Refund in 5');
+// ROADMAP 83 (web repo): "Head to the clinic" waits until the last 30 minutes.
+// The clock is pinned (only Date is faked), so this never depends on the time of day.
+describe('first in line on the day', () => {
+  beforeEach(() => jest.useFakeTimers({
+    now: new Date(2026, 10, 20, 8, 0),
+    doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'queueMicrotask'],
+  }));
+  afterEach(() => jest.useRealTimers());
+
+  test('hours before the slot it gives the slot time, not "head to the clinic"', async () => {
+    await mount({ date: '2026-11-20', slot: '10:30 AM' });
+    expect(text()).toContain("You're first in line. Your slot is at 10:30 AM.");
+    expect(text()).not.toContain('Head to the clinic');
+  });
+
+  test('inside the last 30 minutes it says head to the clinic', async () => {
+    await mount({ date: '2026-11-20', slot: '08:15 AM' });
+    expect(text()).toContain("You're next! Head to the clinic.");
+  });
 });
