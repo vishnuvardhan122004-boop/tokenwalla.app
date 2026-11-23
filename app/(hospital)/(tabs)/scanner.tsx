@@ -30,6 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../../constants/colors';
 import API from '../../../services/api';
 import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
+import RewardCard, { type StaffToday } from '../../../components/RewardCard';
 import { normalizeBookingStatus, providerLabel, toLocalISODate } from '../../../utils/booking';
 import { safeBack } from '../../../utils/navigation';
 import { useAndroidBack } from '../../../hooks/useAndroidBack';
@@ -116,6 +117,7 @@ export default function HospitalScanner() {
   const staffLoaded = deskStaff !== null || (userRead && hospitalId == null);
   const [picking,    setPicking]    = useState(false);
   const [handledBy,  setHandledBy]  = useState<string | null>(null);
+  const [handledToday, setHandledToday] = useState<StaffToday | null>(null);   // the reward card
   const [pickedId,   setPickedId]   = useState<number | null>(null);   // highlighted on Change
   const [changing,   setChanging]   = useState(false);
   const [canChange,  setCanChange]  = useState(false);
@@ -157,6 +159,7 @@ export default function HospitalScanner() {
       // The count shows whenever the server sent one, picked or not; only a
       // pick can be changed.
       if (body || data?.staff_today) setHandledBy(staffTodayMessage(data?.staff_today));
+      setHandledToday(data?.staff_today ?? null);
       if (body) {
         setPickedId(body.staff_id);
         setCanChange(true);
@@ -196,6 +199,7 @@ export default function HospitalScanner() {
     setScanResult(null);
     setErrorMsg('');
     setHandledBy(null);
+    setHandledToday(null);
     setPicking(false);
     setChanging(false);
     setCanChange(false);
@@ -292,6 +296,7 @@ export default function HospitalScanner() {
     setPicking(false);
     setChanging(false);
     setHandledBy(null);
+    setHandledToday(null);
     setCanChange(false);
     lastScannedRef.current = '';
     scanCooldown.current   = false;
@@ -325,6 +330,7 @@ export default function HospitalScanner() {
     setConfirming(false);
     setChanging(false);
     setHandledBy(r.msg);
+    setHandledToday(r.ok ? r.today ?? null : null);
     if (r.ok) setPickedId(id); else if (r.tooLate) setCanChange(false);
   };
 
@@ -334,6 +340,7 @@ export default function HospitalScanner() {
     setChanging(false);
     setCanChange(false);
     setHandledBy(null);
+    setHandledToday(null);
     setScanResult(null);
     setScanState('idle');
     setErrorMsg('');
@@ -545,6 +552,10 @@ export default function HospitalScanner() {
                   </View>
                 </View>
 
+                {isConfirmed && handledToday ? (
+                  <RewardCard today={handledToday} style={styles.rewardCard}
+                              onChange={canChange ? () => setChanging(true) : undefined} />
+                ) : null}
                 <View style={styles.resultActions}>
                   {!isDone && !isConfirmed && (
                     <TouchableOpacity
@@ -569,9 +580,9 @@ export default function HospitalScanner() {
                     <View style={styles.confirmedPill}>
                       <Ionicons name="checkmark-circle" size={15} color={Colors.successText} />
                       <Text style={styles.confirmedPillText}>
-                        Patient marked In Consultation{handledBy ? ` · ${handledBy}` : ''}
+                        Patient marked In Consultation{handledBy && !handledToday ? ` · ${handledBy}` : ''}
                       </Text>
-                      {canChange ? (
+                      {canChange && !handledToday ? (
                         <TouchableOpacity onPress={() => setChanging(true)} accessibilityRole="button" accessibilityLabel="Change who handled it">
                           <Text style={styles.confirmedPillChange}>Change</Text>
                         </TouchableOpacity>
@@ -658,7 +669,8 @@ const styles = StyleSheet.create({
   confirmBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
   confirmedPill: { flex: 1, flexDirection: 'row', gap: 7, backgroundColor: Colors.successBg, borderWidth: 1, borderColor: Colors.successBorder, borderRadius: 12, paddingVertical: 13, alignItems: 'center', justifyContent: 'center' },
   confirmedPillChange: { color: Colors.successText, fontSize: 14, fontWeight: '700', textDecorationLine: 'underline' },
-  confirmedPillText: { color: Colors.successText, fontSize: 14, fontWeight: '600' },
+  confirmedPillText: { color: Colors.successText, fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  rewardCard: { marginBottom: 12 },
   resetBtn:      { borderWidth: 1, borderColor: Colors.blue100, backgroundColor: Colors.white, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
   resetBtnText:  { color: Colors.gray600, fontSize: 14, fontWeight: '500' },
 });

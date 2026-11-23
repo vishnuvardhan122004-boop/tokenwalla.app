@@ -122,7 +122,7 @@ test('with staff, Done asks who handled it; inactive people are not offered', as
   for (let i = 0; i < 3; i++) await act(async () => { await Promise.resolve(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
   expect(text()).not.toContain('Who handled');
-  expect(text()).toContain('Sita +₹7 · 2 today · ₹14');
+  expect(text()).toContain('+₹7 Sita 2 patients today · ₹14');
 });
 
 test('a booking already picked at the scan, or one that earns nothing, completes with no picker', async () => {
@@ -210,7 +210,7 @@ test('the picker names the payee from the queue response; after a pick Change re
   expect(byLabel('Ravi K (main desk)')).toBeTruthy();
   await act(async () => { await byLabel('Sita').props.onPress(); });
   await flush3();
-  expect(text()).toContain('Sita +₹7 · 1 today · ₹7');
+  expect(text()).toContain('+₹7 Sita 1 patient today · ₹7');
   expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
   await act(async () => { byLabel('Change who handled it').props.onPress(); });
   expect(byLabel('Sita').props.accessibilityState).toEqual({ selected: true });
@@ -218,7 +218,7 @@ test('the picker names the payee from the queue response; after a pick Change re
   await act(async () => { await byLabel('Ravi K (main desk)').props.onPress(); });
   await flush3();
   expect(API.patch).toHaveBeenLastCalledWith('/bookings/handled-by/5/', { staff_id: null });
-  expect(text()).toContain('Ravi K +₹7 · 1 today · ₹7');
+  expect(text()).toContain('+₹7 Ravi K 1 patient today · ₹7');
   setT.mockRestore();
 });
 
@@ -244,7 +244,7 @@ test('Done with no picker still shows the server\'s count', async () => {
   await act(async () => { done().props.onPress(); });
   await act(async () => { await Promise.resolve(); });
   expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/');
-  expect(text()).toContain('Sita · 3 today');
+  expect(text()).toContain('Sita 3 patients today');
   expect(byLabel('Change who handled it')).toBeUndefined();
 });
 

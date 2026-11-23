@@ -43,6 +43,7 @@ import NotificationBell from '../../../components/NotificationBell';
 import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
 import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
+import RewardCard, { type StaffToday } from '../../../components/RewardCard';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -378,7 +379,7 @@ export default function HospitalDashboard() {
   const [pickFor,    setPickFor]    = useState<Patient | null>(null);  // Done waits on "who handled it"
   const [pickBusy,   setPickBusy]   = useState(false);
   // "Lata +₹7 · ₹35 today" with a 10 s Change button (web ROADMAP 71c)
-  const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
+  const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; today?: StaffToday | null; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
   const [changing,  setChanging]    = useState(false);
   // The last count the server sent after a Done: the incentive figures below it are nightly.
   const [lastStaffToday, setLastStaffToday] = useState('');
@@ -614,7 +615,7 @@ export default function HospitalDashboard() {
       // The count shows whenever the server sent one; only a pick can be changed.
       if (data?.staff_today) setLastStaffToday(staffTodayMessage(data.staff_today));
       if (body || data?.staff_today) {
-        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), staffId: body ? body.staff_id : null, canChange: !!body });
+        setPickToast({ id, msg: staffTodayMessage(data?.staff_today), today: data?.staff_today, staffId: body ? body.staff_id : null, canChange: !!body });
       }
       return true;
     } catch (e: any) {
@@ -652,7 +653,7 @@ export default function HospitalDashboard() {
     setPickBusy(false);
     setChanging(false);
     if (r.ok) loadQueue();
-    setPickToast(r.ok ? { ...pickToast, msg: r.msg, staffId } : { ...pickToast, msg: r.msg, canChange: !r.tooLate, isError: true });
+    setPickToast(r.ok ? { ...pickToast, msg: r.msg, today: r.today, staffId } : { ...pickToast, msg: r.msg, canChange: !r.tooLate, isError: true });
   };
 
   // Skip a patient who isn't ready without cancelling them. The endpoint is a
@@ -2351,7 +2352,10 @@ export default function HospitalDashboard() {
 
       {scanBar}
       {/* Outside the ScrollView so it floats over the screen, not the end of the list. */}
-      {pickToast ? (
+      {pickToast?.today && !pickToast.isError ? (
+        <RewardCard today={pickToast.today} style={styles.rewardCard}
+                    onChange={pickToast.canChange ? () => setChanging(true) : undefined} />
+      ) : pickToast ? (
         <View style={[styles.pickToast, pickToast.isError && { backgroundColor: Colors.errorText }]}
               accessibilityLiveRegion="polite" accessibilityRole="alert">
           <Text style={styles.pickToastText}>{pickToast.msg}</Text>
@@ -2373,10 +2377,11 @@ const FieldError = ({ msg }: { msg?: string }) =>
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  pickToast:            { position: 'absolute', bottom: 24, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
+  rewardCard:           { position: 'absolute', bottom: 24, left: 16, right: 16 },
+  pickToast:            { position: 'absolute', bottom: 24, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.successText, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 18 },
   pickToastBtn:         { backgroundColor: Colors.white, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 10 },
   pickToastBtnText:     { color: Colors.successText, fontSize: 13, fontWeight: '700' },
-  pickToastText:        { color: Colors.white, fontSize: 14, fontWeight: '600' },
+  pickToastText:        { color: Colors.white, fontSize: 14, fontWeight: '600', flexShrink: 1 },
   safe: { flex: 1, backgroundColor: Colors.white },
 
   navbar:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.blue100, backgroundColor: Colors.bg },

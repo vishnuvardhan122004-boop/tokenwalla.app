@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import API from '../services/api';
+import type { StaffToday } from './RewardCard';
 
 export type DeskPerson = { id: number; name: string; active?: boolean };
 
@@ -29,10 +30,10 @@ export const staffTodayMessage = (t?: { name: string; count: number; amount: num
   : `${t.name} · ${t.count} today`;
 /** The 10-second "Change" after a pick (web ROADMAP 71c). A 409 = the nightly ledger has it: only admin can move it. */
 export async function changeHandledBy(bookingId: number | string, staffId: number | null):
-  Promise<{ ok: boolean; msg: string; tooLate?: boolean }> {
+  Promise<{ ok: boolean; msg: string; tooLate?: boolean; today?: StaffToday | null }> {
   try {
     const { data } = await API.patch(`/bookings/handled-by/${bookingId}/`, { staff_id: staffId });
-    return { ok: true, msg: staffTodayMessage(data?.staff_today) };
+    return { ok: true, msg: staffTodayMessage(data?.staff_today), today: data?.staff_today ?? null };
   } catch (e: any) {
     const tooLate = e?.response?.status === 409;
     return { ok: false, tooLate,
