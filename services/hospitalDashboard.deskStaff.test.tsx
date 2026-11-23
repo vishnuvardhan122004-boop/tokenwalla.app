@@ -49,12 +49,14 @@ const IN_PROGRESS = {
 };
 
 let r: any;
-const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '', waiting: unknown[] = []) => {
+const mount = async (staff: unknown, inProgress: unknown[] = [IN_PROGRESS], mainName = '', waiting: unknown[] = [], extra: object = {}, held: unknown[] = []) => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   await AsyncStorage.setItem('user', JSON.stringify({ role: 'hospital', hospital: { id: 1, name: 'City' } }));
   (API.get as jest.Mock).mockImplementation((url: string) =>
     url.startsWith('/bookings/queue/')
-      ? Promise.resolve({ data: { waiting, onHold: [], inProgress, completed: [], main_desk_name: mainName } })
+      ? Promise.resolve({ data: { waiting, onHold: [], inProgress, completed: [], main_desk_name: mainName, ...extra } })
+    : url === '/hospitals/1/staff/unnamed/'
+      ? Promise.resolve({ data: { window_days: 30, bookings: held } })
     : url === '/hospitals/1/staff/'
       ? (staff instanceof Error ? Promise.reject(staff) : Promise.resolve({ data: staff }))
       : Promise.resolve({ data: [] }));
@@ -91,14 +93,14 @@ const signInAsSita = async () => {
 
 const SITA = [{ id: 8, name: 'Sita', active: true }, { id: 9, name: 'Old', active: false }];
 
-test('no extra staff shows only "+ Add desk staff"; a server without the endpoint shows nothing', async () => {
+test('no extra staff shows only "+ Add staff"; a server without the endpoint shows nothing', async () => {
   await mount([]);
   expect(text()).not.toContain('My earnings:');
-  expect(byLabel('Add desk staff')).toBeTruthy();
+  expect(byLabel('Add staff')).toBeTruthy();
   await act(() => r.unmount());
   await mount(new Error('404'));
   expect(text()).not.toContain('My earnings:');
-  expect(byLabel('Add desk staff')).toBeUndefined();
+  expect(byLabel('Add staff')).toBeUndefined();
 });
 
 test('with no desk staff, Done sends exactly what it always did and asks nothing', async () => {
@@ -288,4 +290,37 @@ test('My earnings has period chips and the tile follows the one picked', async (
   expect(text()).toContain('₹35.00');
   await act(async () => { byLabel('All').props.onPress(); });
   expect(text()).toContain('20 bookings');
+});
+
+
+/* STAFF_NAMED_ONLY (web ROADMAP 85b): no "main desk" in the Done picker, and the
+   held rewards card lists visits nobody was named for, with a Name button. */
+test('with the main desk switched off, Done offers only named staff', async () => {
+  (API.patch as jest.Mock).mockResolvedValue({ data: {} });
+  await mount(SITA, [IN_PROGRESS], 'City Clinic', [], { staff_named_only: true });
+  await act(async () => { done().props.onPress(); });
+  expect(byLabel('Sita')).toBeTruthy();                    // the picker is open
+  expect(byLabel('City Clinic (main desk)')).toBeUndefined();
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/complete/5/', { staff_id: 8 });
+});
+
+test('held rewards are listed and naming one PATCHes handled-by and drops it', async () => {
+  const held = [{ id: 41, token: 'T41', date: '2026-11-20', slot: '09:00 AM', patient_name: 'Anil', provider_name: 'Dr Rao' }];
+  (API.patch as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
+  await mount(SITA, [IN_PROGRESS], 'City Clinic', [], { staff_named_only: true }, held);
+  expect(text()).toContain('1 reward needs a name');
+  await act(async () => { byLabel('Name who handled Anil').props.onPress(); });
+  expect(byLabel('City Clinic (main desk)')).toBeUndefined();
+  await act(async () => { await byLabel('Sita').props.onPress(); });
+  expect(API.patch).toHaveBeenCalledWith('/bookings/handled-by/41/', { staff_id: 8 });
+  expect(text()).not.toContain('reward needs a name');
+});
+
+test('with the switch off there is no held rewards card and the main desk stays', async () => {
+  await mount(SITA, [IN_PROGRESS], 'City Clinic');
+  expect(text()).not.toContain('need a name');
+  expect(API.get).not.toHaveBeenCalledWith('/hospitals/1/staff/unnamed/');
+  await act(async () => { done().props.onPress(); });
+  expect(byLabel('City Clinic (main desk)')).toBeTruthy();
 });

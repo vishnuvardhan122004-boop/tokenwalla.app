@@ -83,6 +83,7 @@ interface ScanResult {
   booking?: Booking;
   already_done?: boolean;
   main_desk_name?: string;   // the payee's name for the picker
+  staff_named_only?: boolean;   // STAFF_NAMED_ONLY: no "main desk" (web ROADMAP 85b)
   [key: string]: unknown;
 }
 
@@ -570,7 +571,7 @@ export default function HospitalScanner() {
                   )}
                   {hospitalId != null && (
                     <DeskPicker visible={(picking && !isConfirmed) || changing} hospitalId={hospitalId} staff={deskStaff ?? []}
-                                mainName={scanResult?.main_desk_name}
+                                mainName={scanResult?.main_desk_name} namedOnly={scanResult?.staff_named_only === true}
                                 patient={booking.patient_name} busy={confirming}
                                 initial={changing ? pickedId : undefined}
                                 onCancel={() => (changing ? setChanging(false) : setPicking(false))}
