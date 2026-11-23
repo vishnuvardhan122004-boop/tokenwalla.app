@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -45,14 +45,14 @@ export default function RegisterScreen() {
     if (!/^[6-9]\d{9}$/.test(mobile)) { setError('Enter valid 10-digit mobile'); return; }
     setOtpLoading(true); setError('');
     try {
-      await API.post('/auth/otp/request/', { mobile });  // ← fixed endpoint
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile });  // ← fixed endpoint
       setOtpSent(true);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e) {
       setError(apiMessage(e, 'OTP failed. Try again.'));
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     } finally {
       setOtpLoading(false);
     }

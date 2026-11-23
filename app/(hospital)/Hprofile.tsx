@@ -37,7 +37,7 @@ import SignedInDevices from '../../components/SignedInDevices';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 import {
   EMPTY_PAYOUT, PAYMENT_METHODS, normaliseIfsc, payoutFromApi, payoutPayload,
@@ -203,14 +203,14 @@ export default function HospitalProfile() {
     if (!isValidMobile(form.mobile)) { Alert.alert('Invalid', 'Enter a valid 10-digit mobile number.'); return; }
     setOtpLoading(true);
     try {
-      await API.post('/auth/otp/request/', { mobile: form.mobile.trim(), via: 'sms' });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile: form.mobile.trim(), via: 'sms' });
       setOtpSent(true); setOtpVerified(false);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.message || 'Could not send OTP. Try again.');
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     } finally { setOtpLoading(false); }
   };
 

@@ -19,7 +19,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { globSync } from 'glob';
 
-import { isCooldown429 } from './useOtpCooldown';
+import { isCooldown429, retryAfter } from './useOtpCooldown';
 
 const ROOT = join(__dirname, '..');
 const SEND = '/auth/otp/request/';
@@ -59,8 +59,11 @@ describe('OTP resend cooldown', () => {
   it.each(EXPECTED)('%s starts the countdown on every send path', (file) => {
     const src = readFileSync(join(ROOT, file), 'utf8');
     const sends = count(src, SEND);
-    // One on success and one on the 429 branch, per send site.
-    expect(count(src, 'startCooldown()')).toBeGreaterThanOrEqual(sends * 2);
+    // One on success and one on the 429 branch, per send site — each with the
+    // wait the server said (10s, 15s, 30s, 60s), not a fixed 60.
+    expect(count(src, 'startCooldown(sent?.retry_after)')).toBeGreaterThanOrEqual(sends);
+    expect(count(src, 'startCooldown(retryAfter(')).toBeGreaterThanOrEqual(sends);
+    expect(count(src, 'startCooldown()')).toBe(0);
     expect(count(src, 'isCooldown429(')).toBeGreaterThanOrEqual(sends);
   });
 
@@ -84,5 +87,17 @@ describe('isCooldown429', () => {
     expect(isCooldown429(new Error('network'))).toBe(false);
     expect(isCooldown429(undefined)).toBe(false);
     expect(isCooldown429(null)).toBe(false);
+  });
+});
+
+describe('retryAfter', () => {
+  it("reads the server's wait off a cooldown 429", () => {
+    expect(retryAfter({ response: { status: 429, data: { retry_after: 27 } } })).toBe(27);
+  });
+
+  it('is undefined when the server does not say, so the hook waits the full 60s', () => {
+    expect(retryAfter({ response: { status: 429, data: { message: 'Wait' } } })).toBeUndefined();
+    expect(retryAfter(new Error('network'))).toBeUndefined();
+    expect(retryAfter(undefined)).toBeUndefined();
   });
 });

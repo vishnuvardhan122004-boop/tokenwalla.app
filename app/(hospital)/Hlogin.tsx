@@ -17,7 +17,7 @@ import { Colors } from '../../constants/colors';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 import { clearNotifications } from '../../services/notificationStore';
 
@@ -108,9 +108,9 @@ export default function HospitalLoginScreen() {
     // Step 2 — Send the OTP. Errors from here, and only from here, are
     // reported as an OTP failure.
     try {
-      await API.post('/auth/otp/request/', { mobile });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile });
       setOtpSent(true);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e: unknown) {
       if (isAxiosError(e)) {
         setError(e.response?.data?.message || 'OTP failed. Please try again.');
@@ -119,7 +119,7 @@ export default function HospitalLoginScreen() {
       }
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     } finally {
       setOtpLoading(false);
     }

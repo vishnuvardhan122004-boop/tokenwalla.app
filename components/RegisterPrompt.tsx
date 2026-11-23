@@ -29,7 +29,7 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../constants/colors';
-import { isCooldown429, useOtpCooldown } from '../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../hooks/useOtpCooldown';
 import API, { apiMessage } from '../services/api';
 import { useI18n } from '../services/i18n';
 import { passwordProblem } from '../utils/password';
@@ -58,14 +58,14 @@ export default function RegisterPrompt({ mobile, onClose, onRegistered }: Props)
   const requestOtp = async (): Promise<boolean> => {
     setBusy(true); setError('');
     try {
-      await API.post('/auth/otp/request/', { mobile });
-      startCooldown();
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile });
+      startCooldown(sent?.retry_after);
       return true;
     } catch (e) {
       setError(apiMessage(e, t('rp_otp_failed')));
       // A 429 is the server's own 60s cooldown. Count it down too, or the
       // button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
       return false;
     } finally {
       setBusy(false);

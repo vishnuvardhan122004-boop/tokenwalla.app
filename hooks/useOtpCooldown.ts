@@ -17,13 +17,16 @@
  * app had the same gap at nine send sites, and ships on the store cycle, so a
  * phone keeps the behaviour until it updates.
  *
- * Keep the default at 60 to match the server — a shorter one just puts the
- * 429 back.
+ * Since 2026-11-23 the server's wait grows per number — 10s, 15s, 30s, then
+ * 60s (OTP_COOLDOWN_LADDER, web #335) — and it says the wait as `retry_after`
+ * on both the send and the 429. Pass that in. The 60 default is for a server
+ * that doesn't say: never shorter than the real wait, so the 429 can't come
+ * back.
  */
 
 import { useEffect, useState } from 'react';
 
-export function useOtpCooldown(seconds = 60): [number, () => void] {
+export function useOtpCooldown(seconds = 60): [number, (wait?: unknown) => void] {
   const [left, setLeft] = useState(0);
 
   useEffect(() => {
@@ -32,7 +35,7 @@ export function useOtpCooldown(seconds = 60): [number, () => void] {
     return () => clearTimeout(t);
   }, [left]);
 
-  return [left, () => setLeft(seconds)];
+  return [left, (wait) => setLeft(Number(wait) > 0 ? Math.ceil(Number(wait)) : seconds)];
 }
 
 /**
@@ -46,3 +49,7 @@ export function useOtpCooldown(seconds = 60): [number, () => void] {
  */
 export const isCooldown429 = (e: unknown): boolean =>
   (e as { response?: { status?: number } })?.response?.status === 429;
+
+/** The seconds the server says to wait, from a cooldown 429 (`retry_after`). */
+export const retryAfter = (e: unknown): unknown =>
+  (e as { response?: { data?: { retry_after?: unknown } } })?.response?.data?.retry_after;
