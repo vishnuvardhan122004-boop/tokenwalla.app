@@ -21,7 +21,7 @@ import { Colors } from '../../constants/colors';
 import { RAZORPAY_KEY_ID } from '../../constants/config';
 import API from '../../services/api';
 import { useI18n } from '../../services/i18n';
-import { afterPayFailure, checkoutPayable, handlePaymentLink, parsePaymentMessage } from '../../utils/payment';
+import { afterPayFailure, checkoutPayable, handlePaymentLink, parsePaymentMessage, promoOffered } from '../../utils/payment';
 import { computeFeeBreakdown, money, SERVICE_FEE_WAS, type FeeBreakdown } from '../../utils/fees';
 import { providerLabel } from '../../utils/booking';
 import { htmlEscape, jsStr } from '../../utils/webviewSafe';
@@ -186,9 +186,9 @@ export default function PaymentScreen() {
   const priorityOn = prioritySelected ? priorityExtra : 0;
   // What is actually charged now — see utils/payment.checkoutPayable, which
   // holds the table so it can be unit tested without a React tree.
-  // A code is for a plain booking only: not a scan, not with a pass bought or spent.
-  const promoOffered = !isScan && !redeemIsFree && !redeemNeedsPay && !passSelected;
-  const promoOn      = promoOffered ? promoApplied : null;
+  // Only while codes are switched on, and for a plain booking (utils/payment).
+  const promoShown   = promoOffered({ passData, isScan, redeemIsFree, redeemNeedsPay, passSelected });
+  const promoOn      = promoShown ? promoApplied : null;
   const promoSaving  = promoOn ? Number(promoOn.saving) : 0;
   const payable = checkoutPayable({
     redeemIsFree, redeemNeedsPay, passSelected, promoSaving,
@@ -952,7 +952,7 @@ export default function PaymentScreen() {
           )}
         </View>
 
-        {promoOffered && (
+        {promoShown && (
           <View style={[styles.otherCard, { padding: 16 }]}>
             <Text style={[styles.otherLabel, { marginTop: 0 }]}>{t('pay_promo_title')}</Text>
             {promoOn ? (

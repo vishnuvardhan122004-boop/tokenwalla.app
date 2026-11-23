@@ -60,6 +60,22 @@ export function parsePaymentMessage(raw: unknown): PaymentWebViewMessage | null 
  * no-pass case does no arithmetic at all. Returns null while the fee breakdown
  * is still loading, which is what keeps the Pay button disabled.
  */
+/**
+ * Whether checkout shows the promo-code box. Only while the server says codes
+ * are on (`promo_codes_enabled` on /payment/pass/, i.e. INFLUENCER_CODES_ENABLED):
+ * off, every code is refused, so the box only invites a "no". A server that
+ * doesn't say hides it too. And a code is for a plain booking only: not a scan,
+ * not with a pass bought or spent.
+ */
+export function promoOffered(opts: {
+  passData: { promo_codes_enabled?: boolean; [field: string]: unknown } | null | undefined;
+  isScan: boolean; redeemIsFree: boolean; redeemNeedsPay: boolean; passSelected: boolean;
+}): boolean {
+  const { passData, isScan, redeemIsFree, redeemNeedsPay, passSelected } = opts;
+  return passData?.promo_codes_enabled === true
+    && !isScan && !redeemIsFree && !redeemNeedsPay && !passSelected;
+}
+
 export function checkoutPayable(opts: {
   redeemIsFree: boolean;     // SERVICE_ONLY redemption — nothing left to charge
   redeemNeedsPay: boolean;   // FULL redemption — the consultation fee stands
