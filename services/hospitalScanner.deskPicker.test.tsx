@@ -102,7 +102,7 @@ test('with staff, auto-mark waits for the pick; one tap sends it, remembers it a
   await act(async () => { byLabel('Sita').props.onPress(); });
   await flush();
   expect(API.post).toHaveBeenCalledWith('/bookings/scan/TW-1/', { staff_id: 8 });
-  expect(text()).toContain('Sita +₹7 · 5 today · ₹35');
+  expect(text()).toContain('+₹7 Sita 5 patients today · ₹35');
   expect(await AsyncStorage.getItem('tw_lastpick_1')).toBe('8');
 });
 
@@ -147,7 +147,7 @@ test('the picker names the payee from the scan response, and Change PATCHes the 
   (API.post as jest.Mock).mockResolvedValue({ data: { staff_today: { name: 'Sita', count: 1, amount: 7 } } });
   await act(async () => { byLabel('Sita').props.onPress(); });
   await flush();
-  expect(text()).toContain('Sita +₹7 · 1 today · ₹7');
+  expect(text()).toContain('+₹7 Sita 1 patient today · ₹7');
   expect(setT).toHaveBeenCalledWith(expect.any(Function), 10000);
   await act(async () => { byLabel('Change who handled it').props.onPress(); });
   await flush();
@@ -156,7 +156,7 @@ test('the picker names the payee from the scan response, and Change PATCHes the 
   await act(async () => { byLabel('Ravi K (main desk)').props.onPress(); });
   await flush();
   expect(API.patch).toHaveBeenCalledWith('/bookings/handled-by/11/', { staff_id: null });
-  expect(text()).toContain('Ravi K +₹7 · 1 today · ₹7');
+  expect(text()).toContain('+₹7 Ravi K 1 patient today · ₹7');
   setT.mockRestore();
 });
 
