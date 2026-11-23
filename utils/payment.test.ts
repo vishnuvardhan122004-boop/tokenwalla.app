@@ -1,4 +1,4 @@
-import { checkoutPayable, parsePaymentMessage } from './payment';
+import { checkoutPayable, parsePaymentMessage, promoOffered } from './payment';
 
 describe('parsePaymentMessage', () => {
   it('parses a SUCCESS message and preserves the order/payment/signature fields', () => {
@@ -123,5 +123,27 @@ describe('checkoutPayable — what the patient is charged', () => {
   it('no pass in play just uses the server total', () => {
     expect(checkoutPayable(base)).toBe(26);
     expect(checkoutPayable({ ...base, total: null })).toBeNull();
+  });
+});
+
+describe('promoOffered — the promo box at checkout', () => {
+  const plain = { isScan: false, redeemIsFree: false, redeemNeedsPay: false, passSelected: false };
+  const on = { enabled: false, promo_codes_enabled: true };
+
+  it('shows only while the server says promo codes are on', () => {
+    expect(promoOffered({ ...plain, passData: on })).toBe(true);
+    expect(promoOffered({ ...plain, passData: { promo_codes_enabled: false } })).toBe(false);
+  });
+
+  it('hides when the server does not say (older backend) or /payment/pass/ failed', () => {
+    expect(promoOffered({ ...plain, passData: { enabled: true } })).toBe(false);
+    expect(promoOffered({ ...plain, passData: null })).toBe(false);
+  });
+
+  it('is for a plain booking only, even with codes on', () => {
+    expect(promoOffered({ ...plain, passData: on, isScan: true })).toBe(false);
+    expect(promoOffered({ ...plain, passData: on, redeemIsFree: true })).toBe(false);
+    expect(promoOffered({ ...plain, passData: on, redeemNeedsPay: true })).toBe(false);
+    expect(promoOffered({ ...plain, passData: on, passSelected: true })).toBe(false);
   });
 });
