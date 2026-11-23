@@ -59,28 +59,30 @@ export function useDeskStaff(hospitalId?: number | string | null, refresh?: unkn
   return staff;
 }
 
-export default function DeskPicker({ visible, hospitalId, staff, patient, mainName, initial, busy, onPick, onCancel }: {
+export default function DeskPicker({ visible, hospitalId, staff, patient, mainName, namedOnly = false, initial, busy, onPick, onCancel }: {
   visible: boolean;
   hospitalId: number | string;
   staff: DeskPerson[];
   patient?: string;
   /** The hospital's payee name, shown as "<name> (main desk)". */
   mainName?: string;
+  /** STAFF_NAMED_ONLY (web ROADMAP 85b): no "main desk" row, only named people. */
+  namedOnly?: boolean;
   /** The person already on the booking (picked at the scan), if any. */
   initial?: number | null;
   busy?: boolean;
   onPick: (staffId: number | null) => void;
   onCancel: () => void;
 }) {
-  const [last, setLast] = useState<number | null>(null);
+  const [last, setLast] = useState<number | null | undefined>(null);
   const valid = (id: unknown): id is number | null =>
-    id === null || staff.some(s => s.id === id);
+    (id === null ? !namedOnly : staff.some(s => s.id === id));
 
   // Each time it opens: the booking's own person, else the last pick here, else main desk.
   useEffect(() => {
     if (!visible) return;
     if (initial != null && valid(initial)) { setLast(initial); return; }
-    setLast(null);
+    setLast(namedOnly ? undefined : null);
     AsyncStorage.getItem(lastKey(hospitalId))
       .then(v => { const id = v ? Number(v) : null; if (id !== null && valid(id)) setLast(id); })
       .catch(() => {});
@@ -92,7 +94,8 @@ export default function DeskPicker({ visible, hospitalId, staff, patient, mainNa
       .catch(() => {});
     onPick(id);
   };
-  const people: DeskPerson[] = [{ id: 0, name: mainName ? `${mainName} (main desk)` : 'Main desk' }, ...staff];
+  const people: DeskPerson[] = namedOnly ? staff
+    : [{ id: 0, name: mainName ? `${mainName} (main desk)` : 'Main desk' }, ...staff];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
