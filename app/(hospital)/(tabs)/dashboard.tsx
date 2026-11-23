@@ -44,6 +44,7 @@ import { StaffIncentiveCard } from '../../../components/StaffIncentive';
 import DeskStaffBar from '../../../components/DeskStaffBar';
 import DeskPicker, { changeHandledBy, staffTodayMessage, useDeskStaff } from '../../../components/DeskPicker';
 import RewardCard, { type StaffToday } from '../../../components/RewardCard';
+import UnnamedRewards from '../../../components/UnnamedRewards';
 import API, { apiMessage, logoutUser } from '../../../services/api';
 import {
   asList, KIND_TO_SEGMENT, SEG_BLOOD, SEG_CONSULT, SEG_SCAN,
@@ -384,6 +385,7 @@ export default function HospitalDashboard() {
   // The last count the server sent after a Done: the incentive figures below it are nightly.
   const [lastStaffToday, setLastStaffToday] = useState('');
   const [mainDeskName, setMainDeskName] = useState('');
+  const [namedOnly, setNamedOnly] = useState(false);   // STAFF_NAMED_ONLY: no "main desk" (web ROADMAP 85b)
   // Re-read on each visit, so a person added on Payments is pickable here.
   const [focusTick,  setFocusTick]  = useState(0);
   useFocusEffect(useCallback(() => { setFocusTick(t => t + 1); }, []));
@@ -456,6 +458,7 @@ export default function HospitalDashboard() {
       const completed  = Array.isArray(data.completed)  ? data.completed  : [];
       setQueue({ waiting, onHold, inProgress, completed });
       setMainDeskName(typeof data.main_desk_name === 'string' ? data.main_desk_name : '');
+      setNamedOnly(data.staff_named_only === true);
       setWalkInEnabled(data.walk_in_enabled === true);
 
       // ── Notify hospital of newly-booked (waiting) patients ──
@@ -1744,9 +1747,11 @@ export default function HospitalDashboard() {
         {/* Staff incentive (ROADMAP 60): one line, absent while the flag is off */}
         {hospital?.id != null && <DeskStaffBar hospitalId={hospital.id} token={deskToken} onToken={setDeskToken} refresh={focusTick}
                                                     onManage={() => router.push('/(hospital)/payments')} />}
+        {hospital?.id != null && <UnnamedRewards hospitalId={hospital.id} staff={deskStaff ?? []} namedOnly={namedOnly}
+                                                 refresh={queue.completed.length} onManage={() => router.push('/(hospital)/payments')} />}
         {hospital?.id != null && (
           <DeskPicker visible={pickFor !== null || changing} hospitalId={hospital.id} staff={deskStaff ?? []}
-                      mainName={mainDeskName}
+                      mainName={mainDeskName} namedOnly={namedOnly}
                       patient={!changing && pickFor ? nameOf(pickFor) : undefined}
                       initial={changing ? pickToast?.staffId : pickFor?.completed_by_staff_id}
                       busy={pickBusy} onPick={changing ? changePicked : completePicked}
@@ -1989,7 +1994,7 @@ export default function HospitalDashboard() {
                     </TouchableOpacity>
                     <Text style={styles.patientMeta}>{p.doctor_name}  ·  {p.slot?.replace(' ', '\u00a0')}</Text>
                     <Text style={styles.patientMeta}>{dayLabelFor(p.date)}</Text>
-                    {(deskStaff?.length ?? 0) > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || 'Main desk'}</Text> : null}
+                    {(deskStaff?.length ?? 0) > 0 ? <Text style={[styles.patientMeta, { color: Colors.successText }]}>Completed by {p.completed_by_name || (namedOnly ? 'nobody named yet' : 'Main desk')}</Text> : null}
                     <TouchableOpacity
                       style={styles.tokenChip}
                       onPress={() => showTokenDetail(p, true)}
