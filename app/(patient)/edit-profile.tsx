@@ -31,7 +31,7 @@ import { useI18n } from '../../services/i18n';
 import API, { getUser } from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 export default function EditProfile() {
@@ -85,15 +85,15 @@ export default function EditProfile() {
     if (!isValidMobile(mobile)) { Alert.alert(t('ep_invalid'), t('ep_invalid_mobile')); return; }
     setOtpLoading(true);
     try {
-      await API.post('/auth/otp/request/', { mobile: mobile.trim(), via: 'sms' });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile: mobile.trim(), via: 'sms' });
       setOtpSent(true);
       setOtpVerified(false);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e: any) {
       Alert.alert(t('error'), e?.response?.data?.message || t('ep_otp_send_fail'));
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     } finally {
       setOtpLoading(false);
     }

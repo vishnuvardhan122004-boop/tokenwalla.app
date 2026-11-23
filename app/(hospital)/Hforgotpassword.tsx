@@ -18,7 +18,7 @@ import {
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { Colors } from '../../constants/colors';
 import { tenDigitMobile } from '../../utils/phone';
 
@@ -133,16 +133,16 @@ export default function HforgotPassword() {
     setLoading(true);
     setError('');
     try {
-      await API.post('/auth/otp/request/', { mobile: cleaned, via: 'SMS' });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile: cleaned, via: 'SMS' });
       setSuccess(`An SMS has been sent to ${cleaned}. Please check and note the OTP.`);
       setStep(2);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr?.response?.data?.message || 'Failed to initiate SMS. Please try again.');
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(err)) startCooldown();
+      if (isCooldown429(err)) startCooldown(retryAfter(err));
     } finally {
       setLoading(false);
     }
@@ -154,14 +154,14 @@ export default function HforgotPassword() {
     setError('');
     setSuccess('');
     try {
-      await API.post('/auth/otp/request/', { mobile, via: 'SMS' });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile, via: 'SMS' });
       setSuccess(' A new SMS has been sent. Please check and note the OTP.');
       setOtp('');
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr?.response?.data?.message || 'Could not resend OTP. Wait 60 seconds and try again.');
-      if (isCooldown429(err)) startCooldown();
+      if (isCooldown429(err)) startCooldown(retryAfter(err));
     } finally {
       setResending(false);
     }

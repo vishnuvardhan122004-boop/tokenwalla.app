@@ -19,7 +19,7 @@ import LocationPickerModal from '../../components/LocationPickerModal';
 import API from '../../services/api';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { tenDigitMobile } from '../../utils/phone';
 
 // A registration card is an IDENTITY; this is the segment it already implies,
@@ -141,10 +141,10 @@ export default function HospitalRegisterScreen() {
     setGlobalError('');
     setGlobalInfo('');
     try {
-      await API.post('/auth/otp/request/', { mobile: form.mobile });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile: form.mobile });
       setOtpSent(true);
       setGlobalInfo(`OTP sent to ${form.mobile}.`);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e: unknown) {
       if (isAxiosError(e)) {
         setGlobalError(e.response?.data?.message || 'OTP failed. Please try again.');
@@ -153,7 +153,7 @@ export default function HospitalRegisterScreen() {
       }
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     } finally {
       setOtpLoading(false);
     }

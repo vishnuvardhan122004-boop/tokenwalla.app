@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/colors';
 import API, { apiMessage } from '../../services/api';
-import { isCooldown429, useOtpCooldown } from '../../hooks/useOtpCooldown';
+import { isCooldown429, retryAfter, useOtpCooldown } from '../../hooks/useOtpCooldown';
 import { passwordComplaint } from '../../utils/password';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -39,15 +39,15 @@ export default function ForgotPasswordScreen() {
     if (mobile.length !== 10) { setError('Enter valid mobile'); return; }
     setLoading(true); setError('');
     try {
-      await API.post('/auth/otp/request/', { mobile, via: 'sms' });
+      const { data: sent } = await API.post('/auth/otp/request/', { mobile, via: 'sms' });
       setSuccess(`SMS sent to ${mobile}. Note the OTP.`);
       setStep(2);
-      startCooldown();
+      startCooldown(sent?.retry_after);
     } catch (e) {
       setError(apiMessage(e, 'Failed to send OTP. Try again.'));
       // A 429 is the server's own 60s cooldown. Start the countdown anyway,
       // or the button stays live and the next tap sends a real SMS.
-      if (isCooldown429(e)) startCooldown();
+      if (isCooldown429(e)) startCooldown(retryAfter(e));
     }
     finally { setLoading(false); }
   };
