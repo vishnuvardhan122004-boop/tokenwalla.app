@@ -2,10 +2,11 @@
  * components/SelfCheckinSwitch.tsx — Profile → "Self check-in at reception"
  * (web ROADMAP 59, mirrors src/hospital/SelfCheckinCard.js).
  *
- * One switch, saved on tap: patients scan a poster and take today's token on
- * their own phone; it shows in the queue as "Self check-in". OFF until the
- * hospital turns it on; off is also the pause. The stored login has no
- * `self_checkin_enabled`, so the switch reads it from the server.
+ * Patients scan a poster and take today's token on their own phone; it shows
+ * in the queue as "Self check-in". The Railway switch SELF_CHECKIN decides
+ * what shows here: off = nothing (the default), optional = this hospital's
+ * own switch (off is also the pause), on = on for every hospital, no switch.
+ * The stored login doesn't carry these, so the card reads them from the server.
  */
 import { useEffect, useState } from 'react';
 import { Alert, Linking, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -19,6 +20,7 @@ export default function SelfCheckinSwitch({ hospitalId, segments }: {
   segments?: string[];
 }) {
   const [on, setOn] = useState<boolean | null>(null);   // null = loading
+  const [mode, setMode] = useState<string>('off');
   const [busy, setBusy] = useState(false);
   const doctors = (segments || []).includes('CONSULT');
 
@@ -26,12 +28,16 @@ export default function SelfCheckinSwitch({ hospitalId, segments }: {
     if (!doctors) return undefined;
     let live = true;
     API.get(`/hospitals/${hospitalId}/`)
-      .then(({ data }) => { if (live) setOn(!!data?.self_checkin_enabled); })
+      .then(({ data }) => {
+        if (!live) return;
+        setMode(data?.self_checkin_mode || 'off');
+        setOn(!!data?.self_checkin_enabled);
+      })
       .catch(() => { if (live) setOn(false); });
     return () => { live = false; };
   }, [hospitalId, doctors]);
 
-  if (!doctors) return null;
+  if (!doctors || on === null || mode === 'off') return null;
 
   const toggle = async (next: boolean) => {
     setBusy(true);
@@ -52,13 +58,17 @@ export default function SelfCheckinSwitch({ hospitalId, segments }: {
         Patients scan a poster, pick a doctor and get today's token on their phone. It shows in your
         queue as "Self check-in". Your staff don't need to do anything.
       </Text>
-      <View style={st.row}>
-        <Text style={st.label}>{on ? 'On: patients can take a token' : 'Off'}</Text>
-        <Switch value={!!on} disabled={busy || on === null} onValueChange={toggle}
-                accessibilityLabel="Self check-in"
-                trackColor={{ true: Colors.blue200, false: Colors.gray200 }}
-                thumbColor={on ? Colors.blue600 : Colors.gray400} />
-      </View>
+      {mode === 'on' ? (
+        <Text style={st.label}>✓ On for your hospital</Text>
+      ) : (
+        <View style={st.row}>
+          <Text style={st.label}>{on ? 'On: patients can take a token' : 'Off'}</Text>
+          <Switch value={!!on} disabled={busy} onValueChange={toggle}
+                  accessibilityLabel="Self check-in"
+                  trackColor={{ true: Colors.blue200, false: Colors.gray200 }}
+                  thumbColor={on ? Colors.blue600 : Colors.gray400} />
+        </View>
+      )}
       <TouchableOpacity style={st.btn} onPress={() => Linking.openURL(posterUrl(hospitalId))}
                         accessibilityRole="button" accessibilityLabel="Print the check-in poster">
         <Text style={st.btnText}>Print the check-in poster</Text>

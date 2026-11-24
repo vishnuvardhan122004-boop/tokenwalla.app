@@ -93,4 +93,11 @@ describe('self check-in on the hospital side', () => {
     expect(s).toContain('{ self_checkin_enabled: next }');
     expect(s).toContain('API.get(`/hospitals/${hospitalId}/`)');
   });
+
+  it('follows the Railway switch: off hides it, on shows no switch', () => {
+    const s = src('components/SelfCheckinSwitch.tsx');
+    expect(s).toContain("mode === 'off') return null");
+    expect(s).toContain("mode === 'on' ? (");
+    expect(s).toContain('data?.self_checkin_mode');
+  });
 });
