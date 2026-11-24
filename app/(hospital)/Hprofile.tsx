@@ -34,6 +34,7 @@ import API, { logoutUser } from '../../services/api';
 import LocationSearch from '../../components/LocationSearch';
 import LocationPickerModal from '../../components/LocationPickerModal';
 import SignedInDevices from '../../components/SignedInDevices';
+import SelfCheckinSwitch from '../../components/SelfCheckinSwitch';
 import { pickImageFile, type PickedImage } from '../../utils/imagePicker';
 import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
@@ -457,6 +458,8 @@ export default function HospitalProfile() {
               );
             })}
           </View>
+
+          {hospital?.id != null && <SelfCheckinSwitch hospitalId={hospital.id} segments={hospital.segments} />}
 
           {/* Details / edit */}
           <View style={styles.section}>

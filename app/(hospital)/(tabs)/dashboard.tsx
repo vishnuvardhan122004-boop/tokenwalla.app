@@ -134,6 +134,7 @@ interface Patient {
   completed_by_name?: string | null;
   earns_incentive?: boolean;  // pays the staff incentive (web ROADMAP 71b)
   staff_picked?: boolean;     // someone was already named at the scan
+  booked_via?: string;        // 'self' = the patient took it at reception (web ROADMAP 59)
 }
 
 // Who the visit is FOR — the beneficiary when it was booked for someone else.
@@ -1859,6 +1860,11 @@ export default function HospitalDashboard() {
                     {p.is_priority ? (
                       <Text style={[styles.patientMeta, { color: Colors.warningText, fontWeight: '700' }]}>
                         ★ Priority — call first in slot
+                      </Text>
+                    ) : null}
+                    {p.booked_via === 'self' ? (
+                      <Text style={[styles.patientMeta, { color: Colors.blue700, fontWeight: '700' }]}>
+                        ▣ Self check-in
                       </Text>
                     ) : null}
                     {p.is_priority && p.priority_paid != null ? (

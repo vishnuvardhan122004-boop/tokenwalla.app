@@ -16,6 +16,7 @@ import {
   Linking,
   RefreshControl,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -37,6 +38,7 @@ import { normalizeBookingStatus, nearSlot, providerLabel, slotDateTime, toLocalI
 import { formatDelay } from '../../utils/formatDelay';
 import { shareCapturedView } from '../../utils/shareCapture';
 import { localName } from '../../utils/localize';
+import { cancelNoteKey, cancelSubKey, shareMessage } from '../../utils/shareQueue';
 
 // status → translation key (labels themselves are resolved with t() at render)
 const STATUS_LABEL_KEY: Record<string, string> = {
@@ -83,7 +85,7 @@ interface Booking { [key: string]: any }
 
 export default function MyBookings() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
 
   const [bookings,          setBookings]          = useState<Booking[]>([]);
   const [loading,           setLoading]           = useState(true);
@@ -239,7 +241,7 @@ export default function MyBookings() {
   const handleCancel = (booking: Booking) => {
     Alert.alert(
       t('mb_cancel_appt'),
-      `${t('mb_cancel_confirm', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}\n\n${t('mb_refund_note')}`,
+      `${t('mb_cancel_confirm', { name: providerLabel(booking.doctor_name, booking.provider_kind) })}\n\n${t(cancelNoteKey(booking))}`,
       [
         { text: t('mb_keep_booking'), style: 'cancel' },
         {
@@ -585,6 +587,20 @@ export default function MyBookings() {
                   </View>
                 )}
 
+                {/* Share my queue (web ROADMAP 84): the server sends live_key only
+                    for the payer's own active visit. */}
+                {booking.live_key ? (
+                  <TouchableOpacity style={st.shareBtn} activeOpacity={0.7}
+                                    accessibilityRole="button" accessibilityLabel={t('share_queue')}
+                                    onPress={() => {
+                                      const message = shareMessage(booking, t, lang);
+                                      if (message) Share.share({ message }).catch(() => {});
+                                    }}>
+                    <Ionicons name="logo-whatsapp" size={18} color={Colors.successText} />
+                    <Text style={st.shareBtnText}>{t('share_queue')}</Text>
+                  </TouchableOpacity>
+                ) : null}
+
                 {/* Action row */}
                 {isWaiting && !shared && (
                   <View style={st.actionRow}>
@@ -626,7 +642,7 @@ export default function MyBookings() {
                           <Ionicons name="close-circle-outline" size={18} color={Colors.errorText} />
                           <View style={{ flexShrink: 1 }}>
                             <Text style={st.cancelBtnTitle}>{t('cancel')}</Text>
-                            <Text style={st.cancelBtnFee}>{t('refund_in_days')}</Text>
+                            <Text style={st.cancelBtnFee}>{t(cancelSubKey(booking))}</Text>
                           </View>
                         </>
                       )}
@@ -721,6 +737,8 @@ export default function MyBookings() {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const st = StyleSheet.create({
+  shareBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.successText, borderRadius: 10, paddingVertical: 10, marginHorizontal: 14, marginBottom: 10 },
+  shareBtnText: { color: Colors.successText, fontWeight: '700', fontSize: 14 },
   safe:        { flex: 1, backgroundColor: Colors.white },
   centreLoader:{ flex: 1, justifyContent: 'center', alignItems: 'center' },
   centreBox:   { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
