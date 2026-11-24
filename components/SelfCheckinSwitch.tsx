@@ -68,8 +68,10 @@ export default function SelfCheckinSwitch({ hospitalId, segments }: {
 }
 
 const st = StyleSheet.create({
-  card:    { backgroundColor: Colors.white, borderRadius: 12, padding: 16, marginBottom: 16, gap: 8 },
-  title:   { fontSize: 15, fontWeight: '700', color: Colors.gray800 },
+  // Same card as Profile's other sections (Hprofile styles.section).
+  card:    { backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.blue100, borderRadius: 16,
+             padding: 16, marginBottom: 16, gap: 8 },
+  title:   { fontSize: 15, fontWeight: '800', color: Colors.gray900 },
   sub:     { fontSize: 12.5, color: Colors.gray500, lineHeight: 18 },
   row:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   label:   { fontSize: 13.5, fontWeight: '600', color: Colors.gray800, flexShrink: 1 },
