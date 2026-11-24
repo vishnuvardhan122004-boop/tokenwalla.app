@@ -68,7 +68,7 @@ export function StaffIncentiveCard({ hospitalId, onOpen, refresh = 0, today }: {
   hospitalId: number | string; onOpen: () => void;
   /** Changes when the screen is revisited, so the figures are re-read. */
   refresh?: number;
-  /** The last "Lata · 5 today" the server sent after a Done (the figures here are nightly). */
+  /** The last "Lata · 5 today" the server sent after a Done (the figures here count it at once, web #345). */
   today?: string;
 }) {
   const t = useTotals(hospitalId, refresh);
@@ -79,7 +79,7 @@ export function StaffIncentiveCard({ hospitalId, onOpen, refresh = 0, today }: {
         <Text style={styles.cardText}>
           {`Staff incentive: ${inr(t.month_amount)} this month (${t.month_count} booking${t.month_count === 1 ? '' : 's'}) · ${inr(t.unpaid_amount)} waiting to be paid `}
           <Text style={styles.link} onPress={onOpen}>See details</Text>
-          {`\nUpdated overnight${today ? `. Just now: ${today}` : ''}`}
+          {`\nUpdates as soon as a patient is done${today ? `. Just now: ${today}` : ''}`}
         </Text>
       ) : (
         <Text style={styles.cardText}>
@@ -163,7 +163,7 @@ export default function StaffIncentive({ hospitalId, refresh = 0 }: { hospitalId
 
       {t && t.enabled && tiles && (
         <>
-          <Text style={styles.muted}>Figures update overnight.</Text>
+          <Text style={styles.muted}>Updates as soon as a patient is done. Paid goes up when TokenWalla sends the money.</Text>
           <Text style={styles.muted}>
             {t.payee_set
               ? `Paid to ${t.payee_name || 'your staff payee'}.`

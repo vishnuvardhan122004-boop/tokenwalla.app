@@ -145,7 +145,7 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
                       <View style={st.tile}><Text style={st.muted}>Paid so far</Text>
                         <Text style={st.big}>{inr(earn.paid_total)}</Text></View>
                     </View>
-                    <Text style={st.muted}>Today is live. Waiting and Paid update overnight.</Text>
+                    <Text style={st.muted} testID="my-earnings-note">Updates as soon as a patient is done. Paid goes up when TokenWalla sends the money.</Text>
                   </>
                 ) : (
                   <>
