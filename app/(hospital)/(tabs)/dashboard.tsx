@@ -1792,7 +1792,7 @@ export default function HospitalDashboard() {
                     <Text style={[styles.dayPillText, isActive && styles.dayPillTextActive]}>
                       {label}
                     </Text>
-                    <Text style={[styles.dayPillCount, isActive && styles.dayPillTextActive]}>
+                    <Text style={[styles.dayPillCount, isActive && styles.dayPillCountActive]}>
                       {countForDay(key)}
                     </Text>
                   </TouchableOpacity>
@@ -2420,6 +2420,8 @@ const styles = StyleSheet.create({
   dayPillText:            { fontSize: 12, fontWeight: '700', color: Colors.gray500 },
   dayPillCount:           { fontSize: 11, fontWeight: '800', color: Colors.gray400, backgroundColor: Colors.blue50, borderRadius: 8, minWidth: 18, textAlign: 'center', paddingHorizontal: 5, overflow: 'hidden' },
   dayPillTextActive:      { color: Colors.white },
+  // White on the pale badge was invisible; a see-through white badge reads on all three pill colours.
+  dayPillCountActive:     { color: Colors.white, backgroundColor: 'rgba(255,255,255,0.25)' },
   dayPillTodayActive:     { backgroundColor: Colors.blue600,     borderColor: Colors.blue600 },
   dayPillTomorrowActive:  { backgroundColor: Colors.warningText, borderColor: Colors.warningText },
   dayPillAllActive:       { backgroundColor: Colors.gray600,     borderColor: Colors.gray600 },
