@@ -38,7 +38,7 @@ afterEach(() => act(() => r.unmount()));
 
 test('an older server (no list) shows nothing', async () => {
   await mount({ detail: 'Not found' });
-  expect(text()).not.toContain('Front-desk staff');
+  expect(text()).not.toContain('👥 Staff');
 });
 
 test('lists people and flags a missing mobile number and UPI', async () => {

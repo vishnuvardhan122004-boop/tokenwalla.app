@@ -62,8 +62,8 @@ export default function DeskStaffBar({ hospitalId, token, onToken, onManage, ref
   if (staff === null) return null;
   const manage = onManage && (
     <TouchableOpacity onPress={onManage} accessibilityRole="button"
-                      accessibilityLabel={staff.length ? 'Manage staff' : 'Add desk staff'}>
-      <Text style={st.link}>{staff.length ? '  ·  Manage staff' : '+ Add desk staff'}</Text>
+                      accessibilityLabel={staff.length ? 'Manage staff' : 'Add staff'}>
+      <Text style={st.link}>{staff.length ? '  ·  Manage staff' : '+ Add staff'}</Text>
     </TouchableOpacity>
   );
   if (staff.length === 0) return manage ? <View style={st.bar}>{manage}</View> : null;

@@ -100,7 +100,7 @@ export default function StaffManager({ hospitalId, refresh }: { hospitalId: numb
 
   return (
     <View style={st.card}>
-      <Text style={st.title}>👥 Front-desk staff</Text>
+      <Text style={st.title}>👥 Staff</Text>
       <Text style={st.muted}>
         Add a night shift or another person. When a patient is scanned or marked Done, the desk taps who
         handled them, and the ₹7 goes to that person. Each person's 4-digit PIN opens their own "My earnings".
