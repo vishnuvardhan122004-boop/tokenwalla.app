@@ -33,6 +33,14 @@ describe('Share my queue', () => {
       'I have a token with Dr. Anita Rao on 2026-12-01, 10:00 AM: https://www.tokenwalla.com/q/K1');
   });
 
+  it('a token booked for family names that person', () => {
+    const fam = { ...B, booked_for_name: 'Amma' };
+    expect(shareMessage(fam, t, 'en', NOW)).toBe(
+      'Token for Amma at City Care with Dr. Anita Rao. Follow the queue live: https://www.tokenwalla.com/q/K1');
+    expect(shareMessage({ ...fam, date: '2026-12-01' }, t, 'en', NOW)).toBe(
+      'Amma has a token with Dr. Anita Rao on 2026-12-01, 10:00 AM: https://www.tokenwalla.com/q/K1');
+  });
+
   it('no key, nothing to share', () => {
     expect(shareMessage({ ...B, live_key: null }, t, 'en', NOW)).toBeNull();
   });

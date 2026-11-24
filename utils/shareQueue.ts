@@ -13,14 +13,16 @@ export const liveLink = (key: string, lang?: string) =>
 
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
-/** Today: "follow my place in the queue"; a later date says when. Null with no key. */
+/** Today: "follow my place in the queue"; a later date says when. Null with no key.
+ *  A token booked for family names that person: the sender isn't the patient. */
 export function shareMessage(b: B, t: T, lang?: string, now = new Date()): string | null {
   if (!b?.live_key) return null;
   const link = liveLink(b.live_key, lang);
   const provider = providerLabel(b.doctor_name || b.provider_name || '', b.provider_kind);
+  const name = b.booked_for_name || '';
   return b.date === ymd(now)
-    ? t('share_today', { hospital: b.hospital_name || '', provider, link })
-    : t('share_later', { provider, date: b.date, slot: b.slot, link });
+    ? t(name ? 'share_for_today' : 'share_today', { name, hospital: b.hospital_name || '', provider, link })
+    : t(name ? 'share_for_later' : 'share_later', { name, provider, date: b.date, slot: b.slot, link });
 }
 
 /** What cancelling does to a pass: the free visit goes back, the purchase ends it. */
