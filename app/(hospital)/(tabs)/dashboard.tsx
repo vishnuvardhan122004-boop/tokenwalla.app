@@ -383,7 +383,7 @@ export default function HospitalDashboard() {
   // "Lata +₹7 · ₹35 today" with a 10 s Change button (web ROADMAP 71c)
   const [pickToast, setPickToast]   = useState<{ id: number | string; msg: string; today?: StaffToday | null; staffId: number | null; canChange: boolean; isError?: boolean } | null>(null);
   const [changing,  setChanging]    = useState(false);
-  // The last count the server sent after a Done: the incentive figures below it are nightly.
+  // The last count the server sent after a Done: the incentive figures below it count it at once too (web #345).
   const [lastStaffToday, setLastStaffToday] = useState('');
   const [mainDeskName, setMainDeskName] = useState('');
   const [namedOnly, setNamedOnly] = useState(false);   // STAFF_NAMED_ONLY: no "main desk" (web ROADMAP 85b)

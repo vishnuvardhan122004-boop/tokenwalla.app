@@ -76,6 +76,14 @@ describe('the dashboard', () => {
     expect(t).toContain('Nothing is taken from your doctors or the hospital');
   });
 
+  // The server counts a reward the moment the visit is done (web #345): the
+  // screen must not tell the hospital to wait for tomorrow.
+  test('says the figures update at once, never overnight', async () => {
+    await mount();
+    expect(text()).toContain('Updates as soon as a patient is done. Paid goes up when TokenWalla sends the money.');
+    expect(text()).not.toMatch(/overnight/i);
+  });
+
   test('with the flag off it says so and shows no figures', async () => {
     await mount({ ...TOTALS, enabled: false });
     const t = text();
@@ -183,6 +191,22 @@ describe('the card on the hospital dashboard', () => {
     expect(t).toContain('₹19.00');
     await press('See details');
     expect(onOpen).toHaveBeenCalled();
+  });
+
+  test('says it updates at once and keeps the last desk count', async () => {
+    await mount(TOTALS, DETAILS, <StaffIncentiveCard hospitalId={1} onOpen={() => {}} today="Lata · 5 today" />);
+    expect(text()).toContain('Updates as soon as a patient is done. Just now: Lata · 5 today');
+    expect(text()).not.toMatch(/overnight/i);
+  });
+
+  // DeskStaffBar's My earnings (periods branch) has no render test here: pin
+  // its wording by source, as the maxLength guard does. The fallback for an
+  // older server without `periods` keeps "overnight", which is true there.
+  test('My earnings on a current server never says overnight', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const src: string = require('fs').readFileSync(require('path').join(__dirname, '../components/DeskStaffBar.tsx'), 'utf8');
+    expect(src).not.toContain('Waiting and Paid update overnight');
+    expect(src).toContain('Updates as soon as a patient is done. Paid goes up when TokenWalla sends the money.');
   });
 
   test('without a payee it points at Payments', async () => {
