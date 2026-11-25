@@ -69,6 +69,18 @@ describe('useOptimizedProguardFile', () => {
   });
 });
 
+describe('no microphone permission', () => {
+  // expo-camera's own library manifest declares RECORD_AUDIO, so its plugin's
+  // recordAudioAndroid option can't drop it; only a tools:node="remove" from
+  // blockedPermissions does. The app never records sound (QR scan, photos).
+  const android = require('../app.json').expo.android;
+
+  it('blocks RECORD_AUDIO and keeps the camera', () => {
+    expect(android.blockedPermissions).toContain('android.permission.RECORD_AUDIO');
+    expect(android.blockedPermissions).not.toContain('android.permission.CAMERA');
+  });
+});
+
 describe('R8 keep rules for Expo reflection', () => {
   // Optimisation without these blanked every expo-image (1.5.2 preview, 2026-10-02).
   const plugins: unknown[] = require('../app.json').expo.plugins;
