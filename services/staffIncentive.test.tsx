@@ -98,6 +98,18 @@ describe('the dashboard', () => {
     expect(text()).not.toContain('start earning');
   });
 
+  test('with staff added it says each person is paid at their own UPI', async () => {
+    await mount({ ...TOTALS, people: [{ staff_id: null, name: 'Main desk' }, { staff_id: 4, name: 'Lata' }] });
+    expect(text()).toContain('Each booking is paid to the person who completed it, at their own UPI.');
+    expect(text()).not.toContain('Paid to Ravi');
+  });
+
+  test('named-only with nobody added asks for staff, not a UPI', async () => {
+    await mount({ ...TOTALS, payee_set: false, named_only: true, people: [{ staff_id: null, name: 'Main desk' }] });
+    expect(text()).toContain('Add your staff below.');
+    expect(text()).not.toContain('Add a UPI below');
+  });
+
   test('renders no dashboard if the totals cannot be read, the form still works', async () => {
     (API.get as jest.Mock).mockImplementation((url: string) =>
       url === '/hospitals/1/payment-details/' ? Promise.resolve({ data: DETAILS }) : Promise.reject(new Error('x')));
@@ -214,6 +226,25 @@ describe('the card on the hospital dashboard', () => {
     expect(text()).toContain('Add a UPI in Payments so we can pay it');
     expect(text()).toContain('bookings still count');
     expect(text()).not.toContain('start earning');
+  });
+
+  // STAFF_NAMED_ONLY (web ROADMAP 85b): rewards go to each named person's own
+  // UPI, never the hospital's, so a missing hospital UPI is not what's missing.
+  const MAIN = { staff_id: null, name: 'Main desk' };
+  test('named-only with staff: the figures, no UPI request', async () => {
+    await mount({ ...TOTALS, payee_set: false, named_only: true, people: [MAIN, { staff_id: 4, name: 'Lata' }] },
+      DETAILS, <StaffIncentiveCard hospitalId={1} onOpen={() => {}} />);
+    expect(text()).toContain('₹47.50');
+    expect(text()).not.toContain('Add a UPI');
+  });
+
+  test('named-only with nobody added: asks for staff', async () => {
+    const onOpen = jest.fn();
+    await mount({ ...TOTALS, payee_set: false, named_only: true, people: [MAIN] },
+      DETAILS, <StaffIncentiveCard hospitalId={1} onOpen={onOpen} />);
+    expect(text()).not.toContain('Add a UPI');
+    await press('Add staff in Payments');
+    expect(onOpen).toHaveBeenCalled();
   });
 
   test('renders nothing while the flag is off', async () => {

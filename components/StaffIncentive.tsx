@@ -24,6 +24,10 @@ type Totals = {
   unpaid_amount: string;
   paid_total: string;
   payee_set: boolean;
+  /** STAFF_NAMED_ONLY (web ROADMAP 85b): rewards go to named staff, never the hospital UPI. Missing on older servers. */
+  named_only?: boolean;
+  /** The main payee row plus each person added. */
+  people?: { staff_id: number | null; name: string }[];
   payee_name: string;
   frequency: string;
   next_payout_date: string | null;
@@ -73,13 +77,19 @@ export function StaffIncentiveCard({ hospitalId, onOpen, refresh = 0, today }: {
 }) {
   const t = useTotals(hospitalId, refresh);
   if (!t || !t.enabled) return null;
+  const hasStaff = (t.people || []).length > 1;
   return (
     <View style={styles.card}>
-      {t.payee_set ? (
+      {t.payee_set || (t.named_only && hasStaff) ? (
         <Text style={styles.cardText}>
           {`Staff incentive: ${inr(t.month_amount)} this month (${t.month_count} booking${t.month_count === 1 ? '' : 's'}) · ${inr(t.unpaid_amount)} waiting to be paid `}
           <Text style={styles.link} onPress={onOpen}>See details</Text>
           {`\nUpdates as soon as a patient is done${today ? `. Just now: ${today}` : ''}`}
+        </Text>
+      ) : t.named_only ? (
+        <Text style={styles.cardText}>
+          {"Staff incentive: add your staff so each patient's reward goes to the person who helped. "}
+          <Text style={styles.link} onPress={onOpen}>Add staff in Payments</Text>
         </Text>
       ) : (
         <Text style={styles.cardText}>
@@ -165,7 +175,11 @@ export default function StaffIncentive({ hospitalId, refresh = 0 }: { hospitalId
         <>
           <Text style={styles.muted}>Updates as soon as a patient is done. Paid goes up when TokenWalla sends the money.</Text>
           <Text style={styles.muted}>
-            {t.payee_set
+            {(t.people || []).length > 1
+              ? 'Each booking is paid to the person who completed it, at their own UPI.'
+              : t.named_only
+              ? "Add your staff below. Each patient's reward goes to the person named for it, at their own UPI. A reward nobody is named for within 30 days is not paid."
+              : t.payee_set
               ? `Paid to ${t.payee_name || 'your staff payee'}.`
               : 'Add a UPI below so we can pay it. Bookings completed before then still count: they show here once a UPI is saved.'}
           </Text>
