@@ -8,6 +8,7 @@
  * nameOf() call itself, which only `tsc` caught — a render would have died.
  */
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import 'expo-router/build/testing-library/mocks';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
@@ -162,4 +163,15 @@ test('In Progress sits above Waiting, so Done is not under a long queue', async 
   const f = flat();
   expect(f.indexOf('InProgress(1)')).toBeGreaterThan(-1);
   expect(f.indexOf('InProgress(1)')).toBeLessThan(f.indexOf('Waiting(1)'));
+});
+
+// The selected Today / Tomorrow / All pill showed its count as white text on
+// the pale-blue badge, so the number was invisible (found on Expo web 2026-11-24).
+test("the selected day pill's count is readable", async () => {
+  await mount();
+  const pill = r.root.findAll((n: any) => n.props.accessibilityLabel?.startsWith?.('Show Today queue'))[0];
+  const count = pill.findAll((n: any) => n.type === 'Text' && n.props.children === 1)[0];
+  const style = StyleSheet.flatten(count.props.style);
+  expect(style.color).toBe('#FFFFFF');
+  expect(style.backgroundColor).not.toBe('#E6F1FB');
 });

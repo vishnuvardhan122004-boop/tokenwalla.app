@@ -37,7 +37,7 @@ import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
 import { useI18n } from '../services/i18n';
-import { isSlotTooSoon, providerLabel } from '../utils/booking';
+import { isSlotClosed, providerLabel } from '../utils/booking';
 import { money } from '../utils/fees';
 import { handlePaymentLink, parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
@@ -131,7 +131,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   const [slotsLoading,  setSlotsLoading] = useState(false);
   const [workingDays,   setWorkingDays]  = useState<string[]>([]);
   // The picked date's per-slot state ({ full, on_leave }) from the same endpoint doctor/[id] uses.
-  const [slotAvail,     setSlotAvail]    = useState<Record<string, { full?: boolean; on_leave?: boolean }>>({});
+  const [slotAvail,     setSlotAvail]    = useState<Record<string, { full?: boolean; too_soon?: boolean; on_leave?: boolean }>>({});
   // A paid reschedule order that was paid but refused at verify time because the target
   // slot was taken (409 retryable) — still redeemable against a different
   // slot, no new charge. Mirrors MyBookings.js's `unusedOrderId` on the
@@ -228,7 +228,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
   // or the whole day when the doctor is on leave.
   const onLeave = Object.values(slotAvail).some(i => i?.on_leave);
   const availableSlots: string[] = onLeave ? [] : doctorSlots.filter(sl =>
-    !slotAvail[sl]?.full && !(selectedDate && isSlotTooSoon(selectedDate, sl)));
+    !slotAvail[sl]?.full && !(selectedDate && isSlotClosed(slotAvail[sl], selectedDate, sl)));
   const amSlots = availableSlots.filter(s => s.includes('AM'));
   const pmSlots = availableSlots.filter(s => s.includes('PM'));
 

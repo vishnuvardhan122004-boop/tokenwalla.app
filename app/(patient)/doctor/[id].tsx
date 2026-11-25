@@ -22,7 +22,7 @@ import API from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
 import {
   getNext7Days,
-  isSlotTooSoon,
+  isSlotClosed,
   providerLabel,
   resolveSelectedDate,
 } from '../../../utils/booking';
@@ -35,7 +35,7 @@ import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import { useCurrentUser } from '../../../hooks/useCurrentUser';
 import { localMonth, localName, localWeekday } from '../../../utils/localize';
 
-interface SlotInfo { booked: number; max: number; full: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
+interface SlotInfo { booked: number; max: number; full: boolean; too_soon?: boolean; priority_left?: number; on_leave?: boolean; leave_reason?: string; }
 interface GalleryPhoto { id: number | string; url: string; }
 
 interface Hospital {
@@ -227,7 +227,7 @@ export default function DoctorDetails() {
   const handleSlotPress = (slot: string) => {
     const info = slotAvail[slot];
     if (info?.full) return; // fully booked — ignore tap
-    if (isSlotTooSoon(selectedDate, slot)) return; // too soon / past — ignore tap
+    if (isSlotClosed(info, selectedDate, slot)) return; // inside the doctor's cutoff / past — ignore tap
     setSelectedSlot(slot);
   };
 
@@ -244,7 +244,7 @@ export default function DoctorDetails() {
     }
     // Guard: slot must be at least 2.1 hours away (also covers slots that
     // lapsed while the page was open).
-    if (isSlotTooSoon(selectedDate, selectedSlot)) {
+    if (isSlotClosed(slotAvail[selectedSlot], selectedDate, selectedSlot)) {
       Alert.alert(t('dr_too_soon'), t('dr_too_soon_msg'));
       setSelectedSlot('');
       return;
@@ -318,7 +318,7 @@ export default function DoctorDetails() {
   // ── slot state helpers ──────────────────────────────────────────────────
   const slotState = (slot: string) => {
     if (slot === selectedSlot) return 'selected';
-    if (isSlotTooSoon(selectedDate, slot)) return 'past';
+    if (isSlotClosed(slotAvail[slot], selectedDate, slot)) return 'past';
     const info = slotAvail[slot];
     if (!info) return 'available';
     if (info.full) return 'full';
@@ -327,7 +327,7 @@ export default function DoctorDetails() {
   };
 
   const slotSubtext = (slot: string) => {
-    if (slot !== selectedSlot && isSlotTooSoon(selectedDate, slot)) return t('dr_too_soon_chip');
+    if (slot !== selectedSlot && isSlotClosed(slotAvail[slot], selectedDate, slot)) return t('dr_too_soon_chip');
     const info = slotAvail[slot];
     if (!info || info.booked === 0) return null;
     if (info.full) return t('dr_full');
@@ -360,7 +360,7 @@ export default function DoctorDetails() {
     || computeFeeBreakdown(doctor.fee ?? 0, doctor.payment_collection_mode);
   const atClinic  = Number(fees.offline_doctor_fee) > 0;
   const isBookable = selectedSlot && doctor.available &&
-    !slotAvail[selectedSlot]?.full && !isSlotTooSoon(selectedDate, selectedSlot);
+    !slotAvail[selectedSlot]?.full && !isSlotClosed(slotAvail[selectedSlot], selectedDate, selectedSlot);
 
   // The sticky CTA's icon + label together, so the two can never disagree about
   // which state the button is in. `icon: null` means text alone.

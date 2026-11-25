@@ -140,6 +140,25 @@ export function isSlotTooSoon(
   return dt.getTime() < now + leadMs;
 }
 
+/**
+ * Is this slot closed to booking? The server's `too_soon` (from the slot
+ * availability endpoint) wins when it's there, because each doctor or centre
+ * sets its own cutoff (0h, 1h, 24h…), not the 2h default. A slot that has
+ * started since the page loaded is closed whatever the server said. Before
+ * availability loads, the 2h default is the best guess.
+ */
+export function isSlotClosed(
+  info: { too_soon?: boolean } | undefined,
+  dateStr: string,
+  slot: string,
+  now: number = Date.now(),
+): boolean {
+  if (typeof info?.too_soon === 'boolean') {
+    return info.too_soon || isSlotTooSoon(dateStr, slot, now, 0);
+  }
+  return isSlotTooSoon(dateStr, slot, now);
+}
+
 /** "HH:MM" → minutes since midnight, or null if unparseable. */
 export function hmToMinutes(hm?: string): number | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec((hm || '').trim());

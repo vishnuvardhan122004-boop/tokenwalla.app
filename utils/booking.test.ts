@@ -5,6 +5,7 @@ import {
   hmToMinutes,
   nearSlot,
   isOpenNow,
+  isSlotClosed,
   isSlotTooSoon,
   normalizeBookingStatus,
   providerLabel,
@@ -385,5 +386,31 @@ describe('nearSlot', () => {
   test('a slot we cannot read keeps the old message', () => {
     expect(nearSlot('Walk-in', D, at(8, 0))).toBe(true);
     expect(nearSlot(undefined, D, at(8, 0))).toBe(true);
+  });
+});
+
+describe('isSlotClosed', () => {
+  // A doctor's own cutoff (booking_cutoff_hours) reaches the app only as the
+  // server's too_soon; 6 live doctors use 1h, 2 use 24h (2026-11-24).
+  const date = '2026-06-20';
+  const slot = '03:00 PM';
+  const slotMs = new Date(2026, 5, 20, 15, 0, 0).getTime();
+  const ninetyMinBefore = slotMs - 90 * 60_000;
+
+  it('follows the server when it says a slot 90 min out is open (1h cutoff)', () => {
+    expect(isSlotClosed({ too_soon: false }, date, slot, ninetyMinBefore)).toBe(false);
+  });
+
+  it('follows the server when it says a slot hours out is closed (24h cutoff)', () => {
+    expect(isSlotClosed({ too_soon: true }, date, slot, slotMs - 5 * 3600_000)).toBe(true);
+  });
+
+  it('closes a slot that started while the page was open', () => {
+    expect(isSlotClosed({ too_soon: false }, date, slot, slotMs + 60_000)).toBe(true);
+  });
+
+  it('falls back to the 2h default before availability loads', () => {
+    expect(isSlotClosed(undefined, date, slot, ninetyMinBefore)).toBe(true);
+    expect(isSlotClosed({}, date, slot, slotMs - BOOKING_LEAD_MS - 60_000)).toBe(false);
   });
 });
