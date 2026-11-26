@@ -259,7 +259,7 @@ export function providerLabel(name?: string, kind?: string): string {
   const n = (name ?? '').trim();
   if (!n) return n;
   if (kind === 'SCAN') return localName(n);
-  const m = n.match(/^dr\.?\s+(.*)$/i);
+  const m = n.match(/^dr(?:\.\s*|\s+)(.*)$/i);
   if (m && getDisplayLang() === 'en') return n;      // keep a stored "Dr …" exactly as entered
   return `${doctorTitle()} ${localName(m ? m[1] : n)}`;
 }

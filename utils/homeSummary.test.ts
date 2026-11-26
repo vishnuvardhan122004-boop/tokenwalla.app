@@ -64,6 +64,8 @@ describe('initials / cityKey', () => {
   it('drops the title and takes two letters', () => {
     expect(initials('Dr. Asha Rao')).toBe('AR');
     expect(initials('dr asha')).toBe('A');
+    expect(initials('Dr.Keerthi S')).toBe('KS');
+    expect(initials('Drishti Rao')).toBe('DR');
     expect(initials('Ravi Kumar Reddy')).toBe('RK');
     expect(initials('')).toBe('');
     expect(initials(null)).toBe('');
