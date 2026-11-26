@@ -103,6 +103,10 @@ interface Doctor {
   // Priority booking (0 = off). Absent on a backend that predates it.
   priority_fee?: number;
   priority_per_slot?: number;
+  /** The server's bills (payments/fees.py) without and with a priority seat;
+   *  their difference is what the patient pays for the seat. */
+  fee_breakdown?: { final_amount: string } | null;
+  priority_fee_breakdown?: { final_amount: string } | null;
   /** The doctor's note to patients, shown on their token. */
   instructions?: string;
   available: boolean;
@@ -1573,7 +1577,17 @@ export default function HospitalDashboard() {
               {editDoc && editDoc.priority_fee !== undefined && (
                 <Text style={{ fontSize: 12, color: Colors.gray400, marginBottom: 12 }}>
                   ₹20–₹200 extra for a patient to be called first in their slot. Paid out
-                  to you in full; needs payout details in Payments. 0 = off.
+                  to you in full; needs payout details in Payments. 0 = off. The patient
+                  pays this + TokenWalla's 5% + GST, rounded to the rupee.
+                </Text>
+              )}
+              {/* The saved fee's real price, from the server (no tax math here). */}
+              {editDoc?.priority_fee_breakdown && editDoc.fee_breakdown
+                && Number(form.priority_fee) === Number(editDoc.priority_fee) && (
+                <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.gray700, marginTop: -8, marginBottom: 12 }}>
+                  {`You get ₹${editDoc.priority_fee}. The patient pays ₹${Math.round(
+                    Number(editDoc.priority_fee_breakdown.final_amount)
+                    - Number(editDoc.fee_breakdown.final_amount))}.`}
                 </Text>
               )}
 
