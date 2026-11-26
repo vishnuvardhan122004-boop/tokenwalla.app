@@ -344,6 +344,12 @@ describe('providerLabel', () => {
   it('does not double a name that already carries the title', () => {
     expect(providerLabel('Dr. Test Sharma', 'DOCTOR')).toBe('Dr. Test Sharma');
     expect(providerLabel('dr Hari krishna', 'DOCTOR')).toBe('dr Hari krishna');
+    // Typed with no space after the dot: was "Dr. Dr.Keerthi S" on the live site.
+    expect(providerLabel('Dr.Keerthi S', 'DOCTOR')).toBe('Dr.Keerthi S');
+  });
+
+  it('still prefixes a name that merely starts with "Dr"', () => {
+    expect(providerLabel('Drishti Rao', 'DOCTOR')).toBe('Dr. Drishti Rao');
   });
 
   it('returns empty (no stray "Dr.") for a missing name', () => {

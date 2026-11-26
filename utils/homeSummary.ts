@@ -49,5 +49,5 @@ export const featuredDoctors = (doctors: any[], max: number): any[] =>
 
 /** "Dr. Asha Rao" -> "AR". Most hospitals upload no photo; this is the stand-in. */
 export const initials = (name?: string | null): string =>
-  String(name ?? '').replace(/^dr\.?\s+/i, '').split(/\s+/).filter(Boolean)
+  String(name ?? '').replace(/^dr(?:\.\s*|\s+)/i, '').split(/\s+/).filter(Boolean)
     .slice(0, 2).map(w => w[0].toUpperCase()).join('');
