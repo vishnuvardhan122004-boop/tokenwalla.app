@@ -37,7 +37,7 @@ import { Colors } from '../constants/colors';
 import { RAZORPAY_KEY_ID } from '../constants/config';
 import API from '../services/api';
 import { useI18n } from '../services/i18n';
-import { isSlotClosed, providerLabel } from '../utils/booking';
+import { isSlotClosed, providerLabel, toLocalISODate } from '../utils/booking';
 import { money } from '../utils/fees';
 import { handlePaymentLink, parsePaymentMessage } from '../utils/payment';
 import { htmlEscape, jsStr } from '../utils/webviewSafe';
@@ -54,14 +54,6 @@ const MONTH_LABELS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-// Returns YYYY-MM-DD in local time (avoids UTC off-by-one from toISOString)
-function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
 // Set of bookable dates (skips today + Sundays), used to enable/disable calendar cells
 const DAY_KEYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];   // matches doctor.days
 function buildAvailableDateSet(count = MAX_BOOKING_DAYS_AHEAD, workingDays?: string[]): Set<string> {
@@ -72,7 +64,7 @@ function buildAvailableDateSet(count = MAX_BOOKING_DAYS_AHEAD, workingDays?: str
   while (added < count) {
     // The doctor's own working days when known (as doctor/[id] does); else skip Sunday.
     if (workingDays?.length ? workingDays.includes(DAY_KEYS[d.getDay()]) : d.getDay() !== 0) {
-      set.add(toISODate(d));
+      set.add(toLocalISODate(d));
       added++;
     }
     d.setDate(d.getDate() + 1);
@@ -599,7 +591,7 @@ export default function RescheduleModal({ visible, booking, onClose, onSuccess, 
                     if (!cellDate) {
                       return <View key={colIdx} style={st.calCell} />;
                     }
-                    const iso = toISODate(cellDate);
+                    const iso = toLocalISODate(cellDate);
                     const isAvailable = availableDateSet.has(iso);
                     const isSelected = selectedDate === iso;
 

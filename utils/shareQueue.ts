@@ -2,7 +2,7 @@
  * utils/shareQueue.ts — Share my queue (web ROADMAP 84) and the pass lines on
  * Cancel, mirroring src/componets/ShareQueue.js and MyBookings.js.
  */
-import { providerLabel } from './booking';
+import { providerLabel, toLocalISODate } from './booking';
 
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type B = { [key: string]: any };
@@ -11,8 +11,6 @@ type B = { [key: string]: any };
 export const liveLink = (key: string, lang?: string) =>
   `https://www.tokenwalla.com/q/${key}${lang && lang !== 'en' ? `?lang=${lang}` : ''}`;
 
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 /** Today: "follow my place in the queue"; a later date says when. Null with no key.
  *  A token booked for family names that person: the sender isn't the patient. */
 export function shareMessage(b: B, t: T, lang?: string, now = new Date()): string | null {
@@ -20,7 +18,7 @@ export function shareMessage(b: B, t: T, lang?: string, now = new Date()): strin
   const link = liveLink(b.live_key, lang);
   const provider = providerLabel(b.doctor_name || b.provider_name || '', b.provider_kind);
   const name = b.booked_for_name || '';
-  return b.date === ymd(now)
+  return b.date === toLocalISODate(now)
     ? t(name ? 'share_for_today' : 'share_today', { name, hospital: b.hospital_name || '', provider, link })
     : t(name ? 'share_for_later' : 'share_later', { name, provider, date: b.date, slot: b.slot, link });
 }
