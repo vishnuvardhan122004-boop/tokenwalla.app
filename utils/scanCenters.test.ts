@@ -1,12 +1,12 @@
-import { asList, BLOOD_CENTER, filterByKind, filterScanCenters, SCAN_CENTER } from './scanCenters';
+import { asList, BLOOD_CENTER, filterByKind, SCAN_CENTER } from './scanCenters';
 
-describe('filterScanCenters', () => {
+describe('filterByKind: scanning centres', () => {
   it('keeps only explicit scanning centres', () => {
     const rows = [
       { id: 1, name: 'Vijaya Diagnostics', kind: 'SCAN_CENTER' },
       { id: 2, name: 'Sri Sarwodhaya',     kind: 'HOSPITAL' },
     ];
-    expect(filterScanCenters(rows).map(r => r.id)).toEqual([1]);
+    expect(filterByKind(rows, SCAN_CENTER).map(r => r.id)).toEqual([1]);
   });
 
   it('drops everything when the backend predates `kind`', () => {
@@ -14,18 +14,18 @@ describe('filterScanCenters', () => {
     // whole hospital list with no `kind` field. Rendering those as scanning
     // centres would send a patient to a hospital to ask for an MRI.
     const legacy = [{ id: 1, name: 'Sri Sarwodhaya' }, { id: 2, name: 'City Care' }];
-    expect(filterScanCenters(legacy)).toEqual([]);
+    expect(filterByKind(legacy, SCAN_CENTER)).toEqual([]);
   });
 
   it('is not fooled by a near-miss value', () => {
-    expect(filterScanCenters([{ id: 1, kind: 'scan_center' }])).toEqual([]);
-    expect(filterScanCenters([{ id: 2, kind: 'SCANCENTER' }])).toEqual([]);
+    expect(filterByKind([{ id: 1, kind: 'scan_center' }], SCAN_CENTER)).toEqual([]);
+    expect(filterByKind([{ id: 2, kind: 'SCANCENTER' }], SCAN_CENTER)).toEqual([]);
   });
 
   it('survives junk', () => {
-    expect(filterScanCenters(null)).toEqual([]);
-    expect(filterScanCenters(undefined)).toEqual([]);
-    expect(filterScanCenters([null as any, { kind: 'SCAN_CENTER' }])).toHaveLength(1);
+    expect(filterByKind(null, SCAN_CENTER)).toEqual([]);
+    expect(filterByKind(undefined, SCAN_CENTER)).toEqual([]);
+    expect(filterByKind([null as any, { kind: 'SCAN_CENTER' }], SCAN_CENTER)).toHaveLength(1);
   });
 });
 

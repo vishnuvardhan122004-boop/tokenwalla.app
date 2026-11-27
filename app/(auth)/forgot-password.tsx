@@ -18,9 +18,12 @@ import { safeBack } from '../../utils/navigation';
 import { useAndroidBack } from '../../hooks/useAndroidBack';
 import { tenDigitMobile } from '../../utils/phone';
 
-export default function ForgotPasswordScreen() {
+// One flow for patients and hospitals (Hforgotpassword.tsx passes `hospital`):
+// only the reset endpoint, the login screen and one line of text differ.
+export default function ForgotPasswordScreen({ hospital = false }: { hospital?: boolean }) {
   const router = useRouter();
-  useAndroidBack(() => safeBack(router, '/(auth)/login'));
+  const loginRoute = hospital ? '/(hospital)/Hlogin' : '/(auth)/login';
+  useAndroidBack(() => safeBack(router, loginRoute));
   const [step,     setStep]     = useState(1);
   const [mobile,   setMobile]   = useState('');
   const [otp,      setOtp]      = useState('');
@@ -68,10 +71,13 @@ export default function ForgotPasswordScreen() {
     if (password !== confirm)   { setError('Passwords do not match'); return; }
     setLoading(true); setError('');
     try {
-      await API.post('/auth/reset-password/', { mobile, otp, password, otp_token: otpToken });
+      await API.post(hospital ? '/hospitals/reset-password/' : '/auth/reset-password/',
+        { mobile, otp, password, otp_token: otpToken });
       setSuccess('Password reset! Redirecting…');
       setDone(true);   // stays set: a second tap must not re-post a spent OTP
-      setTimeout(() => safeBack(router, '/(auth)/login'), 1500);
+      // A hospital reset signs every device out (its tokens carry a session id),
+      // so it lands on the login screen; a patient stays signed in and goes back.
+      setTimeout(() => (hospital ? router.replace(loginRoute) : safeBack(router, loginRoute)), 1500);
     } catch (e) { setError(apiMessage(e, 'Reset failed.')); }
     finally { setLoading(false); }
   };
@@ -83,7 +89,7 @@ export default function ForgotPasswordScreen() {
         behavior="padding"
       >
       <ScrollView contentContainerStyle={styles.root} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.back} onPress={() => safeBack(router, '/(auth)/login')}>
+        <TouchableOpacity style={styles.back} onPress={() => safeBack(router, loginRoute)}>
           <Ionicons name="chevron-back" size={16} color={Colors.blue600} />
           <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
@@ -107,7 +113,9 @@ export default function ForgotPasswordScreen() {
 
         {step === 1 && (
           <>
-            <Text style={styles.sub}>Enter your mobile. We'll send an SMS with an OTP.</Text>
+            <Text style={styles.sub}>
+              {hospital ? "Enter your hospital's registered mobile." : 'Enter your mobile.'} We&apos;ll send an SMS with an OTP.
+            </Text>
             <Text style={styles.label}>Mobile Number</Text>
             <View style={styles.inputRow}>
               <Ionicons name="call-outline" size={17} color={Colors.gray400} />

@@ -1083,10 +1083,8 @@ export default function HospitalDashboard() {
 
   // ── Day filtering (Today / Tomorrow / All) ─────────────────────────────────
   // Local calendar dates as "YYYY-MM-DD" to match the backend's date strings.
-  const toYMD = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const todayYMD    = toYMD(new Date());
-  const tomorrowYMD = toYMD(new Date(Date.now() + 86400000));
+  const todayYMD    = toLocalISODate(new Date());
+  const tomorrowYMD = toLocalISODate(new Date(Date.now() + 86400000));
 
   // Friendly label for a booking's date, shown on each patient card.
   const dayLabelFor = (date?: string): string => {

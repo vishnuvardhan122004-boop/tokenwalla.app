@@ -27,7 +27,7 @@ import { useAndroidBack } from '../../../hooks/useAndroidBack';
 import ProviderAboutPanel from '../../../components/ProviderAboutPanel';
 import API from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
-import { directionsUrl } from '../../../utils/booking';
+import { directionsUrl, toLocalISODate } from '../../../utils/booking';
 import { matchesTest, SEARCH_ABOVE } from '../../../utils/matchTest';
 import { asList, BLOOD_CENTER, SCAN_PAGE } from '../../../utils/scanCenters';
 import { stripLength } from '../../../utils/bookingWindow';
@@ -53,9 +53,8 @@ interface Scan {
 const next7Days = () => Array.from({ length: 7 }, (_, i) => {
   const d = new Date();
   d.setDate(d.getDate() + i);
-  const pad = (n: number) => String(n).padStart(2, '0');
   return {
-    value: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    value: toLocalISODate(d),
     label: d.toLocaleDateString('en-IN', { weekday: 'short' }),
     num:   d.getDate(),
     month: d.toLocaleDateString('en-IN', { month: 'short' }),
