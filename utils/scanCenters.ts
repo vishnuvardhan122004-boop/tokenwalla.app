@@ -23,9 +23,6 @@ export const SCAN_CENTER  = 'SCAN_CENTER';
  *  its own tab and its own words. */
 export const BLOOD_CENTER = 'BLOOD_CENTER';
 
-/** Every kind whose bookable unit is a Scan rather than a Doctor. */
-export const CENTER_KINDS = [SCAN_CENTER, BLOOD_CENTER] as const;
-
 /** Segment keys the API reports in `segments`. */
 export const SEG_CONSULT = 'CONSULT';
 export const SEG_SCAN    = 'SCAN';
@@ -70,11 +67,6 @@ export function filterByKind<T extends KindedRow>(
     if (Array.isArray(r.segments)) return !!segment && r.segments.includes(segment);
     return r.kind === kind;
   });
-}
-
-/** Back-compat alias for the scanning-centre callers. */
-export function filterScanCenters<T extends KindedRow>(rows: T[] | null | undefined): T[] {
-  return filterByKind(rows, SCAN_CENTER);
 }
 
 /**
